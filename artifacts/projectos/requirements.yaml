@@ -1,0 +1,16 @@
+packages:
+  "framer-motion": "For fluid layout animations, modals, and drawers"
+  "date-fns": "For comprehensive and robust date formatting"
+  "react-markdown": "For rendering document content and markdown editing"
+  "clsx": "For conditional class name joining"
+  "tailwind-merge": "For merging tailwind classes safely"
+
+images:
+  - path: "artifacts/projectos/public/images/dashboard-bg.png"
+    description: "Subtle, dark, abstract gradient mesh in deep indigo, violet, and navy blue with soft lighting. Premium, professional, dark mode aesthetic."
+    aspect_ratio: "16:9"
+
+notes:
+  - "The app relies on @workspace/api-client-react for TanStack Query hooks"
+  - "Dark mode is enforced as the default styling theme"
+  - "Native HTML5 Drag and Drop is used for the Kanban board to ensure maximum compatibility"

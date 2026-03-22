@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ProjectOS — AI Project Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+/* ── REPLIT SETUP BANNER ── */
+#setup-banner {
+  position:fixed;top:0;left:0;right:0;z-index:9999;
+  background:linear-gradient(135deg,#6366f1,#a78bfa);
+  color:white;padding:10px 20px;font-family:Geist,sans-serif;font-size:13px;
+  display:flex;align-items:center;gap:12px;
+}
+#setup-banner.hidden{display:none;}
+#setup-banner input{
+  flex:1;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);
+  border-radius:6px;padding:5px 10px;color:white;font-family:JetBrains Mono,monospace;
+  font-size:12px;outline:none;
+}
+#setup-banner input::placeholder{color:rgba(255,255,255,.6);}
+#setup-banner button{background:white;color:#6366f1;border:none;border-radius:6px;padding:6px 14px;font-weight:800;cursor:pointer;font-size:12px;white-space:nowrap;}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body,#root{height:100%;overflow:hidden;}
+body{background:#06070d;color:#dde6ff;font-family:'Geist',sans-serif;font-size:13px;-webkit-font-smoothing:antialiased;}
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-thumb{background:#1a2240;border-radius:4px;}
+::selection{background:#6366f120;color:#818cf8;}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideL{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideR{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes glow{0%,100%{box-shadow:0 0 14px #6366f140}50%{box-shadow:0 0 32px #6366f140}}
+@keyframes shimmer{0%{background-position:-500px 0}100%{background-position:500px 0}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+</style>
+</head>
+<body>
+<div id="setup-banner">
+  <span>🔑</span>
+  <strong>Setup:</strong>
+  <span>Paste your Anthropic API key to enable AI features →</span>
+  <input id="api-key-input" type="password" placeholder="sk-ant-api03-..." />
+  <button onclick="saveKey()">Save Key</button>
+  <button onclick="document.getElementById('setup-banner').classList.add('hidden')" style="background:rgba(255,255,255,.2);color:white;">✕</button>
+</div>
+<div id="root"></div>
+
+<script>
+function saveKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (key) { localStorage.setItem('projectos_api_key', key); document.getElementById('setup-banner').classList.add('hidden'); alert('✦ API key saved! AI features are now active.'); }
+}
+// Hide banner if key already set
+if (localStorage.getItem('projectos_api_key')) { document.getElementById('setup-banner').classList.add('hidden'); }
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ═══════════════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════
+const T = {
+  bg:"#06070d", surface:"#0b0e18", surfaceUp:"#10152a", surfaceHi:"#161d38",
+  border:"#1a2240", borderHi:"#253368",
+  accent:"#6366f1", accentDim:"#6366f112", accentGlow:"#6366f140", accentBright:"#818cf8",
+  green:"#22c55e", greenDim:"#22c55e12",
+  amber:"#f59e0b", amberDim:"#f59e0b12",
+  rose:"#f43f5e",  roseDim:"#f43f5e12",
+  sky:"#38bdf8",   violet:"#a78bfa",   violetDim:"#a78bfa12",
+  emerald:"#10b981", teal:"#2dd4bf",
+  text:"#dde6ff", textSub:"#4a5a80", textDim:"#1e2a45",
+};
+
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const MEMBERS = [
+  {id:1,name:"Alex Rivera", ini:"AR",color:T.accent,   role:"Frontend",rate:120,capacity:40},
+  {id:2,name:"Sam Chen",    ini:"SC",color:T.green,    role:"Backend", rate:140,capacity:40},
+  {id:3,name:"Jordan Kim",  ini:"JK",color:T.violet,   role:"Design",  rate:110,capacity:32},
+  {id:4,name:"Morgan Lee",  ini:"ML",color:T.amber,    role:"DevOps",  rate:130,capacity:40},
+  {id:5,name:"Riley Park",  ini:"RP",color:T.sky,      role:"QA",      rate:100,capacity:40},
+];
+const PROJECTS = [
+  {id:"p1",name:"Web Platform", icon:"◈",color:T.accent,  client:"Acme Corp",  budget:48000,health:72,phase:"Execution"},
+  {id:"p2",name:"Mobile App",   icon:"◉",color:T.violet,  client:"Beta Inc",   budget:32000,health:88,phase:"Design"},
+  {id:"p3",name:"API Gateway",  icon:"◎",color:T.emerald, client:"Gamma LLC",  budget:22000,health:61,phase:"Build"},
+];
+const STATUSES = [
+  {id:"backlog",   label:"Backlog",    color:T.textDim, dot:"#1e2a45"},
+  {id:"todo",      label:"To Do",      color:T.textSub, dot:"#4a5a80"},
+  {id:"inprogress",label:"In Progress",color:T.accent,  dot:T.accent},
+  {id:"review",    label:"In Review",  color:T.violet,  dot:T.violet},
+  {id:"done",      label:"Done",       color:T.green,   dot:T.green},
+  {id:"blocked",   label:"Blocked",    color:T.rose,    dot:T.rose},
+];
+const PRIORITIES = [
+  {id:"critical",label:"Critical",color:T.rose,   icon:"⬤"},
+  {id:"high",    label:"High",    color:T.amber,  icon:"▲"},
+  {id:"medium",  label:"Medium",  color:T.sky,    icon:"◆"},
+  {id:"low",     label:"Low",     color:T.textSub,icon:"▼"},
+];
+
+const now=()=>Date.now(), ago=n=>now()-n*86400000, fwd=n=>now()+n*86400000, MS=86400000;
+let _id=0; const uid=()=>`t${++_id}`;
+const fmt$=n=>`$${Math.round(n).toLocaleString()}`;
+const fmtH=h=>`${h.toFixed(1)}h`;
+const fmtDate=ts=>ts?new Date(ts).toLocaleDateString("en",{month:"short",day:"numeric"}):"—";
+const isOD=(due,status)=>due&&due<now()&&status!=="done";
+const getMb=id=>MEMBERS.find(m=>m.id===id);
+const getPj=id=>PROJECTS.find(p=>p.id===id);
+const getSt=id=>STATUSES.find(s=>s.id===id)||STATUSES[0];
+const getPr=id=>PRIORITIES.find(p=>p.id===id)||PRIORITIES[2];
+
+// ═══════════════════════════════════════════════════════════
+// SEED DATA
+// ═══════════════════════════════════════════════════════════
+const INIT_TASKS = [
+  {id:uid(),type:"feature",title:"Redesign hero section with new brand",         status:"inprogress",priority:"high",    project:"p1",assignees:[1,3],points:8, due:fwd(3), tags:["design","ui"],    subtasks:[{title:"Wireframes",done:true},{title:"Hi-fi mockup",done:false}],notes:""},
+  {id:uid(),type:"bug",    title:"Auth token not refreshing on expiry",           status:"todo",      priority:"critical",project:"p1",assignees:[2],  points:5, due:fwd(1), tags:["auth","backend"],  subtasks:[],notes:""},
+  {id:uid(),type:"task",   title:"Set up CI/CD pipeline for staging",             status:"review",    priority:"high",    project:"p1",assignees:[4],  points:8, due:fwd(2), tags:["devops"],          subtasks:[{title:"GitHub Actions",done:true}],notes:""},
+  {id:uid(),type:"task",   title:"Write API documentation for v2 endpoints",      status:"backlog",   priority:"medium",  project:"p1",assignees:[2],  points:5, due:fwd(16),tags:["docs"],            subtasks:[],notes:""},
+  {id:uid(),type:"bug",    title:"Mobile nav overflow on small screens",          status:"done",      priority:"high",    project:"p1",assignees:[1,5],points:3, due:ago(2), tags:["mobile","bug"],    subtasks:[],notes:""},
+  {id:uid(),type:"feature",title:"Dark mode toggle with system preference",       status:"todo",      priority:"medium",  project:"p1",assignees:[3],  points:5, due:fwd(5), tags:["ui","frontend"],   subtasks:[],notes:""},
+  {id:uid(),type:"story",  title:"User onboarding flow — welcome screens",       status:"inprogress",priority:"high",    project:"p2",assignees:[1,3],points:13,due:fwd(4), tags:["onboarding","ux"], subtasks:[{title:"Screen designs",done:true},{title:"Animations",done:false}],notes:""},
+  {id:uid(),type:"feature",title:"Push notification system (iOS + Android)",     status:"backlog",   priority:"medium",  project:"p2",assignees:[2,4],points:13,due:fwd(19),tags:["notifications"],   subtasks:[],notes:""},
+  {id:uid(),type:"task",   title:"Rate limiting middleware for all endpoints",    status:"todo",      priority:"critical",project:"p3",assignees:[2],  points:5, due:fwd(2), tags:["security","api"],  subtasks:[],notes:""},
+  {id:uid(),type:"task",   title:"API versioning strategy and implementation",    status:"inprogress",priority:"high",    project:"p3",assignees:[4,2],points:8, due:fwd(5), tags:["architecture"],    subtasks:[],notes:""},
+  {id:uid(),type:"task",   title:"Performance audit and Core Web Vitals fixes",   status:"backlog",   priority:"high",    project:"p1",assignees:[1,4],points:8, due:fwd(14),tags:["perf"],            subtasks:[],notes:""},
+  {id:uid(),type:"bug",    title:"Search autocomplete lag on slow connections",   status:"todo",      priority:"medium",  project:"p1",assignees:[1],  points:3, due:fwd(4), tags:["search","ux"],     subtasks:[],notes:""},
+];
+
+const INIT_SPRINTS = [
+  {id:"s2",name:"Sprint 12",project:"p1",start:ago(6),end:fwd(8), goal:"UI redesign + bug fixes",   status:"active"},
+  {id:"s3",name:"Sprint 13",project:"p1",start:fwd(9),end:fwd(22),goal:"Perf + docs + QA pass",     status:"planned"},
+  {id:"s4",name:"Sprint 5", project:"p2",start:ago(6),end:fwd(8), goal:"Onboarding flow launch",    status:"active"},
+  {id:"s5",name:"Sprint 3", project:"p3",start:ago(3),end:fwd(11),goal:"Rate limiting + versioning", status:"active"},
+];
+
+const INIT_ENTRIES = (()=>{
+  const e=[], descs=["Hero redesign work","Auth debugging","CI/CD setup","API docs","Onboarding design","Code review","Sprint planning","Client call","Perf profiling","Testing"];
+  for(let d=13;d>=0;d--){
+    const day=ago(d), count=Math.floor(Math.random()*3)+1;
+    for(let i=0;i<count;i++){
+      const m=MEMBERS[Math.floor(Math.random()*MEMBERS.length)];
+      const p=PROJECTS[Math.floor(Math.random()*PROJECTS.length)];
+      const hrs=(Math.floor(Math.random()*8)+2)/2;
+      e.push({id:`e${++_id}`,member:m.id,project:p.id,desc:descs[Math.floor(Math.random()*descs.length)],hours:hrs,date:day,billable:Math.random()>.15,rate:m.rate,amount:hrs*m.rate});
+    }
+  }
+  return e;
+})();
+
+const INIT_GOALS = [
+  {id:"g1",title:"Launch Web Platform v2",status:"on_track",progress:68,due:fwd(22),owner:1,project:"p1",keyResults:[
+    {id:"kr1",title:"Lighthouse score ≥ 90",progress:72,target:90,current:65,unit:"pts"},
+    {id:"kr2",title:"Page load < 1.2s",      progress:55,target:1.2,current:1.8,unit:"sec"},
+    {id:"kr3",title:"Ship 3 major features", progress:67,target:3,current:2,unit:"feats"},
+  ]},
+  {id:"g2",title:"Q2 Revenue Target",status:"at_risk",progress:42,due:fwd(45),owner:4,project:null,keyResults:[
+    {id:"kr4",title:"Invoice $200k billable",progress:38,target:200000,current:76000,unit:"$"},
+    {id:"kr5",title:"Close 2 new contracts", progress:50,target:2,current:1,unit:"deals"},
+  ]},
+  {id:"g3",title:"Zero Critical Bugs in Prod",status:"on_track",progress:80,due:fwd(14),owner:5,project:"p1",keyResults:[
+    {id:"kr6",title:"Resolve all P1 bugs",  progress:75,target:8,current:6,unit:"bugs"},
+    {id:"kr7",title:"Test coverage > 80%", progress:85,target:80,current:68,unit:"%"},
+  ]},
+];
+
+const INIT_ANNOUNCEMENTS = [
+  {id:"an1",title:"Sprint 12 kick-off 🚀",content:"Sprint 12 is live! Focus: hero redesign, auth fix, CI/CD. Daily standups at 9am. Let's ship it!",author:1,ts:ago(6),project:"p1",pinned:true,reactions:{"🎉":3,"✅":5,"🔥":2},comments:[{author:2,text:"Ready to go!",ts:ago(6)}]},
+  {id:"an2",title:"New client — Gamma LLC signed",content:"Gamma LLC signed for the API Gateway project. $22k budget, 3-month timeline. Morgan leads. Kickoff Thursday.",author:4,ts:ago(3),project:"p3",pinned:false,reactions:{"🎊":4,"💰":6},comments:[]},
+  {id:"an3",title:"Performance budget enforced Monday",content:"Starting Monday, PRs will be blocked if they exceed our JS performance budget (200kb). Please audit your bundles this week.",author:1,ts:ago(1),project:"p1",pinned:true,reactions:{"⚡":4,"🙌":3},comments:[]},
+];
+
+// ═══════════════════════════════════════════════════════════
+// AI
+// ═══════════════════════════════════════════════════════════
+async function callAI(system, user, maxTokens=600) {
+  const key = localStorage.getItem('projectos_api_key');
+  if (!key) { alert("Please add your Anthropic API key using the banner at the top."); return ""; }
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:maxTokens,system,messages:[{role:"user",content:user}]})
+    });
+    const d = await res.json();
+    if (d.error) { console.error("AI error:", d.error); return "AI error — check your API key."; }
+    return d.content?.[0]?.text || "";
+  } catch(e) { console.error(e); return "Network error — check your key and try again."; }
+}
+const jsonAI = async(s,u,m=600)=>{
+  const raw=await callAI(s,u,m);
+  try{return JSON.parse(raw.replace(/```json|```/g,"").trim());}catch{return null;}
+};
+
+const AI = {
+  parseTask:(input,ctx)=>jsonAI(`Parse natural language task input into JSON. Return ONLY: {"title":"","type":"task|bug|feature|story","priority":"critical|high|medium|low","status":"todo","assignees":[],"points":3,"dueOffset":null,"tags":[]}\nMembers: ${MEMBERS.map(m=>`${m.id}:${m.name}(${m.role})`).join(",")}\n${ctx}`,input,400),
+  breakdown:(title,type,priority)=>jsonAI(`Break this task into 4-6 subtasks. Return ONLY a JSON array of strings.`,`Task:"${title}" [${type},${priority}]`,300),
+  suggestPriority:(title)=>callAI(`Return ONE word only from: critical, high, medium, low. No explanation.`,title,10),
+  summarizeDoc:(content)=>callAI(`Summarize this document in 3-4 sentences. Be direct and specific.`,content.slice(0,2000),250),
+  generateDoc:(title,brief)=>jsonAI(`Generate a professional document as JSON array of blocks. Each: {"type":"h1|h2|h3|p|bullet|todo|code|callout","content":"...","checked":false}. Return ONLY the JSON array.`,`Title:"${title}"\nBrief:"${brief}"`,1200),
+  dailyBriefing:(ctx)=>callAI(`Generate a crisp daily PM briefing. 4-5 bullet points. Critical items, priorities, risks. Be specific with names and numbers.`,ctx,400),
+  standup:(name,role,tasks)=>callAI(`Write a daily standup in first person for ${name} (${role}). Format: Yesterday / Today / Blockers. Under 100 words. Specific.`,`Tasks: ${tasks}`,200),
+  workloadAnalysis:(ctx)=>callAI(`Analyze team workload. Identify over/under capacity, risks, specific reassignment suggestions.`,ctx,400),
+  goalHealth:(ctx)=>callAI(`Review these OKRs. Identify at-risk goals, root causes, specific recovery actions. Direct and actionable.`,ctx,400),
+  clientUpdate:(project,progress)=>callAI(`Write a professional non-technical project update for a client. 3-4 short paragraphs. Upbeat and concrete.`,`Project:${project}\n${progress}`,350),
+  portfolioSummary:(ctx)=>callAI(`Write a crisp executive portfolio summary. 4-5 bullet points. Overall health, wins, risks, priorities.`,ctx,350),
+  sprintPlan:(tasks,sprints)=>jsonAI(`Assign tasks to sprints optimally. Consider priority, dependencies, capacity (20pts/sprint). Return JSON array: [{taskId,sprintId,reason}].`,`Tasks:${tasks}\nSprints:${sprints}`,600),
+  chat:(msg,ctx)=>callAI(`You are the AI assistant for ProjectOS, a project management platform. Answer questions about tasks, time, docs, budgets, and automations. Be concise and helpful.`,`Context:\n${ctx}\n\nQuestion: ${msg}`,450),
+};
+
+// ═══════════════════════════════════════════════════════════
+// SHARED COMPONENTS
+// ═══════════════════════════════════════════════════════════
+function Av({id,size="sm"}) {
+  const m=getMb(id); if(!m)return null;
+  const s=size==="lg"?28:size==="xl"?36:20, fs=size==="xl"?12:size==="lg"?10:7.5;
+  return <div style={{width:s,height:s,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:fs,fontWeight:800,color:"white",flexShrink:0}} title={m.name}>{m.ini}</div>;
+}
+function AvStack({ids=[],max=3}) {
+  return <div style={{display:"flex"}}>{ids.slice(0,max).map((id,i)=><div key={id} style={{marginLeft:i?-5:0}}><Av id={id}/></div>)}</div>;
+}
+function Spinner({color}) {
+  return <span style={{animation:"spin .7s linear infinite",display:"inline-block",color:color||T.accentBright}}>◌</span>;
+}
+function Shimmer() {
+  return <div style={{height:2,borderRadius:2,overflow:"hidden",background:T.border,position:"relative",marginBottom:9}}>
+    <div style={{position:"absolute",inset:0,background:`linear-gradient(90deg,transparent,${T.accentBright},${T.violet},transparent)`,animation:"shimmer 1.2s infinite linear"}}/>
+  </div>;
+}
+function Badge({children,color}) {
+  return <span style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:9.5,fontWeight:700,padding:"2px 6px",borderRadius:5,background:T.bg,color:color||T.textSub}}>{children}</span>;
+}
+function Tag({label}) {
+  return <span style={{fontSize:9,padding:"1px 6px",borderRadius:10,background:T.border,color:T.textSub}}>{label}</span>;
+}
+function ProgressBar({pct,color,height=5}) {
+  return <div style={{height,background:T.border,borderRadius:height,overflow:"hidden"}}>
+    <div style={{height:"100%",width:`${Math.min(100,pct)}%`,background:color,borderRadius:height,transition:"width .5s ease"}}/>
+  </div>;
+}
+function Ring({pct,color,size=60,stroke=6}) {
+  const r=(size-stroke*2)/2,circ=2*Math.PI*r,dash=circ*(pct/100);
+  return <svg width={size} height={size} style={{flexShrink:0}}>
+    <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={T.border} strokeWidth={stroke}/>
+    <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+      strokeDasharray={`${dash} ${circ-dash}`} strokeLinecap="round"
+      transform={`rotate(-90 ${size/2} ${size/2})`}/>
+    <text x={size/2} y={size/2+4} textAnchor="middle" fontSize={11} fontWeight={800} fill={color} fontFamily="JetBrains Mono,monospace">{pct}%</text>
+  </svg>;
+}
+function Card({children,style={}}) {
+  return <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:16,...style}}>{children}</div>;
+}
+function Modal({children,onClose,width=520,title}) {
+  return <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.82)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,animation:"fadeIn .15s"}}>
+    <div style={{background:T.surface,border:`1px solid ${T.borderHi}`,borderRadius:14,padding:24,width,maxWidth:"96vw",maxHeight:"88vh",overflowY:"auto",boxShadow:"0 30px 80px rgba(0,0,0,.7)",animation:"slideUp .2s ease"}}>
+      {title&&<div style={{fontSize:16,fontWeight:800,letterSpacing:"-.3px",marginBottom:18}}>{title}</div>}
+      {children}
+    </div>
+  </div>;
+}
+function Field({label,children}) {
+  return <div style={{marginBottom:12}}><label style={{fontSize:9.5,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textSub,display:"block",marginBottom:5}}>{label}</label>{children}</div>;
+}
+const inputSt={width:"100%",background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 11px",color:T.text,fontSize:13,outline:"none",fontFamily:"Geist,sans-serif"};
+function Inp(props) { return <input {...props} style={{...inputSt,...(props.style||{})}}/>; }
+function Sel(props) { return <select {...props} style={{...inputSt,cursor:"pointer",...(props.style||{})}}/>; }
+function Txta(props) { return <textarea {...props} style={{...inputSt,minHeight:70,resize:"vertical",...(props.style||{})}}/>; }
+
+// ═══════════════════════════════════════════════════════════
+// TASK COMPONENTS
+// ═══════════════════════════════════════════════════════════
+function TaskCard({task,onClick}) {
+  const pr=getPr(task.priority), done=task.status==="done", od=isOD(task.due,task.status);
+  return <div onClick={onClick} style={{background:T.surfaceUp,border:`1px solid ${od?T.rose+"50":T.border}`,borderRadius:10,padding:11,marginBottom:7,cursor:"pointer",transition:"all .14s",opacity:done?.55:1,animation:"slideL .18s ease"}}>
+    <div style={{fontSize:12.5,fontWeight:500,lineHeight:1.4,marginBottom:9,textDecoration:done?"line-through":"none"}}>{task.title}</div>
+    <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+      <Badge color={pr.color}>{pr.icon} {pr.label}</Badge>
+      {task.tags?.slice(0,1).map(t=><Tag key={t} label={t}/>)}
+      {task.subtasks?.length>0&&<span style={{fontSize:9.5,color:T.textSub,fontFamily:"JetBrains Mono,monospace"}}>{task.subtasks.filter(s=>s.done).length}/{task.subtasks.length}</span>}
+      <span style={{marginLeft:"auto",fontSize:10,fontFamily:"JetBrains Mono,monospace",color:od?T.rose:T.textDim}}>{od?"⚠ ":"◷ "}{fmtDate(task.due)}</span>
+      <AvStack ids={task.assignees||[]}/>
+    </div>
+  </div>;
+}
+
+function TaskDetail({task:init,allTasks,setTasks,sprints,onClose}) {
+  const [t,setT]=useState(init);
+  const [aiLoading,setAiLoading]=useState("");
+  const save=useCallback(patch=>{
+    const u={...t,...patch}; setT(u);
+    setTasks(p=>p.some(x=>x.id===u.id)?p.map(x=>x.id===u.id?u:x):[u,...p]);
+  },[t,setTasks]);
+  const breakdown=async()=>{
+    setAiLoading("bd");
+    const subs=await AI.breakdown(t.title,t.type,t.priority);
+    if(subs&&Array.isArray(subs))save({subtasks:[...t.subtasks,...subs.map(s=>({title:s,done:false}))]});
+    setAiLoading("");
+  };
+  const pr=getPr(t.priority), pj=getPj(t.project), sp=sprints.find(s=>s.id===t.sprint);
+  return <Modal onClose={onClose} width={640}>
+    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+      <span style={{fontFamily:"JetBrains Mono,monospace",fontSize:10,color:T.textDim}}>{t.id}</span>
+      <button onClick={onClose} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18}}>×</button>
+    </div>
+    <input value={t.title} onChange={e=>save({title:e.target.value})}
+      style={{background:"transparent",border:"none",outline:"none",fontSize:20,fontWeight:800,letterSpacing:"-.4px",color:T.text,width:"100%",marginBottom:12,fontFamily:"Geist,sans-serif"}}/>
+    {/* Status */}
+    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
+      {STATUSES.map(s=><button key={s.id} onClick={()=>save({status:s.id})}
+        style={{padding:"4px 10px",borderRadius:18,fontSize:10.5,fontWeight:700,cursor:"pointer",border:`1px solid ${t.status===s.id?s.dot+"66":"transparent"}`,background:t.status===s.id?s.dot+"30":T.bg,color:t.status===s.id?s.dot:T.textSub,transition:"all .14s"}}>
+        {s.label}
+      </button>)}
+    </div>
+    {/* Meta */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+      {[
+        {l:"Priority",v:<span style={{color:pr.color}}>{pr.icon} {pr.label}</span>},
+        {l:"Points",v:<span style={{fontFamily:"JetBrains Mono,monospace"}}>{t.points} pts</span>},
+        {l:"Due",v:<span style={{fontFamily:"JetBrains Mono,monospace",fontSize:11.5,color:isOD(t.due,t.status)?T.rose:T.textSub}}>{fmtDate(t.due)}</span>},
+        {l:"Assigned",v:<AvStack ids={t.assignees||[]} max={5}/>},
+        {l:"Sprint",v:<span style={{fontFamily:"JetBrains Mono,monospace",fontSize:11.5}}>{sp?.name||"Backlog"}</span>},
+        {l:"Project",v:<span style={{color:pj?.color}}>{pj?.icon} {pj?.name}</span>},
+      ].map(f=><div key={f.l} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,padding:"9px 11px"}}>
+        <div style={{fontSize:9,fontWeight:700,letterSpacing:".7px",textTransform:"uppercase",color:T.textDim,marginBottom:3}}>{f.l}</div>
+        <div style={{fontSize:12.5,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>{f.v}</div>
+      </div>)}
+    </div>
+    {/* Subtasks */}
+    {t.subtasks.length>0&&<div style={{background:T.bg,borderRadius:8,padding:"4px 8px",marginBottom:10}}>
+      {t.subtasks.map((s,i)=><div key={i} onClick={()=>save({subtasks:t.subtasks.map((x,j)=>j===i?{...x,done:!x.done}:x)})}
+        style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:i<t.subtasks.length-1?`1px solid ${T.border}`:"none",cursor:"pointer",fontSize:12.5}}>
+        <div style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${s.done?T.green:T.borderHi}`,background:s.done?T.green:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"white",flexShrink:0}}>{s.done&&"✓"}</div>
+        <span style={{textDecoration:s.done?"line-through":"none",opacity:s.done?.45:1}}>{s.title}</span>
+      </div>)}
+    </div>}
+    <button onClick={breakdown} disabled={!!aiLoading}
+      style={{width:"100%",padding:"8px 0",marginBottom:12,borderRadius:8,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontWeight:800,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      {aiLoading==="bd"?<Spinner/>:"✦"} AI: Auto-generate subtasks
+    </button>
+    <Txta value={t.notes} onChange={e=>save({notes:e.target.value})} placeholder="Notes, context, links…" style={{marginBottom:12}}/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+      <Field label="Priority"><Sel value={t.priority} onChange={e=>save({priority:e.target.value})}>{PRIORITIES.map(p=><option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</Sel></Field>
+      <Field label="Sprint"><Sel value={t.sprint||""} onChange={e=>save({sprint:e.target.value||null})}><option value="">Backlog</option>{sprints.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</Sel></Field>
+      <Field label="Project"><Sel value={t.project} onChange={e=>save({project:e.target.value})}>{PROJECTS.map(p=><option key={p.id} value={p.id}>{p.icon} {p.name}</option>)}</Sel></Field>
+    </div>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:18}}>
+      <button onClick={onClose} style={{padding:"7px 15px",borderRadius:7,border:`1px solid ${T.border}`,background:T.bg,color:T.textSub,fontSize:12,fontWeight:700,cursor:"pointer"}}>Close</button>
+    </div>
+  </Modal>;
+}
+
+// ═══════════════════════════════════════════════════════════
+// PAGE COMPONENTS
+// ═══════════════════════════════════════════════════════════
+
+// ── DASHBOARD ─────────────────────────────────────────────
+function DashboardPage({tasks,entries,sprints,goals,docs,setPage}) {
+  const [briefing,setBriefing]=useState(""),  [loading,setLoading]=useState(false);
+  const overdue=tasks.filter(t=>isOD(t.due,t.status)), critical=tasks.filter(t=>t.priority==="critical"&&t.status!=="done");
+  const todayH=entries.filter(e=>new Date(e.date).toDateString()===new Date().toDateString()).reduce((a,e)=>a+e.hours,0);
+  const weekAmt=entries.filter(e=>e.date>now()-7*MS).reduce((a,e)=>a+e.amount,0);
+  const getBriefing=async()=>{
+    setLoading(true);
+    const ctx=`Tasks: ${tasks.filter(t=>t.status!=="done").slice(0,8).map(t=>`[${t.priority}/${t.status}] ${t.title}`).join("; ")}\nOverdue: ${overdue.length}\nCritical: ${critical.length}\nHours today: ${fmtH(todayH)}\nWeek revenue: ${fmt$(weekAmt)}`;
+    setBriefing(await AI.dailyBriefing(ctx)); setLoading(false);
+  };
+  useEffect(()=>{getBriefing();},[]);
+  const h=new Date().getHours(), g=h<12?"morning":h<17?"afternoon":"evening";
+  return <div style={{padding:20}}>
+    {/* Welcome */}
+    <div style={{background:`linear-gradient(135deg,${T.accentDim},${T.surfaceUp})`,border:`1px solid ${T.accent}25`,borderRadius:14,padding:"20px 24px",marginBottom:20,display:"flex",alignItems:"flex-start",gap:20}}>
+      <div style={{fontSize:36,animation:"float 3s ease-in-out infinite",flexShrink:0}}>✦</div>
+      <div style={{flex:1}}>
+        <div style={{fontSize:20,fontWeight:900,letterSpacing:"-.5px",marginBottom:5}}>Good {g} — here's your day</div>
+        <div style={{fontSize:13,color:T.textSub}}>{overdue.length} overdue · {critical.length} critical · {fmtH(todayH)} logged today · {fmt$(weekAmt)} this week</div>
+        {loading&&<Shimmer/>}
+        {briefing&&<div style={{background:T.surfaceHi,border:`1px solid ${T.border}`,borderRadius:10,padding:14,marginTop:12,fontSize:12.5,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{briefing}</div>}
+      </div>
+      <button onClick={getBriefing} disabled={loading} style={{padding:"7px 14px",borderRadius:8,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontWeight:800,fontSize:12,cursor:"pointer",flexShrink:0}}>{loading?<Spinner/>:"✦"} Refresh</button>
+    </div>
+    {/* Stats */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+      {[
+        {val:tasks.filter(t=>t.status==="inprogress").length,lbl:"In Progress",sub:`${tasks.filter(t=>t.status==="done").length} done`,color:T.accent},
+        {val:overdue.length,lbl:"Overdue",sub:`${critical.length} critical`,color:overdue.length>0?T.rose:T.green},
+        {val:fmtH(todayH),lbl:"Hours Today",sub:fmt$(todayH*100),color:T.sky},
+        {val:goals.filter(g=>g.status==="on_track").length+"/"+goals.length,lbl:"Goals On Track",sub:"OKR overview",color:T.emerald},
+      ].map(s=><Card key={s.lbl}>
+        <div style={{fontFamily:"JetBrains Mono,monospace",fontSize:24,fontWeight:800,letterSpacing:"-.5px",color:s.color,marginBottom:3}}>{s.val}</div>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textSub}}>{s.lbl}</div>
+        <div style={{fontSize:10,color:T.textDim,marginTop:2,fontFamily:"JetBrains Mono,monospace"}}>{s.sub}</div>
+      </Card>)}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+      <Card>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textSub,marginBottom:12}}>🔥 Needs Attention</div>
+        {[...overdue.slice(0,3),...critical.filter(t=>!isOD(t.due,t.status)).slice(0,2)].map(t=>(
+          <div key={t.id} onClick={()=>setPage("tasks")} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${T.border}20`,cursor:"pointer",fontSize:12.5}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:isOD(t.due,t.status)?T.rose:T.amber,flexShrink:0}}/>
+            <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</span>
+            <span style={{fontSize:9.5,color:isOD(t.due,t.status)?T.rose:T.textSub,fontFamily:"JetBrains Mono,monospace",flexShrink:0}}>{fmtDate(t.due)}</span>
+          </div>
+        ))}
+        {!overdue.length&&!critical.length&&<div style={{textAlign:"center",padding:"20px 0",color:T.textDim}}>✓ All clear!</div>}
+      </Card>
+      <Card>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textSub,marginBottom:12}}>💰 Project Budgets</div>
+        {PROJECTS.map(p=>{
+          const spent=entries.filter(e=>e.project===p.id).reduce((a,e)=>a+e.amount,0);
+          const pct=Math.min(100,Math.round(spent/p.budget*100));
+          const col=pct<60?T.green:pct<80?T.amber:T.rose;
+          return <div key={p.id} style={{marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:12,fontWeight:600,color:p.color}}>{p.icon} {p.name}</span>
+              <span style={{fontSize:11,fontFamily:"JetBrains Mono,monospace",color:col}}>{pct}%</span>
+            </div>
+            <ProgressBar pct={pct} color={col}/>
+            <div style={{fontSize:10,color:T.textSub,fontFamily:"JetBrains Mono,monospace",marginTop:2}}>{fmt$(spent)} / {fmt$(p.budget)}</div>
+          </div>;
+        })}
+      </Card>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
+      <Card>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textSub,marginBottom:12}}>📄 Recent Docs</div>
+        {docs.slice(0,5).map(d=><div key={d.id} onClick={()=>setPage("docs")} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${T.border}20`,cursor:"pointer",fontSize:12.5}}>
+          <span>{d.icon}</span><span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.title}</span>
+          <span style={{fontSize:9.5,color:T.textSub,flexShrink:0}}>{fmtDate(d.updated)}</span>
+        </div>)}
+      </Card>
+      <Card>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textSub,marginBottom:12}}>⬡ Active Sprints</div>
+        {sprints.filter(s=>s.status==="active").map(s=>{
+          const st=tasks.filter(t=>t.sprint===s.id), done=st.filter(t=>t.status==="done");
+          const pct=st.length?Math.round(done.length/st.length*100):0;
+          const p=getPj(s.project);
+          return <div key={s.id} style={{marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:12,fontWeight:600,color:p?.color}}>{p?.icon} {s.name}</span>
+              <span style={{fontSize:10,color:T.textSub,fontFamily:"JetBrains Mono,monospace"}}>{pct}%</span>
+            </div>
+            <ProgressBar pct={pct} color={p?.color||T.accent}/>
+          </div>;
+        })}
+      </Card>
+      <Card>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textSub,marginBottom:12}}>🎯 Goals</div>
+        {goals.map(g=>{
+          const hc=g.status==="on_track"?T.green:g.status==="at_risk"?T.amber:T.rose;
+          return <div key={g.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${T.border}20`,fontSize:12.5}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:hc,flexShrink:0}}/>
+            <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.title}</span>
+            <span style={{fontFamily:"JetBrains Mono,monospace",fontSize:10.5,color:hc,fontWeight:700}}>{g.progress}%</span>
+          </div>;
+        })}
+      </Card>
+    </div>
+  </div>;
+}
+
+// ── TASKS ─────────────────────────────────────────────────
+function TasksPage({tasks,setTasks,sprints,activeProject}) {
+  const [viewMode,setViewMode]=useState("kanban");
+  const [nlInput,setNlInput]=useState(""), [nlLoading,setNlLoading]=useState(false), [nlMsg,setNlMsg]=useState("");
+  const [selected,setSelected]=useState(null);
+  const [showNew,setShowNew]=useState(false), [newStatus,setNewStatus]=useState("todo");
+  const [collapsed,setCollapsed]=useState({});
+  const projTasks=activeProject?tasks.filter(t=>t.project===activeProject):tasks;
+
+  const createNL=async()=>{
+    if(!nlInput.trim())return; setNlLoading(true);
+    const parsed=await AI.parseTask(nlInput,"");
+    if(parsed){
+      const task={...parsed,id:`t-${Date.now()}`,project:activeProject||"p1",due:parsed.dueOffset!=null?fwd(parsed.dueOffset):fwd(7),subtasks:[],notes:"",created:now()};
+      delete task.dueOffset;
+      setTasks(p=>[task,...p]);
+      setNlMsg(`✦ "${task.title?.slice(0,40)}" created · ${task.priority}`);
+      setNlInput("");
+    } else setNlMsg("Could not parse — try rephrasing");
+    setNlLoading(false); setTimeout(()=>setNlMsg(""),4000);
+  };
+
+  return <div style={{display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderBottom:`1px solid ${T.border}`,flexShrink:0,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:2,background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,padding:3}}>
+        {["kanban","list"].map(v=><button key={v} onClick={()=>setViewMode(v)}
+          style={{padding:"4px 12px",borderRadius:6,border:"none",background:viewMode===v?T.accentDim:"transparent",color:viewMode===v?T.accentBright:T.textSub,fontSize:11.5,fontWeight:600,cursor:"pointer"}}>
+          {v==="kanban"?"▦ Board":"≡ List"}
+        </button>)}
+      </div>
+      <div style={{flex:1,display:"flex",alignItems:"center",gap:8,background:T.surfaceUp,border:`1px solid ${T.borderHi}`,borderRadius:9,padding:"8px 12px"}}>
+        <span style={{fontSize:14,color:T.accentBright}}>✦</span>
+        <input value={nlInput} onChange={e=>setNlInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createNL()} disabled={nlLoading}
+          placeholder='AI input — "fix auth bug assign sam critical due friday"'
+          style={{flex:1,background:"none",border:"none",outline:"none",color:T.text,fontSize:12.5,fontFamily:"Geist,sans-serif"}}/>
+        {nlLoading&&<Spinner/>}
+      </div>
+      <button onClick={()=>{setNewStatus("todo");setShowNew(true);}}
+        style={{padding:"6px 13px",borderRadius:8,border:"none",background:T.accent,color:"white",fontWeight:700,fontSize:11.5,cursor:"pointer"}}>+ New</button>
+    </div>
+    {nlMsg&&<div style={{padding:"4px 18px",fontSize:10.5,color:T.accentBright,fontWeight:600}}>{nlMsg}</div>}
+
+    <div style={{flex:1,overflowY:"auto",overflowX:viewMode==="kanban"?"auto":"hidden"}}>
+      {viewMode==="kanban"&&<div style={{display:"flex",gap:10,padding:"14px 18px 24px",alignItems:"flex-start"}}>
+        {STATUSES.map(status=>{
+          const cols=projTasks.filter(t=>t.status===status.id);
+          return <div key={status.id} style={{minWidth:224,width:224,flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 2px 9px",fontSize:10.5,fontWeight:700,letterSpacing:".6px",textTransform:"uppercase",color:status.color}}>
+              <div style={{width:7,height:7,borderRadius:"50%",background:status.dot}}/>{status.label}
+              <span style={{marginLeft:"auto",fontFamily:"JetBrains Mono,monospace",fontSize:10,background:T.border,color:T.textSub,padding:"1px 6px",borderRadius:8}}>{cols.length}</span>
+            </div>
+            {cols.map(task=><TaskCard key={task.id} task={task} onClick={()=>setSelected(task)}/>)}
+            <div onClick={()=>{setNewStatus(status.id);setShowNew(true);}}
+              style={{border:`1.5px dashed ${T.border}`,borderRadius:8,padding:7,fontSize:11,color:T.textDim,textAlign:"center",cursor:"pointer"}}>+ Add task</div>
+          </div>;
+        })}
+      </div>}
+
+      {viewMode==="list"&&<div style={{padding:"12px 18px 24px"}}>
+        {STATUSES.map(status=>{
+          const group=projTasks.filter(t=>t.status===status.id), col=collapsed[status.id];
+          return <div key={status.id} style={{marginBottom:14}}>
+            <div onClick={()=>setCollapsed(p=>({...p,[status.id]:!p[status.id]}))}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"8px 4px",fontSize:10.5,fontWeight:700,letterSpacing:".6px",textTransform:"uppercase",color:status.color,cursor:"pointer",borderBottom:`1px solid ${T.border}`}}>
+              <span style={{fontSize:9}}>{col?"▶":"▼"}</span>
+              <div style={{width:6,height:6,borderRadius:"50%",background:status.dot}}/>{status.label}
+              <span style={{fontSize:10,background:T.border,color:T.textSub,padding:"0 5px",borderRadius:6,fontFamily:"JetBrains Mono,monospace"}}>{group.length}</span>
+            </div>
+            {!col&&group.map(task=>{
+              const pr=getPr(task.priority);
+              return <div key={task.id} onClick={()=>setSelected(task)}
+                style={{display:"grid",gridTemplateColumns:"1fr 80px 80px 70px 50px",gap:8,padding:"8px 8px",borderRadius:7,cursor:"pointer",alignItems:"center",borderBottom:`1px solid ${T.border}20`,fontSize:12.5}}>
+                <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:task.status==="done"?.5:1,textDecoration:task.status==="done"?"line-through":"none"}}>{task.title}</div>
+                <div><AvStack ids={task.assignees||[]}/></div>
+                <div><Badge color={pr.color}>{pr.icon} {pr.label}</Badge></div>
+                <div style={{fontSize:11,fontFamily:"JetBrains Mono,monospace",color:isOD(task.due,task.status)?T.rose:T.textSub}}>{fmtDate(task.due)}</div>
+                <div style={{fontSize:11,fontFamily:"JetBrains Mono,monospace",color:T.textSub}}>{task.points}</div>
+              </div>;
+            })}
+          </div>;
+        })}
+      </div>}
+    </div>
+
+    {selected&&<TaskDetail task={selected} allTasks={tasks} setTasks={setTasks} sprints={sprints} onClose={()=>setSelected(null)}/>}
+    {showNew&&<NewTaskModal defaultStatus={newStatus} activeProject={activeProject} sprints={sprints} onClose={()=>setShowNew(false)}
+      onAdd={task=>{setTasks(p=>[task,...p]);setShowNew(false);}}/>}
+  </div>;
+}
+
+function NewTaskModal({defaultStatus,activeProject,sprints,onClose,onAdd}) {
+  const [f,setF]=useState({title:"",type:"task",status:defaultStatus||"todo",priority:"medium",assignees:[],points:3,sprint:"",due:"",tags:[],notes:""});
+  const [aiMsg,setAiMsg]=useState(""); const s=v=>setF(p=>({...p,...v}));
+  const autoPri=async title=>{
+    if(title.length<8)return;
+    const p=(await AI.suggestPriority(title))?.trim().toLowerCase();
+    if(["critical","high","medium","low"].includes(p)){s({priority:p});setAiMsg(`AI: ${p} priority`);setTimeout(()=>setAiMsg(""),2500);}
+  };
+  const submit=()=>{
+    if(!f.title.trim())return;
+    onAdd({...f,id:`t-${Date.now()}`,project:activeProject||"p1",due:f.due?new Date(f.due).getTime():fwd(7),subtasks:[],created:now()});
+  };
+  return <Modal title="◻ New Task" onClose={onClose}>
+    <Field label="Title"><Inp autoFocus value={f.title} placeholder="What needs to be done?"
+      onChange={e=>{s({title:e.target.value});autoPri(e.target.value);}} onKeyDown={e=>e.key==="Enter"&&submit()}/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+      <Field label="Type"><Sel value={f.type} onChange={e=>s({type:e.target.value})}>{["task","bug","feature","story","epic"].map(t=><option key={t} value={t}>{t}</option>)}</Sel></Field>
+      <Field label={`Priority${aiMsg?" ✦":""}`}><Sel value={f.priority} onChange={e=>s({priority:e.target.value})}>{PRIORITIES.map(p=><option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}</Sel></Field>
+      <Field label="Status"><Sel value={f.status} onChange={e=>s({status:e.target.value})}>{STATUSES.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</Sel></Field>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+      <Field label="Sprint"><Sel value={f.sprint} onChange={e=>s({sprint:e.target.value})}><option value="">Backlog</option>{sprints.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</Sel></Field>
+      <Field label="Points"><Sel value={f.points} onChange={e=>s({points:+e.target.value})}>{[1,2,3,5,8,13,21].map(n=><option key={n} value={n}>{n}</option>)}</Sel></Field>
+      <Field label="Due Date"><Inp type="date" value={f.due} onChange={e=>s({due:e.target.value})}/></Field>
+    </div>
+    {aiMsg&&<div style={{fontSize:10.5,color:T.accentBright,marginBottom:8}}>✦ {aiMsg}</div>}
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:18}}>
+      <button onClick={onClose} style={{padding:"7px 15px",borderRadius:7,border:`1px solid ${T.border}`,background:T.bg,color:T.textSub,fontSize:12,fontWeight:700,cursor:"pointer"}}>Cancel</button>
+      <button onClick={submit} style={{padding:"7px 15px",borderRadius:7,border:"none",background:T.accent,color:"white",fontSize:12,fontWeight:700,cursor:"pointer"}}>Create Task</button>
+    </div>
+  </Modal>;
+}
+
+// ── GOALS ─────────────────────────────────────────────────
+function GoalsPage({goals}) {
+  const [aiResult,setAiResult]=useState(""), [loading,setLoading]=useState(false);
+  const healthCheck=async()=>{
+    setLoading(true);
+    const ctx=goals.map(g=>`${g.title} [${g.status}, ${g.progress}%]\n${g.keyResults.map(kr=>`  - ${kr.title}: ${kr.progress}%`).join("\n")}`).join("\n\n");
+    setAiResult(await AI.goalHealth(ctx)); setLoading(false);
+  };
+  const hc=s=>s==="on_track"?T.green:s==="at_risk"?T.amber:T.rose;
+  return <div style={{padding:"18px 20px 30px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+      <div style={{fontSize:20,fontWeight:900,letterSpacing:"-.5px",flex:1}}>🎯 Goals & OKRs</div>
+      <button onClick={healthCheck} disabled={loading} style={{padding:"6px 14px",borderRadius:8,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontWeight:800,fontSize:12,cursor:"pointer"}}>
+        {loading?<Spinner/>:"✦"} AI Health Check
+      </button>
+    </div>
+    {loading&&<Shimmer/>}
+    {aiResult&&<div style={{background:`linear-gradient(135deg,${T.accentDim},${T.violetDim})`,border:`1px solid ${T.accent}25`,borderRadius:12,padding:16,marginBottom:20}}>
+      <div style={{fontSize:9.5,fontWeight:800,letterSpacing:".8px",textTransform:"uppercase",color:T.accentBright,marginBottom:8}}>✦ AI Analysis</div>
+      <div style={{fontSize:12.5,color:T.text,lineHeight:1.75,whiteSpace:"pre-wrap"}}>{aiResult}</div>
+    </div>}
+    {goals.map(goal=><div key={goal.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderLeft:`3px solid ${hc(goal.status)}`,borderRadius:12,padding:16,marginBottom:12}}>
+      <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:12}}>
+        <Ring pct={goal.progress} color={hc(goal.status)} size={52} stroke={5}/>
+        <div style={{flex:1}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:4}}>
+            <div style={{fontSize:14,fontWeight:800,letterSpacing:"-.3px"}}>{goal.title}</div>
+            <span style={{fontSize:9,fontWeight:700,letterSpacing:".5px",textTransform:"uppercase",padding:"2px 8px",borderRadius:8,background:hc(goal.status)+"20",color:hc(goal.status)}}>{goal.status.replace("_"," ")}</span>
+          </div>
+          <div style={{fontSize:11,color:T.textSub,display:"flex",gap:10}}>
+            {getMb(goal.owner)&&<span>Owner: {getMb(goal.owner).name}</span>}
+            <span style={{fontFamily:"JetBrains Mono,monospace",color:T.textDim}}>Due {fmtDate(goal.due)}</span>
+          </div>
+        </div>
+      </div>
+      {goal.keyResults.map(kr=>{
+        const krc=kr.progress>=75?T.green:kr.progress>=40?T.amber:T.rose;
+        return <div key={kr.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${T.border}20`,fontSize:12}}>
+          <div style={{flex:1,fontWeight:500}}>{kr.title}</div>
+          <div style={{width:100,height:5,background:T.border,borderRadius:3,overflow:"hidden",flexShrink:0}}>
+            <div style={{height:"100%",width:`${kr.progress}%`,background:krc,borderRadius:3}}/>
+          </div>
+          <span style={{fontFamily:"JetBrains Mono,monospace",fontSize:10.5,color:krc,fontWeight:700,minWidth:32,textAlign:"right"}}>{kr.progress}%</span>
+          <span style={{fontSize:10,color:T.textDim,fontFamily:"JetBrains Mono,monospace",minWidth:70,textAlign:"right"}}>{kr.current}/{kr.target} {kr.unit}</span>
+        </div>;
+      })}
+    </div>)}
+  </div>;
+}
+
+// ── TIME TRACKING ─────────────────────────────────────────
+function TimePage({entries,setEntries}) {
+  const [running,setRunning]=useState(false), [elapsed,setElapsed]=useState(0);
+  const [proj,setProj]=useState("p1"), [desc,setDesc]=useState(""), [memberId,setMemberId]=useState(1);
+  const intRef=useRef();
+  useEffect(()=>{ if(running){intRef.current=setInterval(()=>setElapsed(e=>e+1),1000);}else clearInterval(intRef.current); return()=>clearInterval(intRef.current); },[running]);
+  const fmt=s=>`${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const toggle=()=>{
+    if(!running){setElapsed(0);setRunning(true);}
+    else{
+      const m=getMb(memberId), hrs=Math.max(.25,Math.round(elapsed/3600*4)/4);
+      setEntries(p=>[{id:`e${Date.now()}`,member:memberId,project:proj,desc:desc||"Timer entry",hours:hrs,date:now(),billable:true,rate:m.rate,amount:hrs*m.rate},...p]);
+      setRunning(false);setElapsed(0);setDesc("");
+    }
+  };
+  const todayH=entries.filter(e=>new Date(e.date).toDateString()===new Date().toDateString()).reduce((a,e)=>a+e.hours,0);
+  const weekAmt=entries.filter(e=>e.date>now()-7*MS).reduce((a,e)=>a+e.amount,0);
+  // group by day
+  const grouped=useMemo(()=>{
+    const g={};
+    entries.slice(0,60).forEach(e=>{const k=new Date(e.date).toDateString();if(!g[k])g[k]={date:e.date,entries:[]};g[k].entries.push(e);});
+    return Object.values(g).sort((a,b)=>b.date-a.date);
+  },[entries]);
+  return <div style={{display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}>
+    {/* Timer */}
+    <div style={{margin:"12px 18px 0",background:T.surface,border:`1px solid ${running?T.green+"50":T.borderHi}`,borderRadius:11,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+      <div style={{fontFamily:"JetBrains Mono,monospace",fontSize:24,fontWeight:800,letterSpacing:"-.5px",minWidth:85,color:running?T.green:T.text}}>{fmt(elapsed)}</div>
+      <div style={{display:"flex",gap:7,flex:1,flexWrap:"wrap"}}>
+        <Sel value={memberId} onChange={e=>setMemberId(+e.target.value)} style={{flex:1,minWidth:100,padding:"6px 9px",fontSize:12}}>{MEMBERS.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</Sel>
+        <Sel value={proj} onChange={e=>setProj(e.target.value)} style={{flex:1,minWidth:100,padding:"6px 9px",fontSize:12}}>{PROJECTS.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</Sel>
+        <input value={desc} onChange={e=>setDesc(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!running&&toggle()} placeholder="What are you working on?"
+          style={{...inputSt,flex:2,minWidth:160,padding:"6px 9px",fontSize:12}}/>
+      </div>
+      <button onClick={toggle} style={{width:38,height:38,borderRadius:"50%",border:"none",background:running?T.rose:T.green,color:"white",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{running?"■":"▶"}</button>
+    </div>
+    {/* Stats */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,padding:"12px 18px",flexShrink:0}}>
+      {[
+        {val:fmtH(todayH),lbl:"Today",color:T.accent},
+        {val:fmt$(weekAmt),lbl:"This Week",color:T.sky},
+        {val:fmtH(entries.filter(e=>e.billable).reduce((a,e)=>a+e.hours,0)),lbl:"Billable",color:T.green},
+        {val:`${entries.length?Math.round(entries.filter(e=>e.billable).length/entries.length*100):0}%`,lbl:"Billable %",color:T.emerald},
+      ].map(s=><Card key={s.lbl} style={{padding:"12px 14px"}}>
+        <div style={{fontFamily:"JetBrains Mono,monospace",fontSize:18,fontWeight:800,color:s.color,marginBottom:2}}>{s.val}</div>
+        <div style={{fontSize:9.5,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textSub}}>{s.lbl}</div>
+      </Card>)}
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:"0 18px 24px"}}>
+      <table style={{width:"100%",borderCollapse:"collapse"}}>
+        <thead><tr>{["Date","Member","Project","Description","Hours","Amount","Bill."].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",fontSize:9.5,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textDim,borderBottom:`1px solid ${T.border}`,position:"sticky",top:0,background:T.surface}}>{h}</th>)}</tr></thead>
+        <tbody>
+          {grouped.map(group=>[
+            <tr key={group.date}><td colSpan={7}><div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px 4px",fontSize:9.5,fontWeight:700,letterSpacing:".8px",textTransform:"uppercase",color:T.textDim,borderBottom:`1px solid ${T.border}`,background:T.bg}}>
+              {fmtDate(group.date)} · {fmtH(group.entries.reduce((a,e)=>a+e.hours,0))} · {fmt$(group.entries.reduce((a,e)=>a+e.amount,0))}
+              {new Date(group.date).toDateString()===new Date().toDateString()&&<span style={{background:T.accentDim,color:T.accentBright,fontSize:9,fontWeight:800,padding:"1px 6px",borderRadius:10}}>TODAY</span>}
+            </div></td></tr>,
+            ...group.entries.map(e=>{const m=getMb(e.member),p=getPj(e.project);return <tr key={e.id} style={{borderBottom:`1px solid ${T.border}20`}}>
+              <td style={{padding:"9px 10px",fontSize:11,fontFamily:"JetBrains Mono,monospace",color:T.textSub}}>{fmtDate(e.date)}</td>
+              <td style={{padding:"9px 10px"}}><div style={{display:"flex",alignItems:"center",gap:5}}><Av id={e.member}/><span style={{fontSize:11.5}}>{m?.name.split(" ")[0]}</span></div></td>
+              <td style={{padding:"9px 10px"}}><span style={{fontSize:11,fontWeight:600,color:p?.color}}>{p?.icon} {p?.name}</span></td>
+              <td style={{padding:"9px 10px",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.desc}</td>
+              <td style={{padding:"9px 10px",fontFamily:"JetBrains Mono,monospace",fontWeight:600}}>{fmtH(e.hours)}</td>
+              <td style={{padding:"9px 10px",fontFamily:"JetBrains Mono,monospace",fontWeight:700}}>{fmt$(e.amount)}</td>
+              <td style={{padding:"9px 10px"}}><div style={{width:7,height:7,borderRadius:"50%",background:e.billable?T.green:T.textDim}}/></td>
+            </tr>;})
+          ])}
+        </tbody>
+      </table>
+    </div>
+  </div>;
+}
+
+// ── ANNOUNCEMENTS ─────────────────────────────────────────
+function AnnouncementsPage({announcements,setAnnouncements}) {
+  const [showNew,setShowNew]=useState(false), [newAnn,setNewAnn]=useState({title:"",content:"",project:"p1"});
+  const [comments,setComments]=useState({});
+  const react=(id,emoji)=>setAnnouncements(p=>p.map(a=>a.id!==id?a:{...a,reactions:{...a.reactions,[emoji]:(a.reactions[emoji]||0)+1}}));
+  const addComment=(id)=>{
+    const t=comments[id]; if(!t?.trim())return;
+    setAnnouncements(p=>p.map(a=>a.id!==id?a:{...a,comments:[...a.comments,{author:1,text:t,ts:now()}]}));
+    setComments(p=>({...p,[id]:""}));
+  };
+  return <div style={{padding:"18px 20px 30px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+      <div style={{fontSize:20,fontWeight:900,letterSpacing:"-.5px",flex:1}}>📢 Announcements</div>
+      <button onClick={()=>setShowNew(true)} style={{padding:"6px 13px",borderRadius:8,border:"none",background:T.accent,color:"white",fontWeight:700,fontSize:11.5,cursor:"pointer"}}>+ Post</button>
+    </div>
+    {announcements.map(ann=>{
+      const author=getMb(ann.author), proj=getPj(ann.project);
+      return <div key={ann.id} style={{background:T.surface,border:`1px solid ${ann.pinned?T.accent+"50":T.border}`,borderTop:ann.pinned?`2px solid ${T.accent}`:"",borderRadius:12,padding:18,marginBottom:12,animation:"slideUp .2s ease"}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:10}}>
+          {ann.pinned&&<span style={{fontSize:12,flexShrink:0}}>📌</span>}
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:800,letterSpacing:"-.3px",marginBottom:4}}>{ann.title}</div>
+            <div style={{fontSize:10.5,color:T.textSub,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              {author&&<span style={{display:"inline-flex",alignItems:"center",gap:4}}><Av id={ann.author}/>{author.name}</span>}
+              <span>·</span><span>{fmtDate(ann.ts)}</span>
+              {proj&&<><span>·</span><span style={{color:proj.color}}>{proj.icon} {proj.name}</span></>}
+            </div>
+          </div>
+        </div>
+        <div style={{fontSize:13,color:T.textSub,lineHeight:1.65,marginBottom:12}}>{ann.content}</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+          {Object.entries(ann.reactions).map(([emoji,count])=><div key={emoji} onClick={()=>react(ann.id,emoji)}
+            style={{display:"flex",alignItems:"center",gap:4,background:T.surfaceUp,border:`1px solid ${T.border}`,borderRadius:20,padding:"3px 9px",fontSize:12,cursor:"pointer"}}>
+            <span>{emoji}</span><span style={{fontSize:11,fontFamily:"JetBrains Mono,monospace",color:T.textSub}}>{count}</span>
+          </div>)}
+          {["🎉","✅","🔥","💡"].filter(e=>!ann.reactions[e]).slice(0,2).map(e=><div key={e} onClick={()=>react(ann.id,e)}
+            style={{display:"flex",alignItems:"center",gap:4,background:T.surfaceUp,border:`1px solid ${T.border}`,borderRadius:20,padding:"3px 9px",fontSize:12,cursor:"pointer",opacity:.5}}>{e}</div>)}
+        </div>
+        {ann.comments.map((c,i)=>{const cm=getMb(c.author);return <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0",borderTop:`1px solid ${T.border}20`}}>
+          {cm&&<Av id={c.author}/>}
+          <div><span style={{fontWeight:700,fontSize:12}}>{cm?.name.split(" ")[0]} </span><span style={{fontSize:12,color:T.textSub}}>{c.text}</span></div>
+        </div>;})}
+        <div style={{display:"flex",gap:8,marginTop:8}}>
+          <input value={comments[ann.id]||""} onChange={e=>setComments(p=>({...p,[ann.id]:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addComment(ann.id)}
+            placeholder="Add a comment…"
+            style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,padding:"7px 11px",color:T.text,fontSize:12,outline:"none",fontFamily:"Geist,sans-serif"}}/>
+          <button onClick={()=>addComment(ann.id)} style={{padding:"5px 12px",borderRadius:7,border:"none",background:T.accent,color:"white",fontSize:11,cursor:"pointer"}}>Post</button>
+        </div>
+      </div>;
+    })}
+    {showNew&&<Modal title="📢 New Announcement" onClose={()=>setShowNew(false)}>
+      <Field label="Title"><Inp value={newAnn.title} onChange={e=>setNewAnn(p=>({...p,title:e.target.value}))} autoFocus/></Field>
+      <Field label="Content"><Txta value={newAnn.content} onChange={e=>setNewAnn(p=>({...p,content:e.target.value}))} style={{minHeight:100}}/></Field>
+      <Field label="Project"><Sel value={newAnn.project} onChange={e=>setNewAnn(p=>({...p,project:e.target.value}))}>{PROJECTS.map(p=><option key={p.id} value={p.id}>{p.icon} {p.name}</option>)}</Sel></Field>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:18}}>
+        <button onClick={()=>setShowNew(false)} style={{padding:"7px 15px",borderRadius:7,border:`1px solid ${T.border}`,background:T.bg,color:T.textSub,fontSize:12,fontWeight:700,cursor:"pointer"}}>Cancel</button>
+        <button onClick={()=>{if(!newAnn.title||!newAnn.content)return;setAnnouncements(p=>[{id:`an${Date.now()}`,title:newAnn.title,content:newAnn.content,author:1,ts:now(),project:newAnn.project,pinned:false,reactions:{"👍":0},comments:[]},...p]);setShowNew(false);setNewAnn({title:"",content:"",project:"p1"});}}
+          style={{padding:"7px 15px",borderRadius:7,border:"none",background:T.accent,color:"white",fontSize:12,fontWeight:700,cursor:"pointer"}}>Post</button>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ── STANDUPS ──────────────────────────────────────────────
+function StandupsPage({tasks}) {
+  const [standups,setStandups]=useState([]), [loading,setLoading]=useState({});
+  const genAll=async()=>{
+    const ids={}; MEMBERS.forEach(m=>{ids[m.id]=true;}); setLoading(ids);
+    const results=await Promise.all(MEMBERS.map(m=>AI.standup(m.name,m.role,tasks.filter(t=>t.assignees?.includes(m.id)&&t.status!=="done").slice(0,4).map(t=>`[${t.status}] ${t.title}`).join("; ")||"nothing")));
+    setStandups(MEMBERS.map((m,i)=>({member:m.id,text:results[i],ts:now()}))); setLoading({});
+  };
+  const genOne=async(m)=>{
+    setLoading(p=>({...p,[m.id]:true}));
+    const text=await AI.standup(m.name,m.role,tasks.filter(t=>t.assignees?.includes(m.id)&&t.status!=="done").slice(0,4).map(t=>`[${t.status}] ${t.title}`).join("; ")||"nothing");
+    setStandups(p=>{const e=p.filter(s=>s.member!==m.id);return [{member:m.id,text,ts:now()},...e];});
+    setLoading(p=>({...p,[m.id]:false}));
+  };
+  return <div style={{padding:"18px 20px 30px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+      <div style={{fontSize:20,fontWeight:900,letterSpacing:"-.5px",flex:1}}>📋 Daily Standups</div>
+      <button onClick={genAll} style={{padding:"6px 14px",borderRadius:8,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontWeight:800,fontSize:12,cursor:"pointer"}}>✦ Generate All</button>
+    </div>
+    <div style={{background:`linear-gradient(135deg,${T.accentDim},${T.tealDim||T.skyDim})`,border:`1px solid ${T.accent}25`,borderRadius:12,padding:16,marginBottom:20,display:"flex",alignItems:"center",gap:14}}>
+      <div style={{fontSize:28,flexShrink:0}}>🌅</div>
+      <div>
+        <div style={{fontSize:14,fontWeight:800,marginBottom:3}}>Good morning! Time for standups.</div>
+        <div style={{fontSize:12.5,color:T.textSub}}>AI generates each person's standup from their live task data. Review and share.</div>
+      </div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+      {MEMBERS.map(m=>{
+        const sd=standups.find(s=>s.member===m.id);
+        return <div key={m.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:16,animation:"slideL .2s ease"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+            <Av id={m.id} size="lg"/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700}}>{m.name}</div>
+              <div style={{fontSize:11,color:T.textSub}}>{m.role} · {tasks.filter(t=>t.assignees?.includes(m.id)&&t.status!=="done").length} open tasks</div>
+            </div>
+            <button onClick={()=>genOne(m)} disabled={!!loading[m.id]}
+              style={{padding:"4px 10px",borderRadius:6,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontSize:11,fontWeight:800,cursor:"pointer"}}>
+              {loading[m.id]?<Spinner/>:"✦"}
+            </button>
+          </div>
+          {sd?<div style={{fontSize:12.5,color:T.text,lineHeight:1.75,whiteSpace:"pre-wrap",background:T.bg,borderRadius:8,padding:12,border:`1px solid ${T.border}`}}>{sd.text}</div>
+            :<div style={{fontSize:12,color:T.textDim,textAlign:"center",padding:"16px 0"}}>Click ✦ to generate standup</div>}
+          {sd&&<div style={{fontSize:9.5,color:T.textDim,fontFamily:"JetBrains Mono,monospace",marginTop:8}}>Generated {fmtDate(sd.ts)}</div>}
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
+// ── PORTFOLIO ─────────────────────────────────────────────
+function PortfolioPage({tasks,entries}) {
+  const [summary,setSummary]=useState(""), [loading,setLoading]=useState(false);
+  const getSummary=async()=>{
+    setLoading(true);
+    const ctx=PROJECTS.map(p=>{const pe=entries.filter(e=>e.project===p.id),spent=pe.reduce((a,e)=>a+e.amount,0);return `${p.name}(health:${p.health}%,phase:${p.phase},budget:${Math.round(spent/p.budget*100)}%used)`;}).join(", ");
+    setSummary(await AI.portfolioSummary(`Projects: ${ctx}\nTotal tasks: ${tasks.length}, done: ${tasks.filter(t=>t.status==="done").length}`));
+    setLoading(false);
+  };
+  useEffect(()=>{getSummary();},[]);
+  return <div style={{padding:"18px 20px 30px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+      <div style={{fontSize:20,fontWeight:900,letterSpacing:"-.5px",flex:1}}>🗂 Portfolio</div>
+      <button onClick={getSummary} disabled={loading} style={{padding:"6px 14px",borderRadius:8,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontWeight:800,fontSize:12,cursor:"pointer"}}>{loading?<Spinner/>:"✦"} Refresh</button>
+    </div>
+    {loading&&<Shimmer/>}
+    {summary&&<div style={{background:`linear-gradient(135deg,${T.accentDim},${T.violetDim})`,border:`1px solid ${T.accent}25`,borderRadius:12,padding:16,marginBottom:20}}>
+      <div style={{fontSize:9.5,fontWeight:800,letterSpacing:".8px",textTransform:"uppercase",color:T.accentBright,marginBottom:8}}>✦ AI Executive Summary</div>
+      <div style={{fontSize:12.5,color:T.text,lineHeight:1.75,whiteSpace:"pre-wrap"}}>{summary}</div>
+    </div>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>
+      {PROJECTS.map(p=>{
+        const pTasks=tasks.filter(t=>t.project===p.id), done=pTasks.filter(t=>t.status==="done");
+        const pe=entries.filter(e=>e.project===p.id), spent=pe.reduce((a,e)=>a+e.amount,0);
+        const budPct=Math.min(100,Math.round(spent/p.budget*100));
+        const hc=p.health>=80?T.green:p.health>=60?T.amber:T.rose;
+        return <Card key={p.id} style={{transition:"all .15s"}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:15,fontWeight:800,letterSpacing:"-.3px",color:p.color,marginBottom:3}}>{p.icon} {p.name}</div>
+              <div style={{fontSize:11,color:T.textSub}}>{p.client} · {p.phase}</div>
+            </div>
+            <Ring pct={p.health} color={hc} size={56} stroke={5}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+            {[
+              {val:`${done.length}/${pTasks.length}`,lbl:"Tasks Done",color:T.green},
+              {val:fmt$(spent),lbl:"Spent",color:T.amber},
+              {val:`${100-budPct}%`,lbl:"Budget Left",color:budPct<80?T.green:T.rose},
+              {val:`${tasks.filter(t=>t.project===p.id&&t.status==="inprogress").length}`,lbl:"In Progress",color:T.accent},
+            ].map(s=><div key={s.lbl} style={{background:T.bg,borderRadius:8,padding:"8px 10px"}}>
+              <div style={{fontFamily:"JetBrains Mono,monospace",fontSize:16,fontWeight:800,color:s.color,marginBottom:1}}>{s.val}</div>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:".7px",textTransform:"uppercase",color:T.textSub}}>{s.lbl}</div>
+            </div>)}
+          </div>
+          <div style={{fontSize:10,color:T.textSub,marginBottom:3,display:"flex",justifyContent:"space-between"}}><span>Budget</span><span style={{color:budPct>80?T.rose:T.textSub}}>{budPct}%</span></div>
+          <ProgressBar pct={budPct} color={budPct<60?T.green:budPct<80?T.amber:T.rose}/>
+        </Card>;
+      })}
+    </div>
+  </div>;
+}
+
+// ── AI CHAT ───────────────────────────────────────────────
+function AiDrawer({tasks,entries,announcements,goals,onClose}) {
+  const [msgs,setMsgs]=useState([{role:"system",text:"✦ Hi! I'm your ProjectOS AI. Ask me about tasks, projects, time, goals, or anything."}]);
+  const [input,setInput]=useState(""), [loading,setLoading]=useState(false);
+  const ref=useRef();
+  const suggs=["What's overdue?","Summarize this week","Which goals are at risk?","Draft a standup for Alex","How's the API Gateway doing?"];
+  const send=async(msg)=>{
+    if(!msg.trim())return;
+    setMsgs(p=>[...p,{role:"user",text:msg}]); setInput(""); setLoading(true);
+    const ctx=[
+      `Tasks: ${tasks.filter(t=>t.status!=="done").slice(0,8).map(t=>`[${t.priority}/${t.status}] ${t.title}`).join("; ")}`,
+      `Overdue: ${tasks.filter(t=>isOD(t.due,t.status)).length}`,
+      `Goals: ${goals.map(g=>`${g.title}(${g.status},${g.progress}%)`).join(", ")}`,
+      `Hours this week: ${fmtH(entries.filter(e=>e.date>now()-7*MS).reduce((a,e)=>a+e.hours,0))}`,
+    ].join("\n");
+    const reply=await AI.chat(msg,ctx);
+    setMsgs(p=>[...p,{role:"ai",text:reply||"I couldn't process that — try again."}]); setLoading(false);
+    setTimeout(()=>ref.current?.scrollTo({top:99999,behavior:"smooth"}),100);
+  };
+  return <div style={{position:"fixed",right:0,top:0,bottom:0,width:380,background:T.surface,borderLeft:`1px solid ${T.borderHi}`,display:"flex",flexDirection:"column",zIndex:100,boxShadow:"-8px 0 40px rgba(0,0,0,.5)",animation:"slideR .2s ease"}}>
+    <div style={{padding:"14px 16px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${T.accentDim},${T.surfaceUp})`}}>
+      <span style={{fontSize:14,fontWeight:800,background:`linear-gradient(90deg,${T.accentBright},${T.violet})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>✦ ProjectOS AI</span>
+      <div style={{width:6,height:6,borderRadius:"50%",background:T.green,animation:"pulse 2s infinite",marginLeft:4}}/>
+      <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18}}>×</button>
+    </div>
+    <div ref={ref} style={{flex:1,overflowY:"auto",padding:14}}>
+      {msgs.map((m,i)=><div key={i} style={{padding:"9px 11px",borderRadius:9,fontSize:12.5,lineHeight:1.7,marginBottom:8,...(m.role==="user"?{background:T.accentDim,border:`1px solid ${T.accent}20`,textAlign:"right"}:m.role==="ai"?{background:T.surfaceUp,border:`1px solid ${T.border}`}:{color:T.textSub,fontSize:11,textAlign:"center"})}}>{m.text}</div>)}
+      {loading&&<Shimmer/>}
+      {msgs.length<=1&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:4}}>{suggs.map(s=><button key={s} onClick={()=>send(s)} style={{padding:"5px 10px",borderRadius:20,border:`1px solid ${T.border}`,background:T.surfaceUp,color:T.textSub,fontSize:11,cursor:"pointer"}}>{s}</button>)}</div>}
+    </div>
+    <div style={{display:"flex",gap:7,padding:"12px 14px",borderTop:`1px solid ${T.border}`}}>
+      <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send(input)} placeholder="Ask anything…"
+        style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,padding:"9px 12px",color:T.text,fontSize:13,outline:"none",fontFamily:"Geist,sans-serif"}}/>
+      <button onClick={()=>send(input)} style={{padding:"8px 14px",borderRadius:8,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontWeight:800,cursor:"pointer",fontSize:12}}>{loading?"…":"↑"}</button>
+    </div>
+  </div>;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ROOT APP
+// ═══════════════════════════════════════════════════════════
+function App() {
+  // State
+  const [tasks,setTasks]=useState(()=>{try{const s=localStorage.getItem("pos_tasks");return s?JSON.parse(s):INIT_TASKS;}catch{return INIT_TASKS;}});
+  const [entries,setEntries]=useState(()=>{try{const s=localStorage.getItem("pos_entries");return s?JSON.parse(s):INIT_ENTRIES;}catch{return INIT_ENTRIES;}});
+  const [goals]=useState(INIT_GOALS);
+  const [announcements,setAnnouncements]=useState(INIT_ANNOUNCEMENTS);
+  const [sprints]=useState(INIT_SPRINTS);
+  const [docs,setDocs]=useState([
+    {id:"d1",title:"Web Platform v2 — PRD",icon:"📋",project:"p1",author:1,updated:ago(1),tags:["product"],pinned:true,versions:[{ts:ago(5),author:1,label:"Draft"},{ts:ago(1),author:3,label:"Revised"}],content:"# Web Platform v2 — PRD\n\nThe v2 platform focuses on performance, accessibility, and developer experience.\n\n## Goals\n- Reduce page load by 40%\n- Achieve WCAG 2.1 AA compliance\n\n## Acceptance Criteria\n- [ ] Lighthouse score ≥ 90\n- [x] All images have alt text\n- [ ] Keyboard-only auth flow"},
+    {id:"d2",title:"Sprint 12 Retrospective",icon:"🔄",project:"p1",author:2,updated:ago(2),tags:["agile"],pinned:false,versions:[{ts:ago(2),author:2,label:"Post-sprint"}],content:"# Sprint 12 Retrospective\n\n## ✅ What Went Well\n- CI/CD pipeline live — saves 3hrs per deploy\n- Mobile nav bug fixed in < 1 day\n\n## 🔴 What Didn't Go Well\n- Auth token issue blocked frontend 2 days\n\n## Action Items\n- [ ] Add auth integration tests\n- [x] Schedule architecture review"},
+    {id:"d3",title:"API Gateway Architecture ADR",icon:"⚙️",project:"p3",author:4,updated:ago(3),tags:["engineering"],pinned:true,versions:[{ts:ago(7),author:4,label:"Draft"},{ts:ago(3),author:2,label:"Rate limiting added"}],content:"# API Gateway — Architecture Decision\n\nWe'll use Kong as our API gateway on Kubernetes.\n\n```json\n{\n  \"per_consumer\": \"100/minute\",\n  \"algorithm\": \"sliding-window\"\n}\n```\n\n## Consequences\n✅ Single point for auth — simplifies all services\n⚠️ Single point of failure — needs HA setup"},
+  ]);
+
+  const [page,setPage]=useState("dashboard");
+  const [activeProject,setActiveProject]=useState(null);
+  const [showAI,setShowAI]=useState(false);
+  const [showCmd,setShowCmd]=useState(false);
+  const [toast,setToast]=useState(null);
+  const [activeDoc,setActiveDoc]=useState(null);
+  const [docEdit,setDocEdit]=useState(""); // editing content
+
+  // Persist tasks & entries
+  useEffect(()=>{ try{localStorage.setItem("pos_tasks",JSON.stringify(tasks));}catch{} },[tasks]);
+  useEffect(()=>{ try{localStorage.setItem("pos_entries",JSON.stringify(entries));}catch{} },[entries]);
+
+  const showToast=(msg,icon="✦")=>{ setToast({msg,icon}); setTimeout(()=>setToast(null),3000); };
+
+  // Keyboard shortcuts
+  useEffect(()=>{
+    const h=e=>{
+      if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();setShowCmd(p=>!p);}
+      if((e.metaKey||e.ctrlKey)&&e.key==="i"){e.preventDefault();setShowAI(p=>!p);}
+      if(e.key==="Escape"){setShowCmd(false);}
+    };
+    window.addEventListener("keydown",h); return()=>window.removeEventListener("keydown",h);
+  },[]);
+
+  const overdue=tasks.filter(t=>isOD(t.due,t.status));
+
+  const navigate=(p,project=null)=>{
+    setPage(p); if(project)setActiveProject(project); else if(p!=="tasks")setActiveProject(null);
+    setShowCmd(false);
+  };
+
+  const PAGES = {dashboard:"🏠 Dashboard",tasks:"✦ Tasks",time:"⏱ Time",goals:"🎯 Goals",announcements:"📢 Announcements",standups:"📋 Standups",portfolio:"🗂 Portfolio"};
+
+  // Command palette
+  const CmdPalette=()=>{
+    const [q,setQ]=useState(""), [fi,setFi]=useState(0);
+    const all=[
+      {section:"Navigate",items:Object.entries(PAGES).map(([p,l])=>({icon:l.split(" ")[0],label:l.slice(2),action:()=>navigate(p)}))},
+      {section:"Tasks",items:tasks.filter(t=>t.status!=="done").slice(0,5).map(t=>({icon:"✦",label:t.title,meta:t.priority,action:()=>{navigate("tasks");}}))},
+      {section:"Docs",items:docs.slice(0,4).map(d=>({icon:d.icon,label:d.title,meta:"doc",action:()=>{navigate("tasks");}}))} // simplified
+    ];
+    const filtered=q?all.map(s=>({...s,items:s.items.filter(i=>i.label.toLowerCase().includes(q.toLowerCase()))})).filter(s=>s.items.length>0):all;
+    const flat=filtered.flatMap(s=>s.items);
+    useEffect(()=>{
+      const h=e=>{
+        if(e.key==="ArrowDown"){e.preventDefault();setFi(f=>Math.min(f+1,flat.length-1));}
+        if(e.key==="ArrowUp"){e.preventDefault();setFi(f=>Math.max(f-1,0));}
+        if(e.key==="Enter"&&flat[fi]){flat[fi].action();setShowCmd(false);}
+      };
+      window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
+    },[fi,flat]);
+    let idx=0;
+    return <div onClick={e=>e.target===e.currentTarget&&setShowCmd(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.8)",backdropFilter:"blur(8px)",zIndex:400,display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"15vh",animation:"fadeIn .12s"}}>
+      <div style={{background:T.surface,border:`1px solid ${T.borderHi}`,borderRadius:14,width:600,maxWidth:"95vw",boxShadow:"0 30px 80px rgba(0,0,0,.7)",overflow:"hidden",animation:"slideUp .15s ease"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 16px",borderBottom:`1px solid ${T.border}`}}>
+          <span style={{fontSize:14,color:T.textSub}}>⌘</span>
+          <input autoFocus value={q} onChange={e=>{setQ(e.target.value);setFi(0);}} placeholder="Search commands, tasks, docs…"
+            style={{flex:1,background:"none",border:"none",outline:"none",color:T.text,fontSize:15,fontFamily:"Geist,sans-serif"}}/>
+          <span onClick={()=>setShowCmd(false)} style={{fontSize:9,fontFamily:"JetBrains Mono,monospace",background:T.surfaceUp,border:`1px solid ${T.border}`,borderRadius:3,padding:"1px 5px",color:T.textSub,cursor:"pointer"}}>Esc</span>
+        </div>
+        <div style={{maxHeight:380,overflowY:"auto",padding:6}}>
+          {filtered.map(s=><div key={s.section}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:T.textDim,padding:"8px 10px 4px"}}>{s.section}</div>
+            {s.items.map(item=>{const i=idx++;return <div key={item.label} onMouseEnter={()=>setFi(i)} onClick={()=>{item.action();setShowCmd(false);}}
+              style={{display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:8,cursor:"pointer",background:i===fi?T.accentDim:"transparent",color:i===fi?T.accentBright:T.text}}>
+              <span style={{fontSize:14,width:24,textAlign:"center"}}>{item.icon}</span>
+              <span style={{fontSize:13,fontWeight:500,flex:1}}>{item.label}</span>
+              {item.meta&&<span style={{fontSize:10.5,color:T.textSub}}>{item.meta}</span>}
+            </div>;})}
+          </div>)}
+        </div>
+        <div style={{padding:"8px 14px",borderTop:`1px solid ${T.border}`,display:"flex",gap:12,fontSize:10,color:T.textDim}}><span>↑↓ navigate</span><span>↵ select</span><span>Esc close</span></div>
+      </div>
+    </div>;
+  };
+
+  // Simple doc viewer (markdown-style)
+  const DocViewer=()=>{
+    const [aiLoading,setAiLoading]=useState(false), [aiResult,setAiResult]=useState("");
+    const [editing,setEditing]=useState(false);
+    const [content,setContent]=useState(activeDoc?.content||"");
+    const genDoc=async()=>{
+      setAiLoading(true);
+      const blocks=await AI.generateDoc(activeDoc.title,"Generate professional content");
+      if(blocks&&Array.isArray(blocks)){
+        const text=blocks.map(b=>{
+          if(b.type==="h1")return `# ${b.content}`;
+          if(b.type==="h2")return `## ${b.content}`;
+          if(b.type==="h3")return `### ${b.content}`;
+          if(b.type==="bullet")return `- ${b.content}`;
+          if(b.type==="todo")return `- [${b.checked?"x":" "}] ${b.content}`;
+          if(b.type==="code")return "```\n"+b.content+"\n```";
+          if(b.type==="callout")return `> 💡 ${b.content}`;
+          return b.content;
+        }).join("\n\n");
+        const updated={...activeDoc,content:text,updated:now()};
+        setDocs(p=>p.map(d=>d.id===updated.id?updated:d)); setContent(text);
+      }
+      setAiLoading(false);
+    };
+    const saveContent=()=>{
+      const updated={...activeDoc,content,updated:now()};
+      setDocs(p=>p.map(d=>d.id===updated.id?updated:d)); setEditing(false);
+    };
+    // Render markdown-ish
+    const renderMD=(text)=>{
+      if(!text)return null;
+      return text.split("\n").map((line,i)=>{
+        if(line.startsWith("# "))return <h1 key={i} style={{fontFamily:"Geist,serif",fontSize:28,fontWeight:800,letterSpacing:"-.6px",color:T.text,marginTop:10,marginBottom:4}}>{line.slice(2)}</h1>;
+        if(line.startsWith("## "))return <h2 key={i} style={{fontSize:19,fontWeight:700,color:T.text,marginTop:16,marginBottom:2,borderTop:`1px solid ${T.border}`,paddingTop:12}}>{line.slice(3)}</h2>;
+        if(line.startsWith("### "))return <h3 key={i} style={{fontSize:15,fontWeight:700,color:T.text,marginTop:10}}>{line.slice(4)}</h3>;
+        if(line.startsWith("- [x] "))return <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"2px 0",opacity:.6}}><div style={{width:16,height:16,borderRadius:4,background:T.green,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"white",marginTop:2,flexShrink:0}}>✓</div><span style={{fontSize:14,lineHeight:1.7,textDecoration:"line-through"}}>{line.slice(6)}</span></div>;
+        if(line.startsWith("- [ ] "))return <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"2px 0"}}><div style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${T.borderHi}`,marginTop:2,flexShrink:0}}/><span style={{fontSize:14,lineHeight:1.7}}>{line.slice(6)}</span></div>;
+        if(line.startsWith("- "))return <div key={i} style={{fontSize:14,lineHeight:1.7,paddingLeft:18,position:"relative"}}><span style={{position:"absolute",left:4,color:T.textSub}}>•</span>{line.slice(2)}</div>;
+        if(line.startsWith("> "))return <div key={i} style={{fontSize:13.5,lineHeight:1.7,color:T.textSub,padding:"6px 14px",borderLeft:`3px solid ${T.accent}`,fontStyle:"italic",background:T.accentDim,borderRadius:"0 6px 6px 0",margin:"3px 0"}}>{line.slice(2)}</div>;
+        if(line.startsWith("```"))return null;
+        if(line==="")return <div key={i} style={{height:8}}/>;
+        return <p key={i} style={{fontSize:14,lineHeight:1.8,color:T.text,padding:"1px 0"}}>{line}</p>;
+      });
+    };
+    return <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      <div style={{width:260,borderRight:`1px solid ${T.border}`,display:"flex",flexDirection:"column",background:T.surface}}>
+        <div style={{padding:"10px 12px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          <button onClick={()=>setActiveDoc(null)} style={{padding:"3px 7px",borderRadius:6,border:`1px solid ${T.border}`,background:T.surfaceUp,color:T.textSub,cursor:"pointer",fontSize:11}}>← Docs</button>
+          <span style={{fontSize:12,fontWeight:700,flex:1}}>Documents</span>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:7}}>
+          {docs.map(d=><div key={d.id} onClick={()=>setActiveDoc(d)}
+            style={{display:"flex",alignItems:"flex-start",gap:8,padding:9,borderRadius:8,cursor:"pointer",background:activeDoc?.id===d.id?T.accentDim:"transparent",border:`1px solid ${activeDoc?.id===d.id?T.accent+"30":"transparent"}`,marginBottom:3}}>
+            <span style={{fontSize:17}}>{d.icon}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12.5,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{d.title}</div>
+              <div style={{fontSize:10,color:T.textSub,display:"flex",gap:4}}>
+                <span>{fmtDate(d.updated)}</span>
+                {d.pinned&&<span>📌</span>}
+              </div>
+            </div>
+          </div>)}
+        </div>
+      </div>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{height:46,borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",padding:"0 18px",gap:10,background:T.surface,flexShrink:0}}>
+          <span style={{fontSize:13,color:T.textSub,flex:1}}>{activeDoc.icon} {activeDoc.title}</span>
+          <span style={{fontSize:10,color:T.textDim,fontFamily:"JetBrains Mono,monospace"}}>v{activeDoc.versions?.length}</span>
+          {aiLoading&&<Spinner/>}
+          <button onClick={()=>editing?saveContent():setEditing(true)} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${T.border}`,background:T.surfaceUp,color:T.textSub,fontSize:11,cursor:"pointer"}}>{editing?"Save":"Edit"}</button>
+          <button onClick={genDoc} disabled={aiLoading} style={{padding:"4px 10px",borderRadius:6,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontSize:11,fontWeight:700,cursor:"pointer"}}>{aiLoading?<Spinner/>:"✦ Generate"}</button>
+        </div>
+        <div style={{flex:1,overflowY:"auto"}}>
+          <div style={{maxWidth:720,margin:"0 auto",padding:"28px 36px 60px"}}>
+            {editing?<textarea value={content} onChange={e=>setContent(e.target.value)} style={{width:"100%",minHeight:"70vh",background:"transparent",border:"none",outline:"none",color:T.text,fontSize:14,lineHeight:1.8,fontFamily:"JetBrains Mono,monospace",resize:"none"}}/>:renderMD(content||activeDoc.content)}
+          </div>
+        </div>
+      </div>
+    </div>;
+  };
+
+  // ── RENDER ───────────────────────────────────────────────
+  const NAV_SECTIONS=[
+    {label:"Workspace",items:[
+      {icon:"🏠",label:"Dashboard",    page:"dashboard"},
+      {icon:"✦",label:"My Tasks",      page:"tasks", badge:tasks.filter(t=>t.assignees?.includes(1)&&t.status!=="done").length},
+      {icon:"⚠",label:"Overdue",       page:"tasks", badge:overdue.length, alert:true},
+    ]},
+    {label:"Projects",items:PROJECTS.map(p=>({icon:p.icon,label:p.name,page:"tasks",project:p.id,color:p.color,badge:tasks.filter(t=>t.project===p.id&&t.status!=="done").length}))},
+    {label:"Tools",items:[
+      {icon:"◻",label:"Docs & Wiki",   page:"docs"},
+      {icon:"⏱",label:"Time & Billing",page:"time"},
+    ]},
+    {label:"Insights",items:[
+      {icon:"🗂",label:"Portfolio",     page:"portfolio"},
+      {icon:"🎯",label:"Goals & OKRs", page:"goals"},
+      {icon:"📋",label:"Standups",      page:"standups"},
+      {icon:"📢",label:"Announcements", page:"announcements"},
+    ]},
+  ];
+
+  const PAGE_ICONS={"dashboard":"🏠","tasks":"✦","docs":"◻","time":"⏱","portfolio":"🗂","goals":"🎯","standups":"📋","announcements":"📢"};
+  const PAGE_TITLES={"dashboard":"Dashboard","tasks":"Tasks","docs":"Docs & Wiki","time":"Time & Billing","portfolio":"Portfolio","goals":"Goals & OKRs","standups":"Standups","announcements":"Announcements"};
+
+  return <>
+    <div style={{display:"flex",height:"100vh",overflow:"hidden",background:T.bg,fontFamily:"Geist,sans-serif",marginTop:localStorage.getItem('projectos_api_key')?0:0}}>
+      {/* SIDEBAR */}
+      <div style={{width:224,minWidth:224,background:T.surface,borderRight:`1px solid ${T.border}`,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"15px 14px 12px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <div style={{width:30,height:30,borderRadius:8,background:`linear-gradient(135deg,${T.accent},${T.violet})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:900,color:"white",animation:"glow 4s ease-in-out infinite"}}>P</div>
+          <div style={{fontSize:14,fontWeight:900,letterSpacing:"-.4px"}}>ProjectOS</div>
+          <div style={{fontSize:8,color:T.accentBright,fontFamily:"JetBrains Mono,monospace",marginLeft:"auto"}}>v1.0</div>
+        </div>
+        <div onClick={()=>setShowCmd(true)} style={{margin:"9px 10px 0",display:"flex",alignItems:"center",gap:7,background:T.surfaceUp,border:`1px solid ${T.border}`,borderRadius:8,padding:"7px 10px",cursor:"pointer"}}>
+          <span style={{fontSize:11,color:T.textSub}}>🔍</span><span style={{fontSize:11.5,color:T.textDim,flex:1}}>Search…</span><span style={{fontSize:9,fontFamily:"JetBrains Mono,monospace",background:T.surfaceUp,border:`1px solid ${T.border}`,borderRadius:3,padding:"1px 5px",color:T.textSub}}>⌘K</span>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:"6px 0 12px"}}>
+          {NAV_SECTIONS.map(section=><div key={section.label} style={{padding:"10px 6px 3px"}}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:T.textDim,padding:"0 8px",marginBottom:3}}>{section.label}</div>
+            {section.items.map(item=>{
+              const isAct=page===item.page&&(!item.project||activeProject===item.project);
+              return <div key={item.label} onClick={()=>navigate(item.page,item.project||null)}
+                style={{display:"flex",alignItems:"center",gap:7,padding:"7px 8px",borderRadius:7,fontSize:12.5,color:isAct?T.accentBright:T.textSub,fontWeight:500,cursor:"pointer",background:isAct?T.accentDim:"transparent",transition:"all .12s"}}>
+                {item.color?<div style={{width:8,height:8,borderRadius:"50%",background:item.color,flexShrink:0}}/>:<span style={{fontSize:12,width:18,textAlign:"center"}}>{item.icon}</span>}
+                <span>{item.label}</span>
+                {item.badge>0&&<span style={{marginLeft:"auto",fontSize:10,background:item.alert?T.roseDim:T.border,color:item.alert?T.rose:T.textSub,padding:"0 5px",borderRadius:6,fontFamily:"JetBrains Mono,monospace"}}>{item.badge}</span>}
+              </div>;
+            })}
+          </div>)}
+          <div style={{padding:"10px 6px 3px"}}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.4px",textTransform:"uppercase",color:T.textDim,padding:"0 8px",marginBottom:3}}>Team</div>
+            {MEMBERS.map(m=><div key={m.id} style={{display:"flex",alignItems:"center",gap:7,padding:"7px 8px",borderRadius:7,fontSize:12.5,color:T.textSub}}>
+              <div style={{width:16,height:16,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:6.5,fontWeight:800,color:"white"}}>{m.ini}</div>
+              <span>{m.name.split(" ")[0]}</span>
+              <span style={{marginLeft:"auto",fontSize:10,background:T.border,color:T.textSub,padding:"0 5px",borderRadius:6,fontFamily:"JetBrains Mono,monospace"}}>{tasks.filter(t=>t.assignees?.includes(m.id)&&t.status!=="done").length}</span>
+            </div>)}
+          </div>
+        </div>
+        <div style={{padding:"10px 14px",borderTop:`1px solid ${T.border}`,flexShrink:0}}>
+          <div onClick={()=>setShowAI(p=>!p)} style={{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",background:T.accentDim,border:`1px solid ${T.accent}30`,borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700,color:T.accentBright,marginBottom:8}}>
+            <span>✦</span><span style={{flex:1}}>Ask AI anything</span><span style={{fontSize:9,fontFamily:"JetBrains Mono,monospace",background:T.surfaceUp,border:`1px solid ${T.border}`,borderRadius:3,padding:"1px 5px",color:T.textSub}}>⌘I</span>
+          </div>
+          <div style={{fontSize:9.5,color:T.textDim,display:"flex",gap:6,alignItems:"center"}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:T.green,animation:"pulse 2s infinite"}}/>
+            ProjectOS · No install · No build
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
+        <div style={{height:50,borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",padding:"0 20px",gap:10,background:T.surface,flexShrink:0}}>
+          <div style={{fontSize:15,fontWeight:800,letterSpacing:"-.4px",display:"flex",alignItems:"center",gap:8,flex:1}}>
+            {PAGE_ICONS[page]||"◻"} {PAGE_TITLES[page]||page}
+            {getPj(activeProject)&&page==="tasks"&&<><span style={{fontSize:11,color:T.textDim}}>›</span><span style={{fontSize:11,color:getPj(activeProject)?.color,fontWeight:600}}>{getPj(activeProject)?.icon} {getPj(activeProject)?.name}</span><button onClick={()=>setActiveProject(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.textDim,fontSize:10}}>✕</button></>}
+            <div style={{width:6,height:6,borderRadius:"50%",background:T.green,animation:"pulse 2s infinite",marginLeft:4}}/>
+          </div>
+          {overdue.length>0&&<span style={{fontSize:11,color:T.rose,fontFamily:"JetBrains Mono,monospace",fontWeight:700}}>⚠ {overdue.length} overdue</span>}
+          <button onClick={()=>setShowAI(p=>!p)} style={{padding:"5px 12px",borderRadius:8,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontWeight:800,fontSize:12,cursor:"pointer"}}>✦ AI</button>
+        </div>
+
+        <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <div style={{flex:1,overflowY:"auto"}}>
+              {page==="dashboard"&&<DashboardPage tasks={tasks} entries={entries} sprints={sprints} goals={goals} docs={docs} setPage={setPage}/>}
+              {page==="tasks"&&<TasksPage tasks={tasks} setTasks={setTasks} sprints={sprints} activeProject={activeProject}/>}
+              {page==="docs"&&!activeDoc&&<div style={{display:"flex",flex:1,overflow:"hidden"}}>
+                <div style={{width:280,borderRight:`1px solid ${T.border}`,display:"flex",flexDirection:"column",background:T.surface}}>
+                  <div style={{padding:"12px 14px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                    <span style={{fontSize:13.5,fontWeight:800,flex:1}}>Docs</span>
+                    <button onClick={()=>{const d={id:`d-${Date.now()}`,title:"Untitled",icon:"◻",project:"p1",author:1,updated:now(),tags:[],pinned:false,versions:[{ts:now(),author:1,label:"Created"}],content:"# Untitled\n\nStart writing…"};setDocs(p=>[d,...p]);setActiveDoc(d);}} style={{padding:"5px 10px",borderRadius:7,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ New</button>
+                  </div>
+                  <div style={{flex:1,overflowY:"auto",padding:7}}>
+                    {docs.map(d=><div key={d.id} onClick={()=>setActiveDoc(d)}
+                      style={{display:"flex",alignItems:"flex-start",gap:9,padding:9,borderRadius:9,cursor:"pointer",border:`1px solid transparent`,marginBottom:3,transition:"all .12s"}}
+                      onMouseEnter={e=>e.currentTarget.style.background=T.surfaceUp}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <span style={{fontSize:18}}>{d.icon}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12.5,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{d.title}</div>
+                        <div style={{fontSize:10,color:T.textSub,display:"flex",gap:4}}><span>{fmtDate(d.updated)}</span>{d.pinned&&<span>📌</span>}</div>
+                      </div>
+                    </div>)}
+                  </div>
+                </div>
+                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:40}}>
+                  <div style={{textAlign:"center",maxWidth:480}}>
+                    <div style={{fontSize:42,marginBottom:14}}>◻</div>
+                    <div style={{fontSize:22,fontWeight:800,letterSpacing:"-.5px",marginBottom:10}}>Docs & Wiki</div>
+                    <div style={{fontSize:14,color:T.textSub,marginBottom:24,lineHeight:1.7}}>Block-based documents, AI writing, version history, and team knowledge base.</div>
+                    <button onClick={()=>{const d={id:`d-${Date.now()}`,title:"Untitled",icon:"◻",project:"p1",author:1,updated:now(),tags:[],pinned:false,versions:[{ts:now(),author:1,label:"Created"}],content:"# Untitled\n\nStart writing here…"};setDocs(p=>[d,...p]);setActiveDoc(d);}}
+                      style={{padding:"10px 22px",borderRadius:9,border:"none",background:`linear-gradient(135deg,${T.accent},${T.violet})`,color:"white",fontWeight:800,fontSize:13,cursor:"pointer"}}>✦ Create new doc</button>
+                  </div>
+                </div>
+              </div>}
+              {page==="docs"&&activeDoc&&<DocViewer/>}
+              {page==="time"&&<TimePage entries={entries} setEntries={setEntries}/>}
+              {page==="goals"&&<GoalsPage goals={goals}/>}
+              {page==="announcements"&&<AnnouncementsPage announcements={announcements} setAnnouncements={setAnnouncements}/>}
+              {page==="standups"&&<StandupsPage tasks={tasks}/>}
+              {page==="portfolio"&&<PortfolioPage tasks={tasks} entries={entries}/>}
+            </div>
+          </div>
+          {showAI&&<AiDrawer tasks={tasks} entries={entries} announcements={announcements} goals={goals} onClose={()=>setShowAI(false)}/>}
+        </div>
+      </div>
+    </div>
+
+    {showCmd&&<CmdPalette/>}
+    {toast&&<div style={{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",zIndex:999,background:T.surfaceHi,border:`1px solid ${T.borderHi}`,borderRadius:10,padding:"11px 18px",fontSize:12.5,fontWeight:600,boxShadow:"0 8px 32px rgba(0,0,0,.6)",animation:"slideUp .2s ease",display:"flex",alignItems:"center",gap:8,whiteSpace:"nowrap"}}>{toast.icon} {toast.msg}</div>}
+  </>;
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>

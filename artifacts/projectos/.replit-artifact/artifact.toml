@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ProjectOS"
+version = "1.0.0"
+id = "artifacts/projectos"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22603
+
+[services.development]
+run = "pnpm --filter @workspace/projectos run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/projectos", "run", "build" ]
+publicDir = "artifacts/projectos/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22603"
+BASE_PATH = "/"
