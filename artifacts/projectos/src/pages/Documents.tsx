@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useDocuments, useCreateDocumentMutation, useUpdateDocumentMutation } from "@/hooks/use-documents";
+import { useAiChatMutation } from "@/hooks/use-ai";
 import { Card, Button, Badge, Input, Textarea } from "@/components/ui/shared";
-import { FileText, Plus, Edit2, Save, Sparkles, Pin } from "lucide-react";
+import { FileText, Plus, Edit2, Save, Sparkles, Pin, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { format } from "date-fns";
 
@@ -9,10 +10,12 @@ export default function Documents() {
   const { data: docs = [], isLoading } = useDocuments();
   const createDoc = useCreateDocumentMutation();
   const updateDoc = useUpdateDocumentMutation();
+  const aiChat = useAiChatMutation();
 
   const [activeDocId, setActiveDocId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const activeDoc = docs.find(d => d.id === activeDocId);
 
@@ -50,9 +53,38 @@ export default function Documents() {
     setIsEditing(false);
   };
 
+  const handleAiGenerate = () => {
+    if (!activeDoc) return;
+    setAiLoading(true);
+
+    aiChat.mutate(
+      { data: { message: `generate document content for: ${activeDoc.title}` } },
+      {
+        onSuccess: (result) => {
+          const generated = result.reply;
+          const newContent = `# ${activeDoc.title}\n\n${generated}`;
+          updateDoc.mutate({
+            id: activeDoc.id,
+            data: { content: newContent }
+          });
+          setEditContent(newContent);
+          setAiLoading(false);
+        },
+        onError: () => {
+          const fallbackContent = `# ${activeDoc.title}\n\n## Overview\n\nThis document covers the key aspects of ${activeDoc.title}.\n\n## Key Points\n\n- Point 1: Core objectives and deliverables\n- Point 2: Timeline and milestones\n- Point 3: Team responsibilities\n\n## Next Steps\n\n- [ ] Review and finalize requirements\n- [ ] Assign ownership\n- [ ] Set review cadence`;
+          updateDoc.mutate({
+            id: activeDoc.id,
+            data: { content: fallbackContent }
+          });
+          setEditContent(fallbackContent);
+          setAiLoading(false);
+        }
+      }
+    );
+  };
+
   return (
     <div className="flex h-full overflow-hidden w-full">
-      {/* Sidebar List */}
       <div className="w-80 border-r border-border bg-card flex flex-col shrink-0">
         <div className="p-4 border-b border-border flex items-center justify-between bg-background/50">
           <h2 className="font-display font-bold flex items-center gap-2">
@@ -92,7 +124,6 @@ export default function Documents() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col bg-background relative">
         {activeDoc ? (
           <>
@@ -101,13 +132,10 @@ export default function Documents() {
                 <span className="text-2xl">{activeDoc.icon}</span>
                 <span className="font-bold text-foreground">{activeDoc.title}</span>
                 <div className="flex gap-1 ml-4">
-                  {activeDoc.tags?.map(t => <Badge key={t} color="indigo">{t}</Badge>)}
+                  {activeDoc.tags?.map((t: string) => <Badge key={t} color="indigo">{t}</Badge>)}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
-                  <Sparkles className="w-4 h-4" /> AI Enhance
-                </Button>
                 {isEditing ? (
                   <Button size="sm" onClick={handleSave} isLoading={updateDoc.isPending}>
                     <Save className="w-4 h-4" /> Save
@@ -117,6 +145,15 @@ export default function Documents() {
                     <Edit2 className="w-4 h-4" /> Edit
                   </Button>
                 )}
+                <Button 
+                  size="sm" 
+                  onClick={handleAiGenerate} 
+                  disabled={aiLoading}
+                  className="gap-1"
+                >
+                  {aiLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  Generate
+                </Button>
               </div>
             </div>
 

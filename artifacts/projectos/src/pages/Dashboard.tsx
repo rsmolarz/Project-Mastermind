@@ -1,14 +1,26 @@
+import { useState } from "react";
 import { useDashboardStats } from "@/hooks/use-dashboard";
 import { useTasks } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
-import { Card, ProgressBar, AvatarStack, Badge, Button } from "@/components/ui/shared";
-import { CheckSquare, Clock, Target, AlertTriangle, Sparkles, ArrowRight } from "lucide-react";
+import { useSprints } from "@/hooks/use-sprints";
+import { useDocuments } from "@/hooks/use-documents";
+import { useGoals } from "@/hooks/use-goals";
+import { useAiChatMutation } from "@/hooks/use-ai";
+import { Card, ProgressBar, Badge, Button, RingChart } from "@/components/ui/shared";
+import { CheckSquare, Clock, Target, AlertTriangle, Sparkles, ArrowRight, RefreshCw, FileText } from "lucide-react";
 import { Link } from "wouter";
+import { format } from "date-fns";
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: tasks = [], isLoading: tasksLoading } = useTasks();
   const { data: projects = [] } = useProjects();
+  const { data: sprints = [] } = useSprints();
+  const { data: docs = [] } = useDocuments();
+  const { data: goals = [] } = useGoals();
+  const aiChat = useAiChatMutation();
+  const [briefing, setBriefing] = useState("");
+  const [briefingLoading, setBriefingLoading] = useState(false);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -20,10 +32,30 @@ export default function Dashboard() {
   const overdue = tasks.filter(t => t.status !== "done" && t.due && new Date(t.due) < new Date());
   const critical = tasks.filter(t => t.priority === "critical" && t.status !== "done");
 
+  const refreshBriefing = () => {
+    setBriefingLoading(true);
+    aiChat.mutate(
+      { data: { message: "Give me a daily briefing summary" } },
+      {
+        onSuccess: (result) => {
+          setBriefing(result.reply);
+          setBriefingLoading(false);
+        },
+        onError: () => {
+          setBriefing(`You have ${overdue.length} overdue tasks and ${critical.length} critical items. ${tasks.filter(t => t.status === "inprogress").length} tasks are in progress across ${projects.length} projects. Focus on clearing blockers and overdue items first.`);
+          setBriefingLoading(false);
+        }
+      }
+    );
+  };
+
+  const activeSprints = sprints.filter(s => s.status === "active");
+
+  const healthColor = (h: number) => h >= 80 ? "#10b981" : h >= 60 ? "#f59e0b" : "#f43f5e";
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in duration-500">
       
-      {/* Hero Welcome */}
       <div className="relative overflow-hidden rounded-3xl bg-card border border-border shadow-2xl p-8 lg:p-12">
         <div className="absolute inset-0 z-0">
           <img 
@@ -41,21 +73,32 @@ export default function Dashboard() {
           <h1 className="text-4xl lg:text-5xl font-display font-extrabold text-white mb-4 tracking-tight">
             {getGreeting()}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">Team.</span>
           </h1>
-          <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-            You have {overdue.length} overdue tasks and {critical.length} critical items needing attention today. Project Alpha is at 85% budget consumption.
-          </p>
-          <div className="flex gap-4">
+          
+          {briefing ? (
+            <div className="text-base text-muted-foreground mb-8 leading-relaxed whitespace-pre-wrap bg-primary/5 border border-primary/10 rounded-xl p-4">
+              {briefing}
+            </div>
+          ) : (
+            <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+              You have {overdue.length} overdue tasks and {critical.length} critical items needing attention today.
+            </p>
+          )}
+          
+          <div className="flex gap-4 flex-wrap">
             <Link href="/tasks">
               <Button size="lg" className="w-full sm:w-auto">View My Tasks</Button>
             </Link>
             <Link href="/time">
               <Button size="lg" variant="secondary" className="w-full sm:w-auto">Start Timer</Button>
             </Link>
+            <Button size="lg" variant="outline" onClick={refreshBriefing} disabled={briefingLoading} className="gap-2">
+              {briefingLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              Refresh Briefing
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "In Progress Tasks", value: stats?.inProgressTasks || 0, icon: CheckSquare, color: "text-blue-500", bg: "bg-blue-500/10" },
@@ -77,11 +120,10 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Needs Attention */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-display font-bold flex items-center gap-2">
-              🔥 Needs Attention
+              Needs Attention
             </h2>
             <Link href="/tasks" className="text-sm text-primary hover:underline flex items-center gap-1">
               View all <ArrowRight className="w-4 h-4" />
@@ -101,7 +143,9 @@ export default function Dashboard() {
                     <span>Due: {task.due ? new Date(task.due).toLocaleDateString() : 'N/A'}</span>
                   </div>
                 </div>
-                <Button variant="outline" size="sm">Open</Button>
+                <Link href="/tasks">
+                  <Button variant="outline" size="sm">Open</Button>
+                </Link>
               </div>
             ))}
             {!tasksLoading && [...overdue, ...critical].length === 0 && (
@@ -113,29 +157,132 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Project Budgets */}
         <div className="space-y-4">
-          <h2 className="text-xl font-display font-bold">💰 Budgets</h2>
+          <h2 className="text-xl font-display font-bold">Budgets</h2>
           <Card className="p-5 space-y-6">
-            {projects.slice(0,4).map(p => {
-              // Mock budget usage if stats API doesn't provide
-              const usage = Math.floor(Math.random() * 100); 
-              const colorClass = usage > 90 ? "bg-rose-500" : usage > 75 ? "bg-amber-500" : "bg-emerald-500";
-              
+            {(stats?.projectBudgets || []).map((pb: any) => {
+              const colorClass = pb.percentUsed > 90 ? "bg-rose-500" : pb.percentUsed > 75 ? "bg-amber-500" : "bg-emerald-500";
               return (
-                <div key={p.id}>
+                <div key={pb.projectId}>
                   <div className="flex justify-between items-center mb-2">
                     <div className="font-medium text-sm flex items-center gap-2">
-                      <span className="text-lg">{p.icon}</span> {p.name}
+                      <span className="text-lg">{pb.projectIcon}</span> {pb.projectName}
                     </div>
-                    <span className="text-xs font-mono font-bold">{usage}%</span>
+                    <span className="text-xs font-mono font-bold">{pb.percentUsed}%</span>
                   </div>
-                  <ProgressBar progress={usage} colorClass={colorClass} heightClass="h-2" />
+                  <ProgressBar progress={pb.percentUsed} colorClass={colorClass} heightClass="h-2" />
                 </div>
               );
             })}
+            {(!stats?.projectBudgets || stats.projectBudgets.length === 0) && projects.map(p => (
+              <div key={p.id}>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="font-medium text-sm flex items-center gap-2">
+                    <span className="text-lg">{p.icon}</span> {p.name}
+                  </div>
+                  <span className="text-xs font-mono font-bold">-</span>
+                </div>
+                <ProgressBar progress={0} colorClass="bg-emerald-500" heightClass="h-2" />
+              </div>
+            ))}
           </Card>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display font-bold flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" /> Recent Docs
+            </h2>
+            <Link href="/documents" className="text-xs text-primary hover:underline">View all</Link>
+          </div>
+          <div className="space-y-2">
+            {docs.slice(0, 4).map(doc => (
+              <Link key={doc.id} href="/documents" className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
+                <span className="text-lg">{doc.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate group-hover:text-primary transition-colors">{doc.title}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">
+                    {format(new Date(doc.updatedAt), "MMM d")}
+                  </div>
+                </div>
+              </Link>
+            ))}
+            {docs.length === 0 && (
+              <div className="text-sm text-muted-foreground text-center py-4">No documents yet</div>
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display font-bold flex items-center gap-2">Active Sprints</h2>
+            <Link href="/tasks" className="text-xs text-primary hover:underline">View all</Link>
+          </div>
+          <div className="space-y-3">
+            {activeSprints.length > 0 ? activeSprints.map(sprint => {
+              const sprintTasks = tasks.filter(t => t.sprintId === sprint.id);
+              const done = sprintTasks.filter(t => t.status === "done").length;
+              const total = sprintTasks.length;
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+              return (
+                <div key={sprint.id}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">{sprint.name}</span>
+                    <span className="text-xs font-mono text-muted-foreground">{done}/{total}</span>
+                  </div>
+                  <ProgressBar progress={pct} colorClass="bg-primary" heightClass="h-1.5" />
+                </div>
+              );
+            }) : sprints.slice(0, 3).map(sprint => {
+              const sprintTasks = tasks.filter(t => t.sprintId === sprint.id);
+              const done = sprintTasks.filter(t => t.status === "done").length;
+              const total = sprintTasks.length;
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+              return (
+                <div key={sprint.id}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">{sprint.name}</span>
+                    <span className="text-xs font-mono text-muted-foreground">{done}/{total}</span>
+                  </div>
+                  <ProgressBar progress={pct} colorClass="bg-primary" heightClass="h-1.5" />
+                </div>
+              );
+            })}
+            {sprints.length === 0 && (
+              <div className="text-sm text-muted-foreground text-center py-4">No sprints yet</div>
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display font-bold flex items-center gap-2">
+              <Target className="w-5 h-5 text-emerald-400" /> Goals
+            </h2>
+            <Link href="/goals" className="text-xs text-primary hover:underline">View all</Link>
+          </div>
+          <div className="space-y-3">
+            {goals.slice(0, 4).map(goal => {
+              const color = goal.status === "on_track" ? "#10b981" : goal.status === "at_risk" ? "#f59e0b" : "#f43f5e";
+              return (
+                <div key={goal.id} className="flex items-center gap-3">
+                  <RingChart progress={goal.progress} size={36} strokeWidth={4} color={color} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{goal.title}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      {goal.status.replace("_", " ")}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {goals.length === 0 && (
+              <div className="text-sm text-muted-foreground text-center py-4">No goals yet</div>
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );

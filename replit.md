@@ -40,15 +40,28 @@ artifacts-monorepo/
 
 ## Features
 
-- **Dashboard**: Welcome banner, stat cards (in-progress, overdue, hours, goals), needs attention list, project budgets
-- **Tasks (Kanban)**: Board with Backlog/To Do/In Progress/Review/Done/Blocked columns, AI natural language task creation, task detail modal, filtering by project/status/priority/assignee
-- **Time Tracking**: Live timer (start/stop), time entries table, stat cards, member/project selectors
-- **Goals & OKRs**: Goal cards with progress donut charts, key results with progress bars
-- **Announcements**: Cards with reactions, comments, pinned indicators
-- **Portfolio**: Project health cards with donut charts, budget utilization
-- **Documents/Wiki**: Split-pane layout, markdown rendering, edit mode
-- **AI Chat**: Right-side drawer, keyword-matching AI assistant for project insights
-- **Command Palette**: Cmd+K global search
+- **Dashboard**: Welcome banner with AI Briefing "Refresh" button, 4 stat cards (in-progress, overdue, hours today, goals on track), needs attention list, project budgets (real data from API), bottom row with Recent Docs, Active Sprints, Goals summary cards
+- **Tasks (Kanban + List)**: Board/List view toggle, Kanban with drag-and-drop columns (Backlog/To Do/In Progress/Review/Done/Blocked), List view with collapsible status groups, AI natural language task creation, task detail modal, URL query-based filtering by project (`?projectId=N`) and overdue (`?filter=overdue`)
+- **Time Tracking**: Live timer (start/stop), 4 stat cards (Today hours, This Week revenue, Billable hours, Billable %), day-grouped time entries with sticky date headers and "TODAY" badge, billable indicator column
+- **Goals & OKRs**: Goal cards with progress donut charts, key results with progress bars, AI Health Check
+- **Announcements**: Cards with reactions, comments, pinned indicators, new post modal
+- **Standups**: AI-generated daily standups per team member, "Generate All" button, individual generate buttons, morning welcome banner
+- **Portfolio**: AI Executive Summary with "Refresh" button, project health cards with donut charts, 4-stat grid (Tasks Done, Spent, Budget Left, In Progress), budget utilization bars
+- **Documents/Wiki**: Split-pane layout, markdown rendering, edit mode, AI "Generate" button for content generation
+- **AI Chat**: Right-side drawer (Cmd+I), keyword-matching AI assistant for project insights
+- **Command Palette**: Cmd+K global search across pages, tasks, docs
+- **Sidebar**: Workspace section (Dashboard, My Tasks with badge, Overdue with count badge), Active Projects with task count badges, Tools section, Insights section (Portfolio, Goals, Standups, Announcements), Team Online avatars, AI Assistant button
+
+## Pages & Routes
+
+- `/` — Dashboard
+- `/tasks` — Tasks (Board/List), supports `?projectId=N` and `?filter=overdue`
+- `/time` — Time & Billing
+- `/goals` — Goals & OKRs
+- `/announcements` — Announcements
+- `/standups` — Daily Standups
+- `/portfolio` — Project Portfolio
+- `/documents` — Documents & Wiki
 
 ## Database Tables
 

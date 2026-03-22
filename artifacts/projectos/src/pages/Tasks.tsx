@@ -3,32 +3,56 @@ import { useTasks, useCreateTaskMutation, useUpdateTaskMutation } from "@/hooks/
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
 import { Card, Badge, Avatar, Button, Modal, Input, Textarea } from "@/components/ui/shared";
-import { Plus, CheckCircle2, Clock, PlayCircle, Eye, AlertOctagon, MoreHorizontal, Sparkles } from "lucide-react";
+import { Plus, CheckCircle2, Clock, PlayCircle, Eye, AlertOctagon, MoreHorizontal, Sparkles, LayoutGrid, List, ChevronDown, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
+import { useSearch } from "wouter";
 
 const STATUSES = [
-  { id: "backlog", label: "Backlog", icon: Clock, color: "text-slate-400", border: "border-slate-400" },
-  { id: "todo", label: "To Do", icon: CheckCircle2, color: "text-blue-400", border: "border-blue-400" },
-  { id: "inprogress", label: "In Progress", icon: PlayCircle, color: "text-primary", border: "border-primary" },
-  { id: "review", label: "Review", icon: Eye, color: "text-amber-400", border: "border-amber-400" },
-  { id: "done", label: "Done", icon: CheckCircle2, color: "text-emerald-400", border: "border-emerald-400" },
-  { id: "blocked", label: "Blocked", icon: AlertOctagon, color: "text-rose-400", border: "border-rose-400" },
+  { id: "backlog", label: "Backlog", icon: Clock, color: "text-slate-400", border: "border-slate-400", dot: "bg-slate-400" },
+  { id: "todo", label: "To Do", icon: CheckCircle2, color: "text-blue-400", border: "border-blue-400", dot: "bg-blue-400" },
+  { id: "inprogress", label: "In Progress", icon: PlayCircle, color: "text-primary", border: "border-primary", dot: "bg-primary" },
+  { id: "review", label: "Review", icon: Eye, color: "text-amber-400", border: "border-amber-400", dot: "bg-amber-400" },
+  { id: "done", label: "Done", icon: CheckCircle2, color: "text-emerald-400", border: "border-emerald-400", dot: "bg-emerald-400" },
+  { id: "blocked", label: "Blocked", icon: AlertOctagon, color: "text-rose-400", border: "border-rose-400", dot: "bg-rose-400" },
 ];
 
+const PRIORITY_MAP: Record<string, { color: string; icon: string }> = {
+  critical: { color: "red", icon: "🔴" },
+  high: { color: "yellow", icon: "🟡" },
+  medium: { color: "blue", icon: "🔵" },
+  low: { color: "gray", icon: "⚪" },
+};
+
 export default function Tasks() {
-  const { data: tasks = [], isLoading } = useTasks();
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const filterProjectId = params.get("projectId") ? parseInt(params.get("projectId")!, 10) : null;
+  const filterMode = params.get("filter");
+
+  const { data: allTasks = [], isLoading } = useTasks();
   const { data: projects = [] } = useProjects();
   const { data: members = [] } = useMembers();
+
+  const tasks = useMemo(() => {
+    let filtered = allTasks;
+    if (filterProjectId) {
+      filtered = filtered.filter(t => t.projectId === filterProjectId);
+    }
+    if (filterMode === "overdue") {
+      filtered = filtered.filter(t => t.status !== "done" && t.due && new Date(t.due) < new Date());
+    }
+    return filtered;
+  }, [allTasks, filterProjectId, filterMode]);
   
   const updateTask = useUpdateTaskMutation();
   const createTask = useCreateTaskMutation();
 
   const [aiInput, setAiInput] = useState("");
-  const [selectedTask, setSelectedTask] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewTask, setIsNewTask] = useState(false);
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   
-  // Form State
   const [formData, setFormData] = useState<any>({});
 
   const handleDragStart = (e: React.DragEvent, id: number) => {
@@ -69,7 +93,6 @@ export default function Tasks() {
 
   const handleAiCreate = () => {
     if (!aiInput) return;
-    // Mock parsing for visual effect
     createTask.mutate({
       data: {
         title: aiInput,
@@ -83,6 +106,10 @@ export default function Tasks() {
     }, {
       onSuccess: () => setAiInput("")
     });
+  };
+
+  const toggleCollapse = (statusId: string) => {
+    setCollapsed(prev => ({ ...prev, [statusId]: !prev[statusId] }));
   };
 
   const renderKanban = () => (
@@ -160,13 +187,95 @@ export default function Tasks() {
     </div>
   );
 
+  const renderList = () => (
+    <div className="space-y-4 pb-8 px-2">
+      {STATUSES.map(status => {
+        const group = tasks.filter(t => t.status === status.id);
+        const isCollapsed = collapsed[status.id];
+        const Icon = status.icon;
+
+        return (
+          <div key={status.id}>
+            <button
+              onClick={() => toggleCollapse(status.id)}
+              className={`flex items-center gap-2 w-full px-2 py-2 ${status.color} cursor-pointer border-b border-border`}
+            >
+              {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              <div className={`w-2 h-2 rounded-full ${status.dot}`} />
+              <span className="font-bold uppercase tracking-wider text-xs">{status.label}</span>
+              <span className="ml-2 bg-secondary px-2 py-0.5 rounded-full text-xs font-mono text-muted-foreground">
+                {group.length}
+              </span>
+            </button>
+
+            {!isCollapsed && group.map(task => {
+              const pr = PRIORITY_MAP[task.priority] || PRIORITY_MAP.medium;
+              const isOverdue = task.due && new Date(task.due) < new Date() && task.status !== 'done';
+              return (
+                <div
+                  key={task.id}
+                  onClick={() => openTask(task)}
+                  className="grid gap-3 px-3 py-3 cursor-pointer items-center border-b border-border/20 hover:bg-white/5 transition-colors"
+                  style={{ gridTemplateColumns: "1fr 80px 90px 80px 50px" }}
+                >
+                  <div className={`text-sm font-medium truncate ${task.status === 'done' ? 'line-through text-muted-foreground opacity-50' : ''}`}>
+                    {task.title}
+                  </div>
+                  <div className="flex -space-x-1">
+                    {task.assigneeIds?.slice(0, 2).map((id: number) => {
+                      const m = members.find(m => m.id === id);
+                      return m ? <Avatar key={id} name={m.name} color={m.color} /> : null;
+                    })}
+                  </div>
+                  <Badge color={pr.color}>
+                    {pr.icon} {task.priority}
+                  </Badge>
+                  <div className={`text-xs font-mono ${isOverdue ? 'text-rose-400 font-bold' : 'text-muted-foreground'}`}>
+                    {task.due ? format(new Date(task.due), "MMM d") : "-"}
+                  </div>
+                  <div className="text-xs font-mono text-muted-foreground">
+                    {task.points}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col pt-6 max-w-[1600px] mx-auto w-full px-6">
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 shrink-0">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Tasks</h1>
-          <p className="text-muted-foreground mt-1">Manage and track your project tasks.</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold">
+              {filterMode === "overdue" ? "Overdue Tasks" : filterProjectId ? `${projects.find(p => p.id === filterProjectId)?.name || "Project"} Tasks` : "Tasks"}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {filterMode === "overdue" ? `${tasks.length} overdue tasks requiring attention.` : filterProjectId ? `Showing tasks for ${projects.find(p => p.id === filterProjectId)?.name || "selected project"}.` : "Manage and track your project tasks."}
+            </p>
+          </div>
+          <div className="flex bg-secondary/50 border border-border rounded-xl p-1">
+            <button
+              onClick={() => setViewMode("kanban")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                viewMode === "kanban" ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" /> Board
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                viewMode === "list" ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" /> List
+            </button>
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
@@ -186,14 +295,12 @@ export default function Tasks() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
-        ) : (
-          renderKanban()
-        )}
+        ) : viewMode === "kanban" ? renderKanban() : renderList()}
       </div>
 
       <Modal 
