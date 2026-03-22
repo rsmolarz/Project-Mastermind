@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { 
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
-  Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList
+  Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -96,6 +96,7 @@ export function Sidebar({
           <div className="space-y-0.5">
             <NavItem item={{ icon: FileText, label: "Docs & Wiki", path: "/documents" }} />
             <NavItem item={{ icon: Clock, label: "Time & Billing", path: "/time" }} />
+            <NavItem item={{ icon: Repeat, label: "Sprints", path: "/sprints" }} />
           </div>
         </div>
 

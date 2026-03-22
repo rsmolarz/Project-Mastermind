@@ -12,6 +12,7 @@ import Announcements from "@/pages/Announcements";
 import Portfolio from "@/pages/Portfolio";
 import Documents from "@/pages/Documents";
 import Standups from "@/pages/Standups";
+import Sprints from "@/pages/Sprints";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/portfolio" component={Portfolio} />
         <Route path="/documents" component={Documents} />
         <Route path="/standups" component={Standups} />
+        <Route path="/sprints" component={Sprints} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

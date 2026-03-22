@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
-import { db, tasksTable } from "@workspace/db";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { db, tasksTable, activityLogTable } from "@workspace/db";
 import {
   ListTasksQueryParams,
   ListTasksResponse,
@@ -63,7 +63,15 @@ router.post("/tasks", async (req, res): Promise<void> => {
     subtasks: parsed.data.subtasks ?? [],
     notes: parsed.data.notes ?? "",
     sortOrder: nextOrder,
+    recurrence: (req.body as any).recurrence || null,
   }).returning();
+
+  await db.insert(activityLogTable).values({
+    entityType: "task", entityId: task.id, action: "task_created",
+    details: { title: task.title, status: task.status, priority: task.priority },
+    actorId: (parsed.data.assigneeIds as number[])?.[0] || 1,
+  });
+
   res.status(201).json(GetTaskResponse.parse(task));
 });
 
@@ -107,12 +115,20 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
   if (parsed.data.subtasks !== undefined) updateData.subtasks = parsed.data.subtasks;
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
   if (parsed.data.sortOrder !== undefined) updateData.sortOrder = parsed.data.sortOrder;
+  if ((req.body as any).recurrence !== undefined) updateData.recurrence = (req.body as any).recurrence;
 
   const [task] = await db.update(tasksTable).set(updateData).where(eq(tasksTable.id, params.data.id)).returning();
   if (!task) {
     res.status(404).json({ error: "Task not found" });
     return;
   }
+
+  await db.insert(activityLogTable).values({
+    entityType: "task", entityId: task.id, action: "task_updated",
+    details: { fields: Object.keys(updateData) },
+    actorId: 1,
+  });
+
   res.json(UpdateTaskResponse.parse(task));
 });
 
@@ -127,7 +143,42 @@ router.delete("/tasks/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Task not found" });
     return;
   }
+
+  await db.insert(activityLogTable).values({
+    entityType: "task", entityId: task.id, action: "task_deleted",
+    details: { title: task.title },
+    actorId: 1,
+  });
+
   res.sendStatus(204);
+});
+
+router.post("/tasks/bulk", async (req, res): Promise<void> => {
+  const { taskIds, action, data } = req.body;
+  if (!taskIds || !Array.isArray(taskIds) || !action) {
+    res.status(400).json({ error: "taskIds (array) and action are required" });
+    return;
+  }
+
+  if (action === "delete") {
+    await db.delete(tasksTable).where(inArray(tasksTable.id, taskIds));
+    res.json({ success: true, affected: taskIds.length });
+    return;
+  }
+
+  if (action === "update" && data) {
+    const updateData: Record<string, unknown> = {};
+    if (data.status) updateData.status = data.status;
+    if (data.priority) updateData.priority = data.priority;
+    if (data.assigneeIds) updateData.assigneeIds = data.assigneeIds;
+    if (data.projectId) updateData.projectId = data.projectId;
+
+    await db.update(tasksTable).set(updateData).where(inArray(tasksTable.id, taskIds));
+    res.json({ success: true, affected: taskIds.length });
+    return;
+  }
+
+  res.status(400).json({ error: "Invalid action. Use 'delete' or 'update'" });
 });
 
 router.post("/tasks/reorder", async (req, res): Promise<void> => {

@@ -6,3 +6,6 @@ export * from "./time-entries";
 export * from "./goals";
 export * from "./announcements";
 export * from "./documents";
+export * from "./task-comments";
+export * from "./activity-log";
+export * from "./notifications";

@@ -1,0 +1,51 @@
+ HIGH IMPACT — Missing from ProjectOS
+Views & Visualization
+FeatureHas ItCalendar view (full, interactive)❌ Shown in Phase 1 but not wired in unified appTable / Spreadsheet view❌ Airtable, Smartsheet, MondayGallery view (image card layout)❌ Notion, ClickUpRoadmap view (initiative-level, not Gantt)❌ Linear, Asana, ProductboardMind map view❌ ClickUp, Hive, MindMeisterWhiteboard (freeform canvas)❌ ClickUp, Hive, MiroMap / geographic view❌ Monday, ClickUp
+Task System
+FeatureHas ItRecurring tasks (daily / weekly / monthly / custom)❌ Every platform has thisCustom task statuses per project❌ ClickUp, Linear, Monday — you define your own flowMultiple list membership (task in 2+ projects)❌ ClickUp's most-loved featureBulk actions (multi-select, bulk assign / move / delete)❌ Every platform has thisSaved filters / custom views❌ ClickUp, Asana, LinearTask templates (predefined structure for bugs, PRDs, etc.)❌ Linear, Jira, ClickUpEmail-to-task (create task by sending an email)❌ Basecamp, Asana, TeamworkThreaded comments on tasks❌ Linear, Asana, Jira — we have flat comments only@ mentions in comments❌ Every platform has thisWatch / subscribe to a task❌ Jira, Asana, ClickUpActivity log per task (who changed what, when)❌ All enterprise platformsNatural language date parsing ("next Tuesday", "in 3 weeks")❌ Todoist, Linear, Notion
+Custom Fields & Data
+FeatureHas ItCustom fields per project (text, number, URL, checkbox, rating, formula)❌ ClickUp, Monday, Notion, AirtableFormula fields (calculate from other fields)❌ Notion, Monday, AirtableDatabase relations / linked records❌ Notion's defining feature — link tasks to goals to sprintsRollup fields (sum/count/avg from related records)❌ Notion, AirtableUnique task IDs with prefix (TAS-001, BUG-042)❌ Jira, Linear, Notion
+Agile / Dev Features
+FeatureHas ItBurndown charts❌ Jira, Linear, ClickUpVelocity charts (sprint-over-sprint)❌ Jira, LinearCycle time / lead time metrics❌ Linear, JiraTriage inbox (incoming unclassified issues)❌ Linear's signature featureGitHub / GitLab PR linking (auto-close task on merge)❌ Linear, Jira, ClickUpCritical path analysis❌ Wrike, ProjectManager, MS ProjectEpics as a first-class view❌ Jira — we have the type but no epic board
+Finance
+FeatureHas ItExpense tracking (log non-time expenses)❌ Paymo, Teamwork, HarvestProfit margin tracking❌ Teamwork, PaymoBudget forecasting (predict future spend)❌ Celoxis, Wrike, ProjectManagerPurchase order management❌ Enterprise PM tools
+
+🟡 MEDIUM IMPACT — Missing from ProjectOS
+Collaboration
+FeatureHas ItIn-app notification center / inbox❌ Every platform — we have no notification systemEmail notifications (task assigned, due soon, comment)❌ Every platformDaily / weekly digest emails❌ Asana, ClickUp, BasecampPersonal "My Work" inbox across all projects❌ Asana, ClickUp, LinearReal-time presence (see who's viewing a doc/task)❌ Notion, ClickUp, FigmaAI meeting notes / transcription integration❌ Notion AI, Hive, ClickUpAI risk prediction (flag at-risk tasks automatically)❌ Wrike Work Intelligence, Hive
+Proofing & Media
+FeatureHas ItVideo proofing with timestamp comments❌ Hive, Wrike, Frame.ioPDF annotation / in-line markup❌ Wrike Proof, ProofhubImage markup (draw on screenshots)❌ Hive, Proofhub, WrikeVersion comparison (v1 vs v2 side by side)❌ Wrike Proof
+People & Permissions
+FeatureHas ItRole-based permissions (admin / member / guest / viewer)❌ Every platformGuest access (invite clients without full access)❌ Every platformPer-project permissions❌ Asana, Monday, ClickUpSSO / SAML (enterprise auth)❌ Enterprise tier of every platformTwo-factor authentication (2FA)❌ Security baseline
+Resources
+FeatureHas ItResource forecasting (future capacity planning)❌ Celoxis, Wrike, SmartsheetDrag-to-reassign on workload view❌ Monday, Asana — we have heatmap but can't reassign from itUtilization rate targets per person❌ Celoxis, TeamworkBaseline comparison (actual vs planned)❌ MS Project, Wrike, Smartsheet
+Integrations
+FeatureHas ItGoogle Calendar / Outlook two-way sync❌ Asana, ClickUp, TeamworkSlack integration (create tasks from messages)❌ Linear, Asana, ClickUpGitHub / GitLab integration❌ Linear, Jira, ClickUpZapier / Make webhook support❌ All platformsPublic REST API❌ All platformsCSV / Excel import❌ All platformsJira import / migration tool❌ ClickUp, Asana, Linear
+
+🟢 LOWER IMPACT — Nice to Have
+FeatureSource PlatformAI scheduling (auto-slot tasks into calendar)MotionTime blocking (drag tasks into time slots)Motion, SunsamaWhite-label client portal (custom domain + logo)Proofhub, TeamworkContract managementTeamworkCRM data sync (Salesforce, HubSpot)Monday, ClickUpNative mobile apps (iOS / Android)Every platformOffline modeNotion, ClickUpDark / light mode toggleWe're dark-onlyKeyboard-first navigation (every action via keyboard)LinearGlobal quick-add (capture task from any screen)Todoist, LinearCard mirroring (one task visible in multiple boards)TrelloProject templates (clone entire project with tasks)All platformsAI-generated project plan from briefHive, ClickUp AIEarned Value Analysis (EVA) for enterprise PMOsMS Project, CeloxisPublic project page (share read-only project view)Basecamp, TeamworkIdea / feature request portalProductboard, Canny
+
+📊 Summary by Priority
+Build next (Phase 7 — highest ROI):
+
+Recurring tasks — everyone expects this, easy to build
+Notification center — in-app + email, currently zero notifications
+Custom fields — text, number, URL, select, checkbox per task
+Bulk actions — multi-select tasks, bulk assign/move/delete
+Threaded comments + @mentions — collaboration baseline
+Activity log per task — audit trail of changes
+Burndown + velocity charts — completes the Agile story
+Role-based permissions — needed before any real team uses it
+Saved views / filters — power user essential
+Calendar sync — Google Cal / Outlook
+
+Build after (Phase 8 — differentiation):
+
+Custom task statuses per project
+GitHub PR linking
+Expense tracking + profit margins
+Resource forecasting
+PDF / video proofing
+Email notifications + digest
+Public REST API + webhooks
+CSV import

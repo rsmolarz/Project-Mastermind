@@ -10,6 +10,9 @@ import announcementsRouter from "./announcements";
 import documentsRouter from "./documents";
 import dashboardRouter from "./dashboard";
 import aiRouter from "./ai";
+import taskCommentsRouter from "./task-comments";
+import activityRouter from "./activity";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -24,5 +27,8 @@ router.use(announcementsRouter);
 router.use(documentsRouter);
 router.use(dashboardRouter);
 router.use(aiRouter);
+router.use(taskCommentsRouter);
+router.use(activityRouter);
+router.use(notificationsRouter);
 
 export default router;

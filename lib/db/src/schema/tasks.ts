@@ -18,6 +18,7 @@ export const tasksTable = pgTable("tasks", {
   subtasks: jsonb("subtasks").$type<{ title: string; done: boolean }[]>().notNull().default([]),
   notes: text("notes").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
+  recurrence: jsonb("recurrence").$type<{ type: string; interval: number; endDate?: string } | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

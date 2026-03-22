@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { CommandPalette } from "./CommandPalette";
 import { AiDrawer } from "./AiDrawer";
+import { NotificationCenter } from "./NotificationCenter";
 import { Menu } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 h-full relative z-0 mt-16 md:mt-0 overflow-y-auto">
+        <div className="absolute top-4 right-6 z-20 hidden md:flex items-center gap-2">
+          <NotificationCenter />
+        </div>
         {children}
       </main>
 
