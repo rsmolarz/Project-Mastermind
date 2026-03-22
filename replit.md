@@ -41,7 +41,7 @@ artifacts-monorepo/
 ## Features
 
 - **Dashboard**: Welcome banner with AI Briefing "Refresh" button, 4 stat cards (in-progress, overdue, hours today, goals on track), needs attention list, project budgets (real data from API), bottom row with Recent Docs, Active Sprints, Goals summary cards
-- **Tasks (Board/List/Calendar)**: Board/List/Calendar view toggle, Kanban with drag-and-drop columns (Backlog/To Do/In Progress/Review/Done/Blocked), List view with collapsible status groups and bulk select checkboxes, Calendar view (monthly grid with tasks on due dates), AI natural language task creation, task detail modal with Details/Comments/Activity tabs, URL query-based filtering (`?projectId=N`, `?filter=overdue`), filter bar (status/priority dropdowns), saved filters (localStorage), bulk actions (multi-select, bulk move/priority/delete), recurring tasks (daily/weekly/biweekly/monthly)
+- **Tasks (7 Views)**: Board/List/Table/Calendar/Gallery/Roadmap/Triage views. Kanban with drag-and-drop, List with collapsible groups, Table (spreadsheet with unique IDs like WEB-001), Calendar (monthly grid), Gallery (visual card grid), Roadmap (project timeline bars), Triage inbox (unassigned/backlog/no-due-date sections). AI natural language task creation, task detail modal with Details/Comments/Activity tabs, URL filtering (`?projectId=N`, `?filter=overdue`), filter bar (status/priority), saved filters, bulk actions, recurring tasks
 - **Sprints**: Burndown chart (ideal vs actual lines), Velocity chart (completed vs committed per sprint), stat cards (Total Points, Completed, In Progress, Avg Velocity), All Sprints list with progress bars
 - **Time Tracking**: Live timer (start/stop), 4 stat cards (Today hours, This Week revenue, Billable hours, Billable %), day-grouped time entries with sticky date headers and "TODAY" badge, billable indicator column
 - **Goals & OKRs**: Goal cards with progress donut charts, key results with progress bars, AI Health Check
@@ -54,12 +54,13 @@ artifacts-monorepo/
 - **Activity Log**: Per-task activity timeline showing task created/updated/deleted/comment events
 - **AI Chat**: Right-side drawer (Cmd+I), keyword-matching AI assistant for project insights
 - **Command Palette**: Cmd+K global search across pages, tasks, docs
-- **Sidebar**: Workspace section (Dashboard, My Tasks with badge, Overdue with count badge), Active Projects with task count badges, Tools section (Docs, Time, Sprints), Insights section (Portfolio, Goals, Standups, Announcements), Team Online avatars, AI Assistant button
+- **Super Admin** (`/admin`): Overview dashboard (8 stat cards, status/priority breakdowns, team workload, financial summary), AI Command Center (20 AI features with run/toggle), Feature Flags (14 platform features with toggle switches), Task Templates (preset templates for bugs/PRDs/features, custom creation), Custom Fields (text/number/URL/checkbox/rating/select/date/email), Expense Tracking (log/approve/delete expenses by category), System Config (auth, webhooks, API, integrations)
+- **Sidebar**: Workspace section (Dashboard, My Tasks with badge, Overdue with count badge), Active Projects with task count badges, Tools section (Docs, Time, Sprints), Insights section (Portfolio, Goals, Standups, Announcements), Admin section (Super Admin), Team Online avatars, AI Assistant button
 
 ## Pages & Routes
 
 - `/` — Dashboard
-- `/tasks` — Tasks (Board/List/Calendar), supports `?projectId=N` and `?filter=overdue`
+- `/tasks` — Tasks (Board/List/Table/Calendar/Gallery/Roadmap/Triage), supports `?projectId=N` and `?filter=overdue`
 - `/sprints` — Sprint management with burndown + velocity charts
 - `/time` — Time & Billing
 - `/goals` — Goals & OKRs
@@ -67,6 +68,7 @@ artifacts-monorepo/
 - `/standups` — Daily Standups
 - `/portfolio` — Project Portfolio
 - `/documents` — Documents & Wiki
+- `/admin` — Super Admin (overview, AI Command Center, feature flags, templates, custom fields, expenses, system config)
 
 ## Database Tables
 
@@ -81,6 +83,10 @@ artifacts-monorepo/
 - `task_comments` — id, taskId, authorId, content, parentId, createdAt
 - `activity_log` — id, entityType, entityId, action, details (JSONB), actorId, createdAt
 - `notifications` — id, userId, type, title, message, link, read, createdAt
+- `expenses` — id, projectId, memberId, category, description, amount, date, receipt, approved, createdAt
+- `task_templates` — id, name, description, icon, category, defaultStatus, defaultPriority, defaultPoints, defaultTags (JSONB), subtaskTemplates (JSONB), notesTemplate, createdAt
+- `custom_fields` — id, projectId, name, type, options (JSONB), required, createdAt
+- `custom_field_values` — id, fieldId, entityType, entityId, value
 
 ## API Routes (mounted at /api)
 
@@ -97,6 +103,11 @@ artifacts-monorepo/
 - `GET/POST /task-comments`, `DELETE /task-comments/:id`
 - `GET/POST /activity`
 - `GET/POST /notifications`, `PATCH /notifications/:id/read`, `POST /notifications/mark-all-read`, `DELETE /notifications/:id`
+- `GET/POST /expenses`, `PATCH/DELETE /expenses/:id`
+- `GET/POST /task-templates`, `DELETE /task-templates/:id`
+- `GET/POST /custom-fields`, `DELETE /custom-fields/:id`
+- `GET/POST /custom-field-values`
+- `GET /admin/stats`, `POST /admin/ai/analyze`
 
 ## Key Commands
 

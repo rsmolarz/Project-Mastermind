@@ -13,6 +13,7 @@ import Portfolio from "@/pages/Portfolio";
 import Documents from "@/pages/Documents";
 import Standups from "@/pages/Standups";
 import Sprints from "@/pages/Sprints";
+import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -37,6 +38,7 @@ function Router() {
         <Route path="/documents" component={Documents} />
         <Route path="/standups" component={Standups} />
         <Route path="/sprints" component={Sprints} />
+        <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

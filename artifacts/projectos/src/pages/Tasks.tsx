@@ -10,7 +10,7 @@ import {
   Plus, CheckCircle2, Clock, PlayCircle, Eye, AlertOctagon, MoreHorizontal, Sparkles,
   LayoutGrid, List, ChevronDown, ChevronRight, Calendar, Trash2, ArrowRight,
   Filter, Save, Bookmark, X, MessageSquare, Activity, Send, Repeat,
-  Square, CheckSquare
+  Square, CheckSquare, Table, Image, Map, Inbox
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from "date-fns";
 import { useSearch } from "wouter";
@@ -44,7 +44,7 @@ export default function Tasks() {
   const { data: projects = [] } = useProjects();
   const { data: members = [] } = useMembers();
 
-  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage">("kanban");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [aiInput, setAiInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -221,6 +221,232 @@ export default function Tasks() {
     </div>
   );
 
+  // ─── Table View ───
+  const renderTable = () => (
+    <div className="pb-8 px-2 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left">
+            <th className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider w-8">
+              <button onClick={selectAll}>{selectedIds.size === tasks.length && tasks.length > 0 ? <CheckSquare className="w-3.5 h-3.5 text-primary" /> : <Square className="w-3.5 h-3.5 text-muted-foreground" />}</button>
+            </th>
+            <th className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">ID</th>
+            <th className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Title</th>
+            <th className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+            <th className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Priority</th>
+            <th className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Project</th>
+            <th className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Assignee</th>
+            <th className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Points</th>
+            <th className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Due</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map(task => {
+            const project = projects.find(p => p.id === task.projectId);
+            const assignees = members.filter(m => (task.assigneeIds as number[])?.includes(m.id));
+            const status = STATUSES.find(s => s.id === task.status);
+            const isOverdue = task.due && new Date(task.due) < new Date() && task.status !== "done";
+            const prefix = project?.name === "API Gateway" ? "API" : project?.name === "Mobile App" ? "MOB" : "WEB";
+            return (
+              <tr key={task.id} onClick={() => openTask(task)} className={`border-b border-border/30 hover:bg-white/5 cursor-pointer transition-colors ${selectedIds.has(task.id) ? "bg-primary/5" : ""}`}>
+                <td className="px-3 py-2.5" onClick={e => { e.stopPropagation(); toggleSelect(task.id); }}>
+                  {selectedIds.has(task.id) ? <CheckSquare className="w-3.5 h-3.5 text-primary" /> : <Square className="w-3.5 h-3.5 text-muted-foreground" />}
+                </td>
+                <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">{prefix}-{String(task.id).padStart(3, "0")}</td>
+                <td className="px-3 py-2.5 font-medium max-w-[300px] truncate">{task.title}</td>
+                <td className="px-3 py-2.5">
+                  <span className={`inline-flex items-center gap-1 text-xs font-medium ${status?.color || ""}`}>
+                    <div className={`w-2 h-2 rounded-full ${status?.dot || ""}`} /> {status?.label}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  <span className="text-xs">{PRIORITY_MAP[task.priority]?.icon} {task.priority}</span>
+                </td>
+                <td className="px-3 py-2.5 text-xs">{project && <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: project.color }} />{project.name}</span>}</td>
+                <td className="px-3 py-2.5">
+                  <div className="flex -space-x-1">{assignees.slice(0, 2).map(m => <Avatar key={m.id} name={m.name} color={m.color} />)}</div>
+                </td>
+                <td className="px-3 py-2.5 text-xs font-mono">{task.points || "-"}</td>
+                <td className={`px-3 py-2.5 text-xs ${isOverdue ? "text-rose-400 font-bold" : "text-muted-foreground"}`}>
+                  {task.due ? format(new Date(task.due), "MMM d") : "-"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  // ─── Gallery View ───
+  const renderGallery = () => {
+    const projectColors: Record<string, string> = { 1: "from-indigo-500/30 to-purple-600/30", 2: "from-violet-500/30 to-fuchsia-600/30", 3: "from-emerald-500/30 to-teal-600/30" };
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-8 px-2">
+        {tasks.map(task => {
+          const project = projects.find(p => p.id === task.projectId);
+          const assignees = members.filter(m => (task.assigneeIds as number[])?.includes(m.id));
+          const status = STATUSES.find(s => s.id === task.status);
+          const isOverdue = task.due && new Date(task.due) < new Date() && task.status !== "done";
+          return (
+            <div key={task.id} onClick={() => openTask(task)} className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/30 cursor-pointer transition-all hover:shadow-lg group">
+              <div className={`h-24 bg-gradient-to-br ${projectColors[task.projectId] || "from-slate-500/20 to-slate-600/20"} flex items-center justify-center relative`}>
+                <span className="text-4xl opacity-60">{task.type === "bug" ? "🐛" : task.type === "feature" ? "✨" : task.type === "story" ? "📖" : "📋"}</span>
+                {status && <div className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${status.dot} ring-2 ring-card`} />}
+              </div>
+              <div className="p-3">
+                <h4 className="text-sm font-semibold line-clamp-2 group-hover:text-primary transition-colors">{task.title}</h4>
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px]">{PRIORITY_MAP[task.priority]?.icon}</span>
+                    {project && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: project.color }} />}
+                    {task.points && <span className="text-[10px] font-mono text-muted-foreground bg-white/5 px-1 rounded">{task.points}pt</span>}
+                  </div>
+                  <div className="flex -space-x-1">
+                    {assignees.slice(0, 2).map(m => <Avatar key={m.id} name={m.name} color={m.color} />)}
+                  </div>
+                </div>
+                {task.due && (
+                  <div className={`text-[10px] mt-1.5 ${isOverdue ? "text-rose-400 font-bold" : "text-muted-foreground"}`}>
+                    {isOverdue ? "⚠️ " : ""}Due {format(new Date(task.due), "MMM d")}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ─── Roadmap View ───
+  const renderRoadmap = () => {
+    const projectGroups = projects.map(p => ({
+      ...p,
+      tasks: tasks.filter(t => t.projectId === p.id),
+    }));
+    const now = new Date();
+    const monthsAhead = 4;
+    const months = Array.from({ length: monthsAhead }, (_, i) => addMonths(startOfMonth(now), i));
+
+    return (
+      <div className="pb-8 px-2 overflow-x-auto">
+        <div className="min-w-[800px]">
+          <div className="flex border-b border-border mb-4">
+            <div className="w-48 shrink-0 px-3 py-2 text-xs font-bold text-muted-foreground uppercase">Project</div>
+            {months.map(m => (
+              <div key={m.toISOString()} className="flex-1 px-3 py-2 text-xs font-bold text-muted-foreground uppercase text-center border-l border-border/30">
+                {format(m, "MMM yyyy")}
+              </div>
+            ))}
+          </div>
+
+          {projectGroups.map(pg => {
+            const totalTasks = pg.tasks.length;
+            const doneTasks = pg.tasks.filter(t => t.status === "done").length;
+            const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+            const hasDueTasks = pg.tasks.filter(t => t.due).length;
+            const earliestDue = pg.tasks.filter(t => t.due).sort((a, b) => new Date(a.due!).getTime() - new Date(b.due!).getTime())[0];
+            const latestDue = pg.tasks.filter(t => t.due).sort((a, b) => new Date(b.due!).getTime() - new Date(a.due!).getTime())[0];
+
+            return (
+              <div key={pg.id} className="flex border-b border-border/30 hover:bg-white/[0.02]">
+                <div className="w-48 shrink-0 px-3 py-3 flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: pg.color }} />
+                  <div>
+                    <div className="text-sm font-semibold">{pg.name}</div>
+                    <div className="text-[10px] text-muted-foreground">{doneTasks}/{totalTasks} done</div>
+                  </div>
+                </div>
+                <div className="flex flex-1 relative items-center">
+                  {months.map(m => (
+                    <div key={m.toISOString()} className="flex-1 border-l border-border/10 h-full" />
+                  ))}
+                  {hasDueTasks > 0 && earliestDue && latestDue && (
+                    <div
+                      className="absolute h-6 rounded-full flex items-center px-2 text-[10px] font-bold text-white"
+                      style={{
+                        backgroundColor: pg.color,
+                        opacity: 0.8,
+                        left: `${Math.max(0, Math.min(95, ((new Date(earliestDue.due!).getTime() - months[0].getTime()) / (months[months.length - 1].getTime() - months[0].getTime())) * 100))}%`,
+                        width: `${Math.max(5, Math.min(95 - Math.max(0, ((new Date(earliestDue.due!).getTime() - months[0].getTime()) / (months[months.length - 1].getTime() - months[0].getTime())) * 100), ((new Date(latestDue.due!).getTime() - new Date(earliestDue.due!).getTime()) / (months[months.length - 1].getTime() - months[0].getTime())) * 100))}%`,
+                      }}
+                    >
+                      {progress}%
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Triage View ───
+  const renderTriage = () => {
+    const unassigned = tasks.filter(t => !t.assigneeIds || (t.assigneeIds as number[]).length === 0);
+    const backlog = tasks.filter(t => t.status === "backlog" && t.assigneeIds && (t.assigneeIds as number[]).length > 0);
+    const needsPriority = tasks.filter(t => t.priority === "medium" && t.status !== "done");
+    const noDueDate = tasks.filter(t => !t.due && t.status !== "done");
+
+    const sections = [
+      { title: "Unassigned", items: unassigned, color: "text-rose-400", bg: "bg-rose-500/10", desc: "Tasks without an owner — assign to a team member" },
+      { title: "Needs Triage", items: backlog, color: "text-amber-400", bg: "bg-amber-500/10", desc: "In backlog — prioritize and move to a sprint" },
+      { title: "No Due Date", items: noDueDate, color: "text-blue-400", bg: "bg-blue-500/10", desc: "No deadline set — schedule or deprioritize" },
+    ];
+
+    return (
+      <div className="pb-8 px-2 space-y-6">
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-4 text-center">
+            <div className="text-2xl font-bold text-rose-400">{unassigned.length}</div>
+            <div className="text-xs text-muted-foreground">Unassigned</div>
+          </div>
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
+            <div className="text-2xl font-bold text-amber-400">{backlog.length}</div>
+            <div className="text-xs text-muted-foreground">Needs Triage</div>
+          </div>
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-center">
+            <div className="text-2xl font-bold text-blue-400">{noDueDate.length}</div>
+            <div className="text-xs text-muted-foreground">No Due Date</div>
+          </div>
+        </div>
+
+        {sections.map(section => (
+          <div key={section.title}>
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className={`text-sm font-bold ${section.color}`}>{section.title}</h3>
+              <span className="text-xs text-muted-foreground">— {section.desc}</span>
+              <span className={`ml-auto text-xs font-mono px-2 py-0.5 rounded-full ${section.bg} ${section.color}`}>{section.items.length}</span>
+            </div>
+            <div className="space-y-1.5">
+              {section.items.length === 0 && <div className="text-xs text-muted-foreground py-4 text-center">All clear!</div>}
+              {section.items.slice(0, 8).map(task => {
+                const project = projects.find(p => p.id === task.projectId);
+                return (
+                  <div key={task.id} onClick={() => openTask(task)}
+                    className="flex items-center gap-3 bg-card border border-border rounded-lg px-4 py-2.5 cursor-pointer hover:border-primary/30 transition-colors">
+                    <span className="text-xs">{PRIORITY_MAP[task.priority]?.icon}</span>
+                    <span className="text-sm font-medium flex-1 truncate">{task.title}</span>
+                    {project && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: project.color }} />{project.name}</div>}
+                    <span className="text-xs text-muted-foreground">{task.points}pt</span>
+                    <button onClick={e => { e.stopPropagation(); updateTask.mutate({ id: task.id, data: { status: "todo" } }); }}
+                      className="text-[10px] px-2 py-1 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 font-bold">
+                      → To Do
+                    </button>
+                  </div>
+                );
+              })}
+              {section.items.length > 8 && <div className="text-xs text-muted-foreground text-center py-2">+{section.items.length - 8} more</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // ─── Kanban View ───
   const renderKanban = () => (
     <div className="flex gap-6 overflow-x-auto pb-8 h-full items-start px-2">
@@ -351,11 +577,15 @@ export default function Tasks() {
               {filterMode === "overdue" ? `${tasks.length} overdue tasks requiring attention.` : filterProjectId ? `Showing tasks for ${projects.find(p => p.id === filterProjectId)?.name || "selected project"}.` : "Manage and track your project tasks."}
             </p>
           </div>
-          <div className="flex bg-secondary/50 border border-border rounded-xl p-1">
+          <div className="flex bg-secondary/50 border border-border rounded-xl p-1 flex-wrap">
             {([
               { key: "kanban", icon: LayoutGrid, label: "Board" },
               { key: "list", icon: List, label: "List" },
+              { key: "table", icon: Table, label: "Table" },
               { key: "calendar", icon: Calendar, label: "Calendar" },
+              { key: "gallery", icon: Image, label: "Gallery" },
+              { key: "roadmap", icon: Map, label: "Roadmap" },
+              { key: "triage", icon: Inbox, label: "Triage" },
             ] as const).map(v => (
               <button key={v.key} onClick={() => setViewMode(v.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${viewMode === v.key ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
@@ -413,7 +643,7 @@ export default function Tasks() {
         </div>
       )}
 
-      {viewMode === "list" && (
+      {(viewMode === "list" || viewMode === "table") && (
         <div className="flex items-center gap-3 mb-2 px-2 shrink-0">
           <button onClick={selectAll} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 font-medium">
             {selectedIds.size === tasks.length && tasks.length > 0 ? <CheckSquare className="w-3.5 h-3.5 text-primary" /> : <Square className="w-3.5 h-3.5" />}
@@ -425,7 +655,7 @@ export default function Tasks() {
       <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
-        ) : viewMode === "kanban" ? renderKanban() : viewMode === "list" ? renderList() : renderCalendar()}
+        ) : viewMode === "kanban" ? renderKanban() : viewMode === "list" ? renderList() : viewMode === "calendar" ? renderCalendar() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : renderTriage()}
       </div>
 
       {renderBulkBar()}

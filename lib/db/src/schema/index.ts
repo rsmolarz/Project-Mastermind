@@ -9,3 +9,6 @@ export * from "./documents";
 export * from "./task-comments";
 export * from "./activity-log";
 export * from "./notifications";
+export * from "./expenses";
+export * from "./task-templates";
+export * from "./custom-fields";

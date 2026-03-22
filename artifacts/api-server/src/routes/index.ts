@@ -13,6 +13,10 @@ import aiRouter from "./ai";
 import taskCommentsRouter from "./task-comments";
 import activityRouter from "./activity";
 import notificationsRouter from "./notifications";
+import expensesRouter from "./expenses";
+import taskTemplatesRouter from "./task-templates";
+import customFieldsRouter from "./custom-fields";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -30,5 +34,9 @@ router.use(aiRouter);
 router.use(taskCommentsRouter);
 router.use(activityRouter);
 router.use(notificationsRouter);
+router.use(expensesRouter);
+router.use(taskTemplatesRouter);
+router.use(customFieldsRouter);
+router.use(adminRouter);
 
 export default router;
