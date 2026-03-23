@@ -17,6 +17,7 @@ import expensesRouter from "./expenses";
 import taskTemplatesRouter from "./task-templates";
 import customFieldsRouter from "./custom-fields";
 import adminRouter from "./admin";
+import apiKeysRouter from "./api-keys";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(expensesRouter);
 router.use(taskTemplatesRouter);
 router.use(customFieldsRouter);
 router.use(adminRouter);
+router.use(apiKeysRouter);
 
 export default router;
