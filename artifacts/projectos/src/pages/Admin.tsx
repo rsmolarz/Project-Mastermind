@@ -20,7 +20,9 @@ import {
 
 const API = `${import.meta.env.VITE_API_URL || ""}/api`;
 
-type AdminTab = "overview" | "ai-features" | "templates" | "custom-fields" | "expenses" | "features" | "api-email" | "system";
+import { SecurityManagement } from "@/components/AuthGate";
+
+type AdminTab = "overview" | "ai-features" | "templates" | "custom-fields" | "expenses" | "features" | "api-email" | "security" | "system";
 
 const AI_FEATURES = [
   { key: "risk_prediction", title: "Risk Prediction", icon: AlertTriangle, color: "#ef4444", desc: "Flag at-risk tasks, overdue items, and blocked work before they escalate" },
@@ -199,6 +201,7 @@ export default function Admin() {
     { key: "custom-fields", label: "Custom Fields", icon: Tag },
     { key: "expenses", label: "Expense Tracking", icon: Receipt },
     { key: "api-email", label: "API & Email", icon: Globe },
+    { key: "security", label: "Security", icon: ShieldCheck },
     { key: "system", label: "System Config", icon: Settings },
   ];
 
@@ -240,6 +243,7 @@ export default function Admin() {
             {tab === "custom-fields" && <CustomFieldsTab fields={customFields} setFields={setCustomFields} show={showNewField} setShow={setShowNewField} />}
             {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} show={showNewExpense} setShow={setShowNewExpense} />}
             {tab === "api-email" && <ApiEmailTab />}
+            {tab === "security" && <SecurityManagement />}
             {tab === "system" && <SystemTab />}
 
           </motion.div>
