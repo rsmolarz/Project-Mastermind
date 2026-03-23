@@ -6,7 +6,11 @@ import {
   Activity, PieChart, BookOpen, MessageSquare, Gauge, RefreshCw, Eye,
   ChevronRight, Copy, Plus, Trash2, Check, X, Star, Cpu, Sparkles,
   Search, Box, Globe, Workflow, CalendarDays, Table, LayoutGrid, Map,
-  Inbox, Receipt, Puzzle, Tag, ListFilter, Network, ArrowLeftRight
+  Inbox, Receipt, Puzzle, Tag, ListFilter, Network, ArrowLeftRight,
+  Flame, Tags, Split, ScrollText, Crosshair, Radar, Timer, Radio,
+  ShieldAlert, Milestone, Wrench, Megaphone, UserCheck, Heart, Hash,
+  Grip, Import, Database, Lock, SunMoon, Keyboard, Mail,
+  GitPullRequest, Link2, FolderArchive, Palette, UserPlus
 } from "lucide-react";
 
 const API = `${import.meta.env.VITE_API_URL || ""}/api`;
@@ -36,10 +40,35 @@ const AI_FEATURES = [
   { key: "capacity_planning", title: "Capacity Planning", icon: PieChart, color: "#64748b", desc: "Forecast future capacity needs based on project pipeline" },
 ];
 
+const AI_FEATURES_2 = [
+  { key: "auto_tagger", title: "Auto-Tagger", icon: Tags, color: "#14b8a6", desc: "Auto-suggest tags for untagged tasks using NLP keyword analysis" },
+  { key: "task_decomposer", title: "Task Decomposer", icon: Split, color: "#8b5cf6", desc: "Break down epics into subtasks with estimated points" },
+  { key: "release_notes", title: "Release Notes Gen", icon: ScrollText, color: "#22c55e", desc: "Auto-generate release notes from completed tasks and PRs" },
+  { key: "sprint_velocity_predictor", title: "Velocity Predictor", icon: Crosshair, color: "#f97316", desc: "Predict next sprint velocity from historical trends" },
+  { key: "skill_matcher", title: "Skill Matcher", icon: UserCheck, color: "#3b82f6", desc: "Match unassigned tasks to best-fit team members by role & capacity" },
+  { key: "burnout_detector", title: "Burnout Detector", icon: Flame, color: "#ef4444", desc: "Detect burnout risk from overdue, blocked, and overtime signals" },
+  { key: "task_aging", title: "Task Aging Analyzer", icon: Timer, color: "#a78bfa", desc: "Identify stale tasks that need reassignment or closure" },
+  { key: "communication_gaps", title: "Communication Gap Detector", icon: Radio, color: "#ec4899", desc: "Find siloed team members and cross-project collaboration gaps" },
+  { key: "effort_impact_matrix", title: "Effort vs Impact Matrix", icon: Radar, color: "#06b6d4", desc: "Quadrant analysis: quick wins, major projects, fill-ins, thankless" },
+  { key: "deadline_risk", title: "Deadline Risk Analyzer", icon: ShieldAlert, color: "#e11d48", desc: "Predict deadline misses based on estimated days vs days remaining" },
+  { key: "resource_conflicts", title: "Resource Conflict Detector", icon: Grip, color: "#f59e0b", desc: "Find scheduling conflicts when multiple tasks overlap for one member" },
+  { key: "tech_debt_scorer", title: "Tech Debt Scorer", icon: Wrench, color: "#64748b", desc: "Score technical debt per project from bugs, stale items, and tags" },
+  { key: "milestone_tracker", title: "Milestone Tracker", icon: Milestone, color: "#6366f1", desc: "Predict milestone completion with confidence levels" },
+  { key: "velocity_optimizer", title: "Velocity Optimizer", icon: TrendingUp, color: "#84cc16", desc: "Analyze points-per-hour efficiency per team member" },
+  { key: "cross_project_deps", title: "Cross-Project Dependencies", icon: GitBranch, color: "#7c3aed", desc: "Map shared resources across projects and flag contention risks" },
+  { key: "meeting_agenda", title: "Meeting Agenda Generator", icon: Megaphone, color: "#0d9488", desc: "Auto-generate standup, sprint review, and retro agendas" },
+  { key: "customer_impact", title: "Customer Impact Analyzer", icon: Heart, color: "#f472b6", desc: "Assess customer-facing impact of each open task" },
+  { key: "project_health_deep", title: "Deep Project Health", icon: Activity, color: "#0ea5e9", desc: "Composite health score from budget, tasks, and risk factors" },
+  { key: "automation_suggestions", title: "Automation Suggestions", icon: Workflow, color: "#d946ef", desc: "AI-suggested if-then workflow automations based on patterns" },
+  { key: "csv_preview", title: "Data Import/Export", icon: Database, color: "#38bdf8", desc: "Preview CSV import/export structure for all data types" },
+];
+
 const PLATFORM_FEATURES = [
   { key: "table_view", title: "Table / Spreadsheet View", icon: Table, category: "Views", desc: "Airtable-style spreadsheet with inline editing, sorting, and grouping", status: "ready" },
   { key: "gallery_view", title: "Gallery View", icon: LayoutGrid, category: "Views", desc: "Visual card grid layout for image-heavy tasks or design assets", status: "ready" },
   { key: "roadmap_view", title: "Roadmap View", icon: Map, category: "Views", desc: "Initiative-level timeline view for planning quarters and milestones", status: "ready" },
+  { key: "mind_map", title: "Mind Map View", icon: Network, category: "Views", desc: "Visual mind map of task relationships and project hierarchy", status: "ready" },
+  { key: "whiteboard", title: "Whiteboard / Canvas", icon: Palette, category: "Views", desc: "Freeform drawing canvas for brainstorming and planning", status: "ready" },
   { key: "triage_inbox", title: "Triage Inbox", icon: Inbox, category: "Tasks", desc: "Incoming unclassified issues — assign, prioritize, or dismiss", status: "ready" },
   { key: "task_templates", title: "Task Templates", icon: FileText, category: "Tasks", desc: "Predefined templates for bugs, PRDs, features, and more", status: "ready" },
   { key: "custom_fields", title: "Custom Fields", icon: Tag, category: "Data", desc: "Add text, number, URL, checkbox, rating fields to any project", status: "ready" },
@@ -51,6 +80,25 @@ const PLATFORM_FEATURES = [
   { key: "epic_board", title: "Epics Board", icon: Box, category: "Agile", desc: "First-class epic view grouping related tasks and stories", status: "ready" },
   { key: "webhook_api", title: "Webhook/API Support", icon: Globe, category: "Integration", desc: "Public REST API and webhook endpoints for integrations", status: "ready" },
   { key: "automations", title: "Workflow Automations", icon: Workflow, category: "System", desc: "If-then rules — auto-assign, move, notify on status change", status: "ready" },
+  { key: "formula_fields", title: "Formula Fields", icon: Hash, category: "Data", desc: "Computed fields using formulas across task properties", status: "ready" },
+  { key: "linked_records", title: "Linked Records / Relations", icon: Link2, category: "Data", desc: "Database-style relations linking tasks, goals, and projects", status: "ready" },
+  { key: "rollup_fields", title: "Rollup Fields", icon: FolderArchive, category: "Data", desc: "Aggregate data from linked records (sum, count, average)", status: "ready" },
+  { key: "email_to_task", title: "Email-to-Task", icon: Mail, category: "Integration", desc: "Create tasks from incoming emails with auto-parsing", status: "ready" },
+  { key: "github_linking", title: "GitHub/GitLab PR Linking", icon: GitPullRequest, category: "Integration", desc: "Auto-link PRs and commits to tasks, update status on merge", status: "ready" },
+  { key: "critical_path", title: "Critical Path Analysis", icon: GitBranch, category: "Agile", desc: "Identify the longest chain of dependent tasks", status: "ready" },
+  { key: "baseline_comparison", title: "Baseline Comparison", icon: BarChart3, category: "Agile", desc: "Compare current progress against original sprint plan", status: "ready" },
+  { key: "role_permissions", title: "Role-Based Permissions", icon: Lock, category: "Security", desc: "Admin, Manager, Member, Guest roles with granular access", status: "ready" },
+  { key: "guest_access", title: "Guest / Client Access", icon: UserPlus, category: "Security", desc: "Invite external users with view-only or limited access", status: "ready" },
+  { key: "sso_saml", title: "SSO / SAML", icon: Shield, category: "Security", desc: "Enterprise single sign-on with SAML 2.0 and OAuth", status: "ready" },
+  { key: "dark_light_mode", title: "Dark / Light Mode", icon: SunMoon, category: "UX", desc: "System-aware theme switching with custom accent colors", status: "ready" },
+  { key: "keyboard_nav", title: "Full Keyboard Navigation", icon: Keyboard, category: "UX", desc: "Navigate entire app without mouse — Vim-style shortcuts", status: "ready" },
+  { key: "csv_import", title: "CSV / Excel Import", icon: Import, category: "Data", desc: "Bulk import tasks, members, and time entries from spreadsheets", status: "ready" },
+  { key: "digest_emails", title: "Daily/Weekly Digest Emails", icon: Mail, category: "Notifications", desc: "Scheduled email digests with task summaries and highlights", status: "ready" },
+  { key: "realtime_presence", title: "Real-Time Presence", icon: Radio, category: "Collaboration", desc: "See who's online and what they're working on in real-time", status: "ready" },
+  { key: "video_proofing", title: "Video/Image Proofing", icon: Eye, category: "Design", desc: "Annotate images and videos with timestamped feedback", status: "ready" },
+  { key: "time_blocking", title: "Time Blocking", icon: Clock, category: "Time", desc: "Block calendar time for tasks with Google Calendar sync", status: "ready" },
+  { key: "white_label", title: "White-Label Portal", icon: Palette, category: "Enterprise", desc: "Custom branding, logos, and domain for client portals", status: "ready" },
+  { key: "resource_forecast", title: "Resource Forecasting", icon: TrendingUp, category: "Resource", desc: "Predict future resource needs based on project pipeline", status: "ready" },
 ];
 
 export default function Admin() {
@@ -138,7 +186,7 @@ export default function Admin() {
           <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
 
             {tab === "overview" && <OverviewTab stats={adminStats} />}
-            {tab === "ai-features" && <AIFeaturesTab features={AI_FEATURES} results={aiResults} loading={loadingAi} onRun={runAiFeature} enabled={enabledFeatures} onToggle={toggleFeature} />}
+            {tab === "ai-features" && <AIFeaturesTab features={AI_FEATURES} features2={AI_FEATURES_2} results={aiResults} loading={loadingAi} onRun={runAiFeature} enabled={enabledFeatures} onToggle={toggleFeature} />}
             {tab === "features" && <FeatureFlagsTab features={PLATFORM_FEATURES} enabled={enabledFeatures} onToggle={toggleFeature} />}
             {tab === "templates" && <TemplatesTab templates={templates} setTemplates={setTemplates} show={showNewTemplate} setShow={setShowNewTemplate} />}
             {tab === "custom-fields" && <CustomFieldsTab fields={customFields} setFields={setCustomFields} show={showNewField} setShow={setShowNewField} />}
@@ -269,11 +317,68 @@ function OverviewTab({ stats }: { stats: any }) {
   );
 }
 
-function AIFeaturesTab({ features, results, loading, onRun, enabled, onToggle }: {
-  features: typeof AI_FEATURES; results: Record<string, any>; loading: string | null;
+function AIFeatureCard({ f, i, expandedFeature, setExpandedFeature, results, loading, onRun, enabled, onToggle }: {
+  f: typeof AI_FEATURES[0]; i: number; expandedFeature: string | null; setExpandedFeature: (k: string | null) => void;
+  results: Record<string, any>; loading: string | null; onRun: (key: string) => void;
+  enabled: Record<string, boolean>; onToggle: (key: string) => void;
+}) {
+  const Icon = f.icon;
+  const isExpanded = expandedFeature === f.key;
+  const result = results[f.key];
+  const isLoading = loading === f.key;
+  const isEnabled = enabled[f.key] !== false;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+      className={`bg-card border rounded-xl overflow-hidden transition-all ${isEnabled ? 'border-border' : 'border-border/50 opacity-60'}`}>
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${f.color}15` }}>
+            <Icon className="w-5 h-5" style={{ color: f.color }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold truncate">{f.title}</h3>
+              <button onClick={() => onToggle(f.key)} className={`w-8 h-4.5 rounded-full flex items-center transition-colors shrink-0 ${isEnabled ? 'bg-primary justify-end' : 'bg-white/10 justify-start'}`}>
+                <div className="w-3.5 h-3.5 bg-white rounded-full mx-0.5 shadow" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{f.desc}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-3">
+          <button onClick={() => { onRun(f.key); setExpandedFeature(f.key); }}
+            disabled={isLoading} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50">
+            {isLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+            {isLoading ? "Analyzing..." : "Run Analysis"}
+          </button>
+          {result && (
+            <button onClick={() => setExpandedFeature(isExpanded ? null : f.key)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-white/5 rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <Eye className="w-3 h-3" /> {isExpanded ? "Hide" : "View"} Results
+            </button>
+          )}
+        </div>
+      </div>
+      <AnimatePresence>
+        {isExpanded && result && (
+          <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+            <div className="px-4 pb-4 border-t border-border/50 pt-3">
+              <AIResultView data={result} featureKey={f.key} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function AIFeaturesTab({ features, features2, results, loading, onRun, enabled, onToggle }: {
+  features: typeof AI_FEATURES; features2: typeof AI_FEATURES_2; results: Record<string, any>; loading: string | null;
   onRun: (key: string) => void; enabled: Record<string, boolean>; onToggle: (key: string) => void;
 }) {
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
+  const [aiSection, setAiSection] = useState<"core" | "advanced">("core");
 
   return (
     <div className="space-y-4">
@@ -281,65 +386,27 @@ function AIFeaturesTab({ features, results, loading, onRun, enabled, onToggle }:
         <div className="flex items-center gap-3 mb-2">
           <Cpu className="w-5 h-5 text-purple-400" />
           <h2 className="text-lg font-bold">AI Command Center</h2>
-          <span className="px-2 py-0.5 text-[10px] bg-purple-500/20 text-purple-300 rounded-full font-bold uppercase">20 AI Features</span>
+          <span className="px-2 py-0.5 text-[10px] bg-purple-500/20 text-purple-300 rounded-full font-bold uppercase">40 AI Features</span>
         </div>
-        <p className="text-sm text-muted-foreground">Intelligent features that no competitor has. Run any analysis instantly, toggle features on/off for your workspace.</p>
+        <p className="text-sm text-muted-foreground">40 intelligent features that no competitor has. Run any analysis instantly, toggle features on/off for your workspace.</p>
+      </div>
+
+      <div className="flex gap-2">
+        <button onClick={() => setAiSection("core")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${aiSection === "core" ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-card border border-border text-muted-foreground hover:text-foreground'}`}>
+          <Brain className="w-4 h-4" /> Core AI ({features.length})
+        </button>
+        <button onClick={() => setAiSection("advanced")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${aiSection === "advanced" ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' : 'bg-card border border-border text-muted-foreground hover:text-foreground'}`}>
+          <Sparkles className="w-4 h-4" /> Advanced AI ({features2.length})
+        </button>
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">
-        {features.map((f, i) => {
-          const Icon = f.icon;
-          const isExpanded = expandedFeature === f.key;
-          const result = results[f.key];
-          const isLoading = loading === f.key;
-          const isEnabled = enabled[f.key] !== false;
-
-          return (
-            <motion.div key={f.key} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-              className={`bg-card border rounded-xl overflow-hidden transition-all ${isEnabled ? 'border-border' : 'border-border/50 opacity-60'}`}>
-              <div className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${f.color}15` }}>
-                    <Icon className="w-5 h-5" style={{ color: f.color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold truncate">{f.title}</h3>
-                      <button onClick={() => onToggle(f.key)} className={`w-8 h-4.5 rounded-full flex items-center transition-colors shrink-0 ${isEnabled ? 'bg-primary justify-end' : 'bg-white/10 justify-start'}`}>
-                        <div className="w-3.5 h-3.5 bg-white rounded-full mx-0.5 shadow" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{f.desc}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 mt-3">
-                  <button onClick={() => { onRun(f.key); setExpandedFeature(f.key); }}
-                    disabled={isLoading} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50">
-                    {isLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                    {isLoading ? "Analyzing..." : "Run Analysis"}
-                  </button>
-                  {result && (
-                    <button onClick={() => setExpandedFeature(isExpanded ? null : f.key)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-white/5 rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors">
-                      <Eye className="w-3 h-3" /> {isExpanded ? "Hide" : "View"} Results
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <AnimatePresence>
-                {isExpanded && result && (
-                  <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-                    <div className="px-4 pb-4 border-t border-border/50 pt-3">
-                      <AIResultView data={result} featureKey={f.key} />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          );
-        })}
+        {(aiSection === "core" ? features : features2).map((f, i) => (
+          <AIFeatureCard key={f.key} f={f} i={i} expandedFeature={expandedFeature} setExpandedFeature={setExpandedFeature}
+            results={results} loading={loading} onRun={onRun} enabled={enabled} onToggle={onToggle} />
+        ))}
       </div>
     </div>
   );
@@ -546,6 +613,371 @@ function AIResultView({ data, featureKey }: { data: any; featureKey: string }) {
             <div className="text-muted-foreground">{r.highlights.join(" · ")}</div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "burnout_detector" && data.risks) {
+    return (
+      <div className="space-y-2">
+        {data.risks.map((r: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: r.color }}>{r.member.split(" ").map((w: string) => w[0]).join("")}</div>
+                <span className="font-medium">{r.member}</span>
+              </div>
+              <span>{r.level}</span>
+            </div>
+            {r.factors.length > 0 && <div className="text-muted-foreground">{r.factors.join(" · ")}</div>}
+            <div className="text-[10px] text-primary mt-0.5">{r.suggestion}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "effort_impact_matrix" && data.quadrants) {
+    const q = data.quadrants;
+    return (
+      <div className="space-y-2 text-xs">
+        {[
+          { label: "Quick Wins", items: q.quick_wins, color: "#22c55e", emoji: "🎯" },
+          { label: "Major Projects", items: q.major_projects, color: "#3b82f6", emoji: "🏗️" },
+          { label: "Fill-Ins", items: q.fill_ins, color: "#f59e0b", emoji: "📋" },
+          { label: "Reconsider", items: q.thankless, color: "#ef4444", emoji: "⚠️" },
+        ].filter(s => s.items.length > 0).map((s, i) => (
+          <div key={i}>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{s.emoji} {s.label} ({s.items.length})</div>
+            {s.items.slice(0, 3).map((t: any, j: number) => (
+              <div key={j} className="bg-white/5 p-1.5 rounded mb-1 text-xs">{t.title}</div>
+            ))}
+          </div>
+        ))}
+        {q.recommendation && <div className="bg-primary/10 text-primary p-2 rounded-lg text-xs flex items-center gap-2"><Lightbulb className="w-3 h-3" /> {q.recommendation}</div>}
+      </div>
+    );
+  }
+
+  if (featureKey === "release_notes" && data.releases) {
+    const r = data.releases;
+    return (
+      <div className="space-y-2 text-xs">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-bold text-sm">{r.version}</span>
+          <span className="text-muted-foreground">{r.date}</span>
+        </div>
+        {r.sections.map((s: any, i: number) => (
+          <div key={i}>
+            <div className="font-medium mb-1">{s.emoji} {s.title}</div>
+            {s.items.slice(0, 4).map((item: string, j: number) => (
+              <div key={j} className="text-muted-foreground pl-3">• {item}</div>
+            ))}
+          </div>
+        ))}
+        <div className="bg-white/5 p-2 rounded-lg text-muted-foreground italic">{r.summary}</div>
+      </div>
+    );
+  }
+
+  if (featureKey === "task_aging" && data.stale) {
+    return (
+      <div className="space-y-2">
+        {data.stale.length === 0 && <p className="text-xs text-emerald-400">No stale tasks!</p>}
+        {data.stale.map((t: any, i: number) => (
+          <div key={i} className={`flex items-center justify-between text-xs p-2 rounded-lg ${t.severity === "critical" ? "bg-rose-500/10 text-rose-400" : t.severity === "warning" ? "bg-amber-500/10 text-amber-400" : "bg-blue-500/10 text-blue-400"}`}>
+            <span className="line-clamp-1 flex-1">{t.title}</span>
+            <span className="shrink-0 ml-2 font-bold">{t.ageDays}d old</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "deadline_risk" && data.atRisk) {
+    return (
+      <div className="space-y-2">
+        {data.atRisk.map((t: any, i: number) => (
+          <div key={i} className={`flex items-center justify-between text-xs p-2 rounded-lg ${t.status === "will_miss" ? "bg-rose-500/10 text-rose-400" : t.status === "at_risk" ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"}`}>
+            <span className="line-clamp-1 flex-1">{t.title}</span>
+            <span className="shrink-0 ml-2">{t.daysUntil < 0 ? `${Math.abs(t.daysUntil)}d overdue` : `${t.daysUntil}d left`}</span>
+            <span className="shrink-0 ml-2 font-bold">{t.riskPercent}%</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "tech_debt_scorer" && data.projects) {
+    return (
+      <div className="space-y-2">
+        {data.projects.map((p: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="flex justify-between mb-1">
+              <span className="font-medium">{p.project}</span>
+              <span>{p.level} (score: {p.debtScore})</span>
+            </div>
+            <div className="flex gap-2 text-muted-foreground text-[10px]">
+              <span>{p.bugs} bugs</span>
+              <span>{p.techDebtTasks} debt items</span>
+              <span>{p.staleItems} stale</span>
+            </div>
+            <div className="text-primary text-[10px] mt-0.5">{p.recommendation}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "milestone_tracker" && data.milestones) {
+    return (
+      <div className="space-y-2">
+        {data.milestones.map((m: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="flex justify-between mb-1">
+              <span className="font-medium">{m.sprint}</span>
+              <span className={m.prediction === "On track" ? "text-emerald-400" : "text-amber-400"}>{m.prediction}</span>
+            </div>
+            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full" style={{ width: `${m.progress}%` }} />
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+              <span>{m.progress}% complete</span>
+              <span>{m.daysLeft}d remaining</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "velocity_optimizer" && data.analysis) {
+    return (
+      <div className="space-y-2 text-xs">
+        <div className="bg-white/5 p-2 rounded-lg">Team Avg: <strong>{data.analysis.teamAvg} pts/hr</strong></div>
+        {data.analysis.memberEfficiency.map((m: any, i: number) => (
+          <div key={i} className="flex items-center gap-3 bg-white/5 p-2 rounded-lg">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: m.color }}>{m.member.split(" ").map((w: string) => w[0]).join("")}</div>
+            <span className="flex-1">{m.member}</span>
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${m.efficiency === "high" ? "bg-emerald-500/20 text-emerald-400" : m.efficiency === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-rose-500/20 text-rose-400"}`}>{m.pointsPerHour} pts/hr</span>
+          </div>
+        ))}
+        <div className="bg-primary/10 text-primary p-2 rounded-lg flex items-center gap-2"><Lightbulb className="w-3 h-3" /> {data.analysis.recommendation}</div>
+      </div>
+    );
+  }
+
+  if (featureKey === "meeting_agenda" && data.agendas) {
+    return (
+      <div className="space-y-3 text-xs">
+        {Object.values(data.agendas).map((agenda: any, i: number) => (
+          <div key={i} className="bg-white/5 p-3 rounded-lg">
+            <div className="flex justify-between mb-2">
+              <span className="font-bold">{agenda.title}</span>
+              <span className="text-muted-foreground">{agenda.duration}</span>
+            </div>
+            {agenda.items.map((item: any, j: number) => (
+              <div key={j} className="flex justify-between py-1 border-b border-white/5 last:border-0">
+                <div>
+                  <span className="font-medium">{item.topic}</span>
+                  <p className="text-[10px] text-muted-foreground">{item.details}</p>
+                </div>
+                <span className="text-muted-foreground shrink-0 ml-2">{item.time}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "automation_suggestions" && data.suggestions) {
+    return (
+      <div className="space-y-2">
+        {data.suggestions.map((s: any, i: number) => (
+          <div key={i} className={`text-xs p-2 rounded-lg ${s.impact === "high" ? "bg-rose-500/10" : s.impact === "medium" ? "bg-amber-500/10" : "bg-blue-500/10"}`}>
+            <div className="flex items-center gap-2 mb-0.5">
+              <Workflow className="w-3 h-3" />
+              <span className="font-medium">When: {s.trigger}</span>
+              <span className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase ${s.impact === "high" ? "bg-rose-500/20 text-rose-400" : s.impact === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"}`}>{s.impact}</span>
+            </div>
+            <div className="text-muted-foreground pl-5">Then: {s.action}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "project_health_deep" && data.projects) {
+    return (
+      <div className="space-y-2">
+        {data.projects.map((p: any, i: number) => (
+          <div key={i} className="bg-white/5 p-3 rounded-lg text-xs">
+            <div className="flex justify-between mb-2">
+              <span className="font-medium">{p.project}</span>
+              <span className={`text-lg font-bold ${p.grade === "A" ? "text-emerald-400" : p.grade === "B" ? "text-blue-400" : p.grade === "C" ? "text-amber-400" : "text-rose-400"}`}>{p.grade}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-[10px]">
+              <div className="bg-white/5 p-1.5 rounded text-center"><div className="text-muted-foreground">Budget</div><div className="font-bold">{p.budgetHealth}%</div></div>
+              <div className="bg-white/5 p-1.5 rounded text-center"><div className="text-muted-foreground">Tasks</div><div className="font-bold">{p.taskHealth}%</div></div>
+              <div className="bg-white/5 p-1.5 rounded text-center"><div className="text-muted-foreground">Risk</div><div className="font-bold">{p.riskScore}</div></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "auto_tagger" && data.suggestions) {
+    return (
+      <div className="space-y-2">
+        {data.suggestions.length === 0 && <p className="text-xs text-emerald-400">All tasks are tagged!</p>}
+        {data.suggestions.map((t: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="font-medium line-clamp-1">{t.title}</div>
+            <div className="flex gap-1 mt-1">{t.suggestedTags.map((tag: string, j: number) => (
+              <span key={j} className="px-1.5 py-0.5 bg-primary/20 text-primary rounded text-[10px]">{tag}</span>
+            ))}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "skill_matcher" && data.matches) {
+    return (
+      <div className="space-y-2">
+        {data.matches.length === 0 && <p className="text-xs text-emerald-400">All tasks are assigned!</p>}
+        {data.matches.map((m: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="font-medium line-clamp-1 mb-1">{m.title}</div>
+            {m.topMatch && (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: m.topMatch.color }}>{m.topMatch.member.split(" ").map((w: string) => w[0]).join("")}</div>
+                <span className="text-emerald-400">{m.topMatch.member}</span>
+                <span className="text-muted-foreground text-[10px]">{m.topMatch.reason}</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "sprint_velocity_predictor" && data.predictions) {
+    const p = data.predictions;
+    return (
+      <div className="space-y-2 text-xs">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-white/5 p-2 rounded-lg text-center"><div className="text-muted-foreground text-[10px]">Average</div><div className="font-bold text-lg">{p.averageVelocity}</div></div>
+          <div className="bg-white/5 p-2 rounded-lg text-center"><div className="text-muted-foreground text-[10px]">Next Sprint</div><div className="font-bold text-lg text-primary">{p.nextSprintPrediction}</div></div>
+          <div className="bg-white/5 p-2 rounded-lg text-center"><div className="text-muted-foreground text-[10px]">Trend</div><div className={`font-bold text-lg ${p.trend === "increasing" ? "text-emerald-400" : p.trend === "decreasing" ? "text-rose-400" : "text-amber-400"}`}>{p.trend === "increasing" ? "↑" : p.trend === "decreasing" ? "↓" : "→"}</div></div>
+        </div>
+        <div className="bg-primary/10 text-primary p-2 rounded-lg flex items-center gap-2"><Lightbulb className="w-3 h-3" /> {p.recommendation}</div>
+      </div>
+    );
+  }
+
+  if (featureKey === "task_decomposer" && data.epics) {
+    return (
+      <div className="space-y-2">
+        {data.epics.length === 0 && <p className="text-xs text-muted-foreground">No epics or large tasks found to decompose.</p>}
+        {data.epics.map((e: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="font-medium mb-1">{e.title} ({e.points}pts)</div>
+            {e.suggestedSubtasks.map((s: string, j: number) => (
+              <div key={j} className="text-muted-foreground pl-3">• {s} (~{e.estimatedSubtaskPoints}pts)</div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "cross_project_deps" && data.dependencies) {
+    return (
+      <div className="space-y-2">
+        {data.dependencies.length === 0 && <p className="text-xs text-emerald-400">No cross-project dependencies!</p>}
+        {data.dependencies.map((d: any, i: number) => (
+          <div key={i} className={`text-xs p-2 rounded-lg ${d.risk === "high" ? "bg-rose-500/10 text-rose-400" : "bg-blue-500/10 text-blue-400"}`}>
+            <div className="font-medium">{d.project1} ↔ {d.project2}</div>
+            <div className="text-[10px] mt-0.5">Shared: {d.sharedMembers.join(", ")} · {d.recommendation}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "customer_impact" && data.analysis) {
+    return (
+      <div className="space-y-2">
+        {data.analysis.map((t: any, i: number) => (
+          <div key={i} className={`flex items-center justify-between text-xs p-2 rounded-lg ${t.severity === "high" ? "bg-rose-500/10" : t.severity === "medium" ? "bg-amber-500/10" : "bg-white/5"}`}>
+            <span className="line-clamp-1 flex-1">{t.title}</span>
+            <span className={`shrink-0 ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${t.customerImpact === "critical_path" ? "bg-rose-500/20 text-rose-400" : t.customerImpact === "user_facing" ? "bg-amber-500/20 text-amber-400" : "bg-white/10 text-muted-foreground"}`}>{t.customerImpact.replace("_", " ")}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "communication_gaps" && data.gaps) {
+    return (
+      <div className="space-y-2 text-xs">
+        {data.gaps.isolatedMembers.length > 0 && (
+          <div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Isolated Members</div>
+            {data.gaps.isolatedMembers.map((m: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 bg-amber-500/10 text-amber-400 p-2 rounded-lg mb-1">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: m.color }}>{m.name.split(" ").map((w: string) => w[0]).join("")}</div>
+                {m.name} — {m.suggestion}
+              </div>
+            ))}
+          </div>
+        )}
+        {data.gaps.projectOverlap.map((p: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg">
+            <span className="font-medium">{p.p1} ↔ {p.p2}</span>
+            <span className="text-muted-foreground ml-2">{p.shared} shared members</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "resource_conflicts" && data.conflicts) {
+    return (
+      <div className="space-y-2">
+        {data.conflicts.length === 0 && <p className="text-xs text-emerald-400">No resource conflicts detected!</p>}
+        {data.conflicts.map((m: any, i: number) => (
+          <div key={i} className="bg-amber-500/10 p-2 rounded-lg text-xs">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: m.color }}>{m.member.split(" ").map((w: string) => w[0]).join("")}</div>
+              <span className="font-medium text-amber-400">{m.member}</span>
+              <span className="text-muted-foreground">{m.conflicts.length} conflict(s)</span>
+            </div>
+            {m.conflicts.map((c: any, j: number) => (
+              <div key={j} className="text-[10px] text-muted-foreground pl-7">{c.task1} ↔ {c.task2}</div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "csv_preview" && data.exportPreview) {
+    return (
+      <div className="space-y-2 text-xs">
+        <div className="bg-white/5 p-2 rounded-lg"><span className="font-medium">Tasks</span><span className="text-muted-foreground ml-2">{data.exportPreview.tasks.totalRows} rows · {data.exportPreview.tasks.columns.length} columns</span></div>
+        <div className="overflow-x-auto">
+          <div className="flex gap-1 text-[10px] text-muted-foreground">
+            {data.exportPreview.tasks.columns.map((c: string, i: number) => (
+              <span key={i} className="px-2 py-1 bg-white/5 rounded">{c}</span>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white/5 p-2 rounded-lg"><span className="font-medium">Time Entries</span><span className="text-muted-foreground ml-2">{data.exportPreview.timeEntries.totalRows} rows</span></div>
+        <div className="bg-white/5 p-2 rounded-lg"><span className="font-medium">Members</span><span className="text-muted-foreground ml-2">{data.exportPreview.members.totalRows} rows</span></div>
       </div>
     );
   }
