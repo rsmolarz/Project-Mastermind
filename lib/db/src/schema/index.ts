@@ -14,3 +14,4 @@ export * from "./task-templates";
 export * from "./custom-fields";
 export * from "./api-keys";
 export * from "./security";
+export * from "./messaging";

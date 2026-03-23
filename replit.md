@@ -57,7 +57,8 @@ artifacts-monorepo/
 - **Super Admin** (`/admin`): Overview dashboard (8 stat cards, status/priority breakdowns, team workload, financial summary), AI Command Center (60 AI features split Core/Advanced/Predictive with run/toggle and rich result views), Feature Flags (55 platform features organized by category with toggle switches), Task Templates (preset templates for bugs/PRDs/features, custom creation), Custom Fields (text/number/URL/checkbox/rating/select/date/email), Expense Tracking (log/approve/delete expenses by category), API & Email Integration (API key management with scopes/expiry/regenerate, email system config for SMTP/SendGrid/Mailgun/SES/Postmark with test email), Security (YubiKey/WebAuthn FIDO2 registration + password protection, session-based auth, login gate), System Config (auth, webhooks, API, integrations)
   - **60 AI Features**: Core AI (20: risk prediction, sprint planning, budget forecast, priority optimizer, duplicate detection, team sentiment, scope creep, bottleneck detection, time estimation, quality score, workload balancer, dependency mapper, retro insights, progress reports, smart scheduling, resource optimizer, knowledge graph, client reports, smart standups, capacity planning) + Advanced AI (20: auto-tagger, task decomposer, release notes gen, velocity predictor, skill matcher, burnout detector, task aging analyzer, communication gap detector, effort vs impact matrix, deadline risk analyzer, resource conflict detector, tech debt scorer, milestone tracker, velocity optimizer, cross-project dependencies, meeting agenda generator, customer impact analyzer, deep project health, automation suggestions, data import/export) + Predictive AI (20: context switcher, email drafter, retro facilitator, onboarding planner, pair programming, knowledge decay, decision logger, competitive velocity, cost per feature, sprint themes, blocker predictor, meeting ROI, priority decay, team growth, handoff analyzer, focus time, dependency chain risk, workflow patterns, project similarity, predictive analytics engine)
   - **55 Feature Flags**: Views (table, gallery, roadmap, mind map, whiteboard), Tasks (triage inbox, templates, custom statuses, unique IDs, multi-project), Data (custom fields, formula fields, linked records, rollup fields, CSV import), Agile (cycle time, epics board, critical path, baseline comparison), Integration (webhook/API, email-to-task, GitHub/GitLab PR linking), Security (role-based permissions, guest access, SSO/SAML), Finance (expense tracking), UX (dark/light mode, keyboard nav), Notifications (digest emails), Collaboration (real-time presence), Design (video/image proofing), Time (time blocking), Enterprise (white-label portal), Resource (resource forecasting), System (automations), Analytics (funnel analysis, cohort analysis, heatmaps, A/B testing), Documents (version control, approval workflows), plus more
-- **Sidebar**: Workspace section (Dashboard, My Tasks with badge, Overdue with count badge), Active Projects with task count badges, Tools section (Docs, Time, Sprints), Insights section (Portfolio, Goals, Standups, Announcements), Admin section (Super Admin), Team Online avatars, AI Assistant button
+- **Messaging Center** (`/messaging`): Full Twilio integration with SMS sending, voice calls (text-to-speech), email via SMS. Compose tab (channel selector, recipient, message body), Contacts management (CRUD, search, quick-select), Message History (filter by channel), Twilio Live data (raw messages/calls from Twilio API), Settings (account info, phone numbers, webhook URLs). Inbound webhook endpoints for receiving SMS and voice calls.
+- **Sidebar**: Workspace section (Dashboard, My Tasks with badge, Overdue with count badge), Active Projects with task count badges, Tools section (Docs, Time, Sprints, Messaging), Insights section (Portfolio, Goals, Standups, Announcements), Admin section (Super Admin), Team Online avatars, AI Assistant button
 
 ## Pages & Routes
 
@@ -70,7 +71,8 @@ artifacts-monorepo/
 - `/standups` — Daily Standups
 - `/portfolio` — Project Portfolio
 - `/documents` — Documents & Wiki
-- `/admin` — Super Admin (overview, AI Command Center, feature flags, templates, custom fields, expenses, system config)
+- `/messaging` — Messaging Center (compose SMS/voice/email, contacts, history, Twilio live data, settings)
+- `/admin` — Super Admin (overview, AI Command Center, feature flags, templates, custom fields, expenses, API & email, security, system config)
 
 ## Database Tables
 
@@ -93,6 +95,8 @@ artifacts-monorepo/
 - `email_config` — id, provider, host, port, username, password, fromName, fromEmail, encryption, active, webhookUrl, apiKey, updatedAt
 - `security_credentials` — id, type (password/webauthn), passwordHash, credentialId, credentialPublicKey, counter, deviceName, transports (JSONB), enabled, createdAt
 - `security_sessions` — id, token, method, expiresAt, createdAt
+- `contacts` — id, name, email, phone, company, role, avatar, tags (JSONB), notes, createdAt
+- `messages` — id, contactId, direction, channel, from_addr, to_addr, subject, body, status, twilioSid, metadata (JSONB), createdAt
 
 ## API Routes (mounted at /api)
 
@@ -118,6 +122,11 @@ artifacts-monorepo/
 - `GET /security/status`, `POST /security/password/setup`, `POST /security/password/login`, `POST /security/password/remove`
 - `GET /security/webauthn/register-options`, `POST /security/webauthn/register`, `GET /security/webauthn/auth-options`, `POST /security/webauthn/authenticate`
 - `DELETE /security/webauthn/:id`, `POST /security/logout`
+- `GET /messaging/status`, `POST /messaging/sms`, `POST /messaging/call`, `POST /messaging/email`
+- `GET /messaging/history`, `GET /messaging/history/:id`
+- `GET /messaging/twilio/messages`, `GET /messaging/twilio/calls`
+- `POST /messaging/webhook/incoming`, `POST /messaging/webhook/voice`
+- `GET/POST /contacts`, `PATCH/DELETE /contacts/:id`
 - `GET /admin/stats`, `POST /admin/ai/analyze`
 
 ## Key Commands

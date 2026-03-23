@@ -65,7 +65,8 @@ async function requireAuthIfConfigured(req: Request, res: Response, next: NextFu
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   if (
     req.path.startsWith("/security/") ||
-    req.path === "/health"
+    req.path === "/health" ||
+    req.path.startsWith("/messaging/webhook/")
   ) {
     next();
     return;

@@ -18,6 +18,7 @@ import taskTemplatesRouter from "./task-templates";
 import customFieldsRouter from "./custom-fields";
 import adminRouter from "./admin";
 import apiKeysRouter from "./api-keys";
+import messagingRouter from "./messaging";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(taskTemplatesRouter);
 router.use(customFieldsRouter);
 router.use(adminRouter);
 router.use(apiKeysRouter);
+router.use(messagingRouter);
 
 export default router;
