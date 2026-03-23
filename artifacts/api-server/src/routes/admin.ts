@@ -694,6 +694,366 @@ router.post("/admin/ai/analyze", async (req, res): Promise<void> => {
         members: { totalRows: members.length },
       },
     },
+
+    context_switcher: {
+      title: "AI Context Switcher",
+      predictions: members.map(m => {
+        const memberTasks = tasks.filter(t => (t.assigneeIds as number[])?.includes(m.id) && t.status !== "done");
+        const inProgress = memberTasks.filter(t => t.status === "inprogress");
+        const highPriority = memberTasks.filter(t => t.priority === "critical" || t.priority === "high").sort((a, b) => (a.priority === "critical" ? 0 : 1) - (b.priority === "critical" ? 0 : 1));
+        const overdue = memberTasks.filter(t => t.due && new Date(t.due) < new Date());
+        const nextTask = overdue[0] || inProgress[0] || highPriority[0] || memberTasks[0];
+        return { member: m.name, color: m.color, currentFocus: inProgress[0]?.title || "No active task", predictedNext: nextTask?.title || "None", reason: overdue.length > 0 ? "Overdue — needs immediate attention" : inProgress.length > 0 ? "Continue current work" : highPriority.length > 0 ? "High priority waiting" : "Next in queue", confidence: overdue.length > 0 ? "high" : inProgress.length > 0 ? "high" : "medium" };
+      }),
+    },
+
+    email_drafter: {
+      title: "AI Stakeholder Email Drafter",
+      drafts: projects.map(p => {
+        const projectTasks = tasks.filter(t => t.projectId === p.id);
+        const done = projectTasks.filter(t => t.status === "done").length;
+        const total = projectTasks.length;
+        const blocked = projectTasks.filter(t => t.status === "blocked").length;
+        const spent = timeEntries.filter(e => e.projectId === p.id).reduce((s, e) => s + Number(e.amount || 0), 0);
+        return {
+          project: p.name, client: p.client || "Internal",
+          subject: `${p.name} — Weekly Status Update`,
+          body: [
+            `Hi team,`,
+            ``,
+            `Here's the weekly update for ${p.name}:`,
+            `• Progress: ${done}/${total} tasks completed (${total > 0 ? Math.round((done / total) * 100) : 0}%)`,
+            `• Budget: $${Math.round(spent).toLocaleString()} of $${Number(p.budget || 0).toLocaleString()} used`,
+            blocked > 0 ? `• ⚠️ ${blocked} blocked task(s) requiring attention` : `• No blockers — work is flowing smoothly`,
+            ``,
+            `Key highlights this week:`,
+            ...projectTasks.filter(t => t.status === "done").slice(0, 3).map(t => `  ✅ ${t.title}`),
+            ``,
+            `Next steps:`,
+            ...projectTasks.filter(t => t.status === "inprogress").slice(0, 3).map(t => `  🔄 ${t.title}`),
+            ``,
+            `Best regards`
+          ].join("\n"),
+        };
+      }),
+    },
+
+    retro_facilitator: {
+      title: "AI Retro Facilitator",
+      exercises: (() => {
+        const completionRate = tasks.length > 0 ? tasks.filter(t => t.status === "done").length / tasks.length : 0;
+        const blockedRate = tasks.length > 0 ? tasks.filter(t => t.status === "blocked").length / tasks.length : 0;
+        const exercises = [
+          { name: "Start-Stop-Continue", duration: "20 min", focus: "General improvement", prompt: `Based on ${Math.round(completionRate * 100)}% completion rate, what should the team start, stop, and continue doing?` },
+          { name: "Mad-Sad-Glad", duration: "15 min", focus: "Team sentiment", prompt: blockedRate > 0.1 ? `${Math.round(blockedRate * 100)}% of tasks are blocked — explore frustrations and wins` : "Celebrate wins and identify what made the team glad" },
+          { name: "4Ls: Liked-Learned-Lacked-Longed For", duration: "25 min", focus: "Deep reflection", prompt: "What did we like about our process? What did we learn? What was missing?" },
+          { name: "Sailboat", duration: "20 min", focus: "Strategic direction", prompt: "Wind (what pushes us forward), Anchors (what holds us back), Rocks (risks ahead)" },
+          { name: "Speed Car", duration: "15 min", focus: "Velocity improvement", prompt: `Current velocity trend — what's our engine? What's our parachute?` },
+        ];
+        return { recommended: exercises[blockedRate > 0.15 ? 1 : completionRate < 0.3 ? 0 : 2], all: exercises };
+      })(),
+    },
+
+    onboarding_planner: {
+      title: "AI Onboarding Planner",
+      plans: projects.map(p => {
+        const projectTasks = tasks.filter(t => t.projectId === p.id);
+        const technologies = new Set<string>();
+        projectTasks.forEach(t => { (t.tags as string[] || []).forEach(tag => technologies.add(tag)); });
+        return {
+          project: p.name,
+          week1: ["Set up development environment", "Review project documentation", "Shadow team lead on current sprint", "Complete first small task (good-first-issue)"],
+          week2: ["Take ownership of 2-3 tasks", "Attend sprint ceremonies", `Learn ${[...technologies].slice(0, 3).join(", ") || "project stack"}`, "First code review participation"],
+          week3: ["Independent task execution", "Cross-project collaboration", "Contribute to retrospective", "Identify personal growth areas"],
+          keyContacts: members.filter(m => {
+            const memberTasks = tasks.filter(t => t.projectId === p.id && (t.assigneeIds as number[])?.includes(m.id));
+            return memberTasks.length > 0;
+          }).slice(0, 3).map(m => ({ name: m.name, role: m.role, color: m.color })),
+        };
+      }),
+    },
+
+    pair_programming: {
+      title: "AI Pair Programming Optimizer",
+      pairings: (() => {
+        const pairs: any[] = [];
+        for (let i = 0; i < members.length; i++) {
+          for (let j = i + 1; j < members.length; j++) {
+            const m1 = members[i]; const m2 = members[j];
+            const sharedProjects = projects.filter(p => {
+              const m1Tasks = tasks.filter(t => t.projectId === p.id && (t.assigneeIds as number[])?.includes(m1.id));
+              const m2Tasks = tasks.filter(t => t.projectId === p.id && (t.assigneeIds as number[])?.includes(m2.id));
+              return m1Tasks.length > 0 && m2Tasks.length > 0;
+            });
+            const r1 = (m1.role || "").toLowerCase(); const r2 = (m2.role || "").toLowerCase();
+            const crossFunctional = (r1.includes("front") && r2.includes("back")) || (r1.includes("back") && r2.includes("front")) || (r1.includes("design") && r2.includes("dev"));
+            const score = sharedProjects.length * 20 + (crossFunctional ? 30 : 0);
+            if (score > 0) pairs.push({ member1: { name: m1.name, color: m1.color, role: m1.role }, member2: { name: m2.name, color: m2.color, role: m2.role }, score, reason: crossFunctional ? "Cross-functional synergy" : "Shared project context", sharedProjects: sharedProjects.map(p => p.name) });
+          }
+        }
+        return pairs.sort((a, b) => b.score - a.score);
+      })(),
+    },
+
+    knowledge_decay: {
+      title: "AI Knowledge Decay Detector",
+      outdated: (() => {
+        const docs = tasks.filter(t => t.type === "docs" || (t.tags as string[])?.includes("documentation"));
+        const staleThreshold = 30 * 24 * 60 * 60 * 1000;
+        const allItems = [
+          ...tasks.filter(t => t.status === "done" && Date.now() - new Date(t.createdAt).getTime() > staleThreshold).slice(0, 5).map(t => ({
+            type: "completed_task" as const, title: t.title, age: Math.floor((Date.now() - new Date(t.createdAt).getTime()) / (24 * 60 * 60 * 1000)),
+            risk: "Process may have changed since task was completed",
+          })),
+          ...projects.map(p => {
+            const lastActivity = tasks.filter(t => t.projectId === p.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+            const daysSince = lastActivity ? Math.floor((Date.now() - new Date(lastActivity.createdAt).getTime()) / (24 * 60 * 60 * 1000)) : 999;
+            return daysSince > 14 ? { type: "stale_project" as const, title: `${p.name} documentation`, age: daysSince, risk: "Project docs may be outdated" } : null;
+          }).filter(Boolean),
+        ];
+        return allItems;
+      })(),
+    },
+
+    decision_logger: {
+      title: "AI Decision Logger",
+      decisions: tasks.filter(t => t.status === "done" || t.status === "blocked").slice(0, 10).map(t => {
+        const decisions: string[] = [];
+        if (t.status === "done") decisions.push(`Completed: "${t.title}" — shipped as planned`);
+        if (t.status === "blocked") decisions.push(`Blocked: "${t.title}" — requires dependency resolution`);
+        if (t.priority === "critical") decisions.push(`Escalated to critical priority`);
+        if ((t.points || 0) > 5) decisions.push(`Scoped at ${t.points} points — significant effort`);
+        return { taskId: t.id, title: t.title, status: t.status, decisions, timestamp: t.createdAt };
+      }),
+    },
+
+    competitive_velocity: {
+      title: "AI Competitive Velocity Benchmark",
+      benchmarks: (() => {
+        const totalTasks = tasks.length;
+        const completedTasks = tasks.filter(t => t.status === "done").length;
+        const avgPointsPerTask = tasks.reduce((s, t) => s + (t.points || 0), 0) / Math.max(totalTasks, 1);
+        const teamSize = members.length;
+        const tasksPerMember = Math.round(totalTasks / Math.max(teamSize, 1));
+        const completionRate = Math.round((completedTasks / Math.max(totalTasks, 1)) * 100);
+        return {
+          yourMetrics: { totalTasks, completedTasks, completionRate, avgPointsPerTask: Math.round(avgPointsPerTask * 10) / 10, teamSize, tasksPerMember },
+          industryAvg: { completionRate: 68, avgPointsPerTask: 3.2, tasksPerMember: 12 },
+          comparison: [
+            { metric: "Completion Rate", yours: `${completionRate}%`, industry: "68%", status: completionRate >= 68 ? "above" : "below" },
+            { metric: "Avg Points/Task", yours: `${Math.round(avgPointsPerTask * 10) / 10}`, industry: "3.2", status: avgPointsPerTask >= 3.2 ? "above" : "below" },
+            { metric: "Tasks/Member", yours: `${tasksPerMember}`, industry: "12", status: tasksPerMember <= 12 ? "healthy" : "overloaded" },
+          ],
+          overall: completionRate >= 68 ? "Performing above industry average" : "Room for improvement vs industry benchmarks",
+        };
+      })(),
+    },
+
+    cost_per_feature: {
+      title: "AI Cost-Per-Feature Calculator",
+      features: (() => {
+        const featureTasks = tasks.filter(t => t.type === "feature" || t.type === "story");
+        return featureTasks.map(t => {
+          const assignees = (t.assigneeIds as number[]) || [];
+          const memberRates = assignees.map(id => members.find(m => m.id === id)).filter(Boolean);
+          const estimatedHours = (t.points || 3) * 1.5;
+          const avgRate = memberRates.length > 0 ? memberRates.reduce((s, m) => s + Number(m!.rate || 100), 0) / memberRates.length : 120;
+          const estimatedCost = Math.round(estimatedHours * avgRate);
+          const actualHours = timeEntries.filter(e => assignees.includes(e.memberId!)).reduce((s, e) => s + Number(e.hours), 0);
+          return { id: t.id, title: t.title, estimatedCost, estimatedHours: Math.round(estimatedHours * 10) / 10, status: t.status, priority: t.priority, costEfficiency: estimatedCost < 500 ? "low_cost" : estimatedCost < 2000 ? "moderate" : "expensive" };
+        }).sort((a, b) => b.estimatedCost - a.estimatedCost);
+      })(),
+    },
+
+    sprint_themes: {
+      title: "AI Sprint Theme Detector",
+      themes: sprints.map(s => {
+        const sprintTasks = tasks.filter(t => t.sprintId === s.id);
+        const tagCounts: Record<string, number> = {};
+        const typeCounts: Record<string, number> = {};
+        sprintTasks.forEach(t => {
+          if (t.type) typeCounts[t.type] = (typeCounts[t.type] || 0) + 1;
+          (t.tags as string[] || []).forEach(tag => { tagCounts[tag] = (tagCounts[tag] || 0) + 1; });
+        });
+        const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        const topTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).slice(0, 2);
+        const bugRatio = (typeCounts["bug"] || 0) / Math.max(sprintTasks.length, 1);
+        const theme = bugRatio > 0.4 ? "Bug Fixing Sprint" : topTypes[0]?.[0] === "feature" ? "Feature Sprint" : topTags[0] ? `${topTags[0][0]} Focus` : "Mixed Sprint";
+        return { sprint: s.name, theme, taskCount: sprintTasks.length, topTags: topTags.map(([tag, count]) => ({ tag, count })), topTypes: topTypes.map(([type, count]) => ({ type, count })), bugRatio: Math.round(bugRatio * 100) };
+      }),
+    },
+
+    blocker_predictor: {
+      title: "AI Blocker Predictor",
+      predictions: tasks.filter(t => t.status !== "done" && t.status !== "blocked").map(t => {
+        let blockerRisk = 0;
+        const reasons: string[] = [];
+        if (t.priority === "critical") { blockerRisk += 20; reasons.push("Critical priority — high visibility"); }
+        if ((t.points || 0) >= 8) { blockerRisk += 15; reasons.push("Large scope (8+ points)"); }
+        const assignees = (t.assigneeIds as number[]) || [];
+        if (assignees.length === 0) { blockerRisk += 25; reasons.push("No assignee — ownership risk"); }
+        if (assignees.length > 2) { blockerRisk += 10; reasons.push("Multiple assignees — coordination risk"); }
+        const assigneeTasks = assignees.flatMap(id => tasks.filter(at => (at.assigneeIds as number[])?.includes(id) && at.status === "blocked"));
+        if (assigneeTasks.length > 0) { blockerRisk += 30; reasons.push("Assignee has other blocked tasks"); }
+        if (t.due) { const daysUntil = (new Date(t.due).getTime() - Date.now()) / (24 * 60 * 60 * 1000); if (daysUntil < 3 && daysUntil > 0) { blockerRisk += 15; reasons.push("Due date approaching"); } }
+        return { id: t.id, title: t.title, blockerRisk: Math.min(100, blockerRisk), reasons, prediction: blockerRisk > 50 ? "likely" : blockerRisk > 25 ? "possible" : "unlikely" };
+      }).filter(t => t.blockerRisk > 15).sort((a, b) => b.blockerRisk - a.blockerRisk).slice(0, 10),
+    },
+
+    meeting_roi: {
+      title: "AI Meeting ROI Calculator",
+      analysis: (() => {
+        const avgRate = members.reduce((s, m) => s + Number(m.rate || 100), 0) / Math.max(members.length, 1);
+        const meetings = [
+          { name: "Daily Standup", duration: 0.25, frequency: "daily", attendees: members.length, costPerOccurrence: Math.round(0.25 * avgRate * members.length) },
+          { name: "Sprint Review", duration: 0.75, frequency: "biweekly", attendees: members.length, costPerOccurrence: Math.round(0.75 * avgRate * members.length) },
+          { name: "Sprint Retrospective", duration: 0.5, frequency: "biweekly", attendees: members.length, costPerOccurrence: Math.round(0.5 * avgRate * members.length) },
+          { name: "Sprint Planning", duration: 1, frequency: "biweekly", attendees: members.length, costPerOccurrence: Math.round(1 * avgRate * members.length) },
+          { name: "1:1 Check-ins", duration: 0.5, frequency: "weekly", attendees: 2, costPerOccurrence: Math.round(0.5 * avgRate * 2) },
+        ];
+        const monthlyTotal = meetings.reduce((s, m) => {
+          const freq = m.frequency === "daily" ? 20 : m.frequency === "weekly" ? 4 : 2;
+          return s + m.costPerOccurrence * freq;
+        }, 0);
+        return { meetings, monthlyTotal, recommendation: monthlyTotal > 10000 ? "Meeting costs are significant — consider async alternatives for some ceremonies" : "Meeting costs are reasonable for team size" };
+      })(),
+    },
+
+    priority_decay: {
+      title: "AI Priority Decay Analyzer",
+      decayed: tasks.filter(t => t.status !== "done").map(t => {
+        const ageMs = Date.now() - new Date(t.createdAt).getTime();
+        const ageDays = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+        const isPriority = t.priority === "critical" || t.priority === "high";
+        const isStale = ageDays > 14;
+        return isPriority && isStale ? { id: t.id, title: t.title, priority: t.priority, ageDays, status: t.status, suggestion: ageDays > 30 ? "Deprioritize or close — stale for 30+ days" : "Review urgency — high priority but inactive" } : null;
+      }).filter(Boolean),
+    },
+
+    team_growth: {
+      title: "AI Team Growth Tracker",
+      growth: members.map(m => {
+        const allTasks = tasks.filter(t => (t.assigneeIds as number[])?.includes(m.id));
+        const completed = allTasks.filter(t => t.status === "done");
+        const complexTasks = completed.filter(t => (t.points || 0) >= 5);
+        const tagSkills = new Set<string>();
+        allTasks.forEach(t => (t.tags as string[] || []).forEach(tag => tagSkills.add(tag)));
+        const projectsBreadth = new Set(allTasks.map(t => t.projectId)).size;
+        return { member: m.name, color: m.color, role: m.role, metrics: { totalCompleted: completed.length, complexTasks: complexTasks.length, skillTags: [...tagSkills].slice(0, 5), projectBreadth: projectsBreadth, growthScore: Math.min(100, completed.length * 5 + complexTasks.length * 10 + projectsBreadth * 15) }, level: completed.length > 10 ? "Senior" : completed.length > 5 ? "Mid" : "Junior", trend: complexTasks.length > 2 ? "rapid_growth" : completed.length > 3 ? "steady" : "early_stage" };
+      }),
+    },
+
+    handoff_analyzer: {
+      title: "AI Handoff Risk Analyzer",
+      handoffs: (() => {
+        const riskHandoffs: any[] = [];
+        tasks.filter(t => t.status !== "done" && (t.assigneeIds as number[])?.length > 1).forEach(t => {
+          const assignees = (t.assigneeIds as number[]) || [];
+          for (let i = 0; i < assignees.length; i++) {
+            for (let j = i + 1; j < assignees.length; j++) {
+              const m1 = members.find(m => m.id === assignees[i]);
+              const m2 = members.find(m => m.id === assignees[j]);
+              if (m1 && m2) {
+                const r1 = (m1.role || "").toLowerCase(); const r2 = (m2.role || "").toLowerCase();
+                const sameRole = r1 === r2;
+                riskHandoffs.push({ task: t.title, from: { name: m1.name, color: m1.color }, to: { name: m2.name, color: m2.color }, riskLevel: sameRole ? "low" : "medium", reason: sameRole ? "Same role — smooth handoff expected" : "Different roles — ensure clear documentation" });
+              }
+            }
+          }
+        });
+        return riskHandoffs.slice(0, 10);
+      })(),
+    },
+
+    focus_time: {
+      title: "AI Focus Time Optimizer",
+      recommendations: members.map(m => {
+        const memberTasks = tasks.filter(t => (t.assigneeIds as number[])?.includes(m.id) && t.status !== "done");
+        const deepWork = memberTasks.filter(t => (t.points || 0) >= 5);
+        const quickTasks = memberTasks.filter(t => (t.points || 0) <= 2);
+        const totalEstimatedHours = memberTasks.reduce((s, t) => s + (t.points || 3) * 1.5, 0);
+        return { member: m.name, color: m.color, deepWorkBlocks: Math.ceil(deepWork.length * 2), quickTaskSlots: quickTasks.length, suggestedSchedule: { morningFocus: deepWork.length > 0 ? `${deepWork[0].title} (deep work)` : "No deep work tasks", afternoonTasks: quickTasks.slice(0, 3).map(t => t.title).join(", ") || "No quick tasks", estimatedHoursNeeded: Math.round(totalEstimatedHours) }, recommendation: deepWork.length > 3 ? "Block 4-hour morning sessions for deep work" : "Schedule 2-hour focus blocks, batch small tasks in afternoon" };
+      }),
+    },
+
+    dependency_chain_risk: {
+      title: "AI Dependency Chain Risk",
+      chains: (() => {
+        const statusOrder = ["backlog", "todo", "inprogress", "review", "done"];
+        const projectChains = projects.map(p => {
+          const projectTasks = tasks.filter(t => t.projectId === p.id && t.status !== "done");
+          const blocked = projectTasks.filter(t => t.status === "blocked");
+          const inProgress = projectTasks.filter(t => t.status === "inprogress");
+          const reviewQueue = projectTasks.filter(t => t.status === "review");
+          const bottleneckStage = reviewQueue.length > inProgress.length ? "review" : blocked.length > 0 ? "blocked" : inProgress.length > 3 ? "inprogress" : "none";
+          return { project: p.name, color: p.color, chainLength: projectTasks.length, blocked: blocked.length, inProgress: inProgress.length, reviewQueue: reviewQueue.length, bottleneck: bottleneckStage, risk: blocked.length > 2 ? "high" : reviewQueue.length > 3 ? "medium" : "low", suggestion: bottleneckStage === "review" ? "Add reviewers — review queue is building up" : bottleneckStage === "blocked" ? "Unblock critical tasks first" : "Chain is healthy" };
+        });
+        return projectChains;
+      })(),
+    },
+
+    workflow_patterns: {
+      title: "AI Workflow Pattern Mining",
+      patterns: (() => {
+        const statusTransitions: Record<string, number> = {};
+        tasks.forEach(t => {
+          const key = `${t.status}`;
+          statusTransitions[key] = (statusTransitions[key] || 0) + 1;
+        });
+        const avgTimeInStatus = Object.entries(statusTransitions).map(([status, count]) => ({ status, count, percentage: Math.round((count / Math.max(tasks.length, 1)) * 100) }));
+        const patterns = [
+          tasks.filter(t => t.status === "blocked").length > 2 ? { pattern: "Frequent Blocking", severity: "high", insight: `${tasks.filter(t => t.status === "blocked").length} tasks blocked — consider dependency mapping before sprint start` } : null,
+          tasks.filter(t => t.status === "review").length > tasks.filter(t => t.status === "inprogress").length ? { pattern: "Review Bottleneck", severity: "medium", insight: "More tasks in review than in progress — add reviewers or reduce batch size" } : null,
+          tasks.filter(t => t.status === "backlog").length > tasks.length * 0.4 ? { pattern: "Backlog Buildup", severity: "medium", insight: `${Math.round(tasks.filter(t => t.status === "backlog").length / tasks.length * 100)}% of tasks in backlog — groom and prioritize` } : null,
+          tasks.filter(t => !t.assigneeIds || (t.assigneeIds as number[]).length === 0).length > 3 ? { pattern: "Ownership Gaps", severity: "high", insight: `${tasks.filter(t => !t.assigneeIds || (t.assigneeIds as number[]).length === 0).length} unassigned tasks — assign owners to maintain accountability` } : null,
+          { pattern: "Task Distribution", severity: "info", insight: avgTimeInStatus.map(s => `${s.status}: ${s.count} (${s.percentage}%)`).join(", ") },
+        ].filter(Boolean);
+        return { patterns, statusDistribution: avgTimeInStatus };
+      })(),
+    },
+
+    project_similarity: {
+      title: "AI Project Similarity Finder",
+      similarities: (() => {
+        const projectProfiles = projects.map(p => {
+          const projectTasks = tasks.filter(t => t.projectId === p.id);
+          const tags = new Set<string>();
+          projectTasks.forEach(t => (t.tags as string[] || []).forEach(tag => tags.add(tag)));
+          return { id: p.id, name: p.name, color: p.color, taskCount: projectTasks.length, tags: [...tags], avgPoints: projectTasks.length > 0 ? Math.round(projectTasks.reduce((s, t) => s + (t.points || 0), 0) / projectTasks.length * 10) / 10 : 0, budget: Number(p.budget || 0) };
+        });
+        const pairs: any[] = [];
+        for (let i = 0; i < projectProfiles.length; i++) {
+          for (let j = i + 1; j < projectProfiles.length; j++) {
+            const p1 = projectProfiles[i]; const p2 = projectProfiles[j];
+            const sharedTags = p1.tags.filter(t => p2.tags.includes(t));
+            const sizeSimilarity = 1 - Math.abs(p1.taskCount - p2.taskCount) / Math.max(p1.taskCount, p2.taskCount, 1);
+            const similarity = Math.round((sharedTags.length * 20 + sizeSimilarity * 30) * 100) / 100;
+            pairs.push({ project1: p1.name, project2: p2.name, color1: p1.color, color2: p2.color, similarity, sharedTags, useCase: similarity > 30 ? "Use timelines from similar project for estimation" : "Projects are distinct — estimate independently" });
+          }
+        }
+        return pairs.sort((a, b) => b.similarity - a.similarity);
+      })(),
+    },
+    sprint_themes_2: {
+      title: "AI Predictive Analytics Engine",
+      predictions: (() => {
+        const completionRate = tasks.length > 0 ? Math.round((tasks.filter(t => t.status === "done").length / tasks.length) * 100) : 0;
+        const blockedRate = tasks.length > 0 ? Math.round((tasks.filter(t => t.status === "blocked").length / tasks.length) * 100) : 0;
+        const overdueRate = tasks.length > 0 ? Math.round((overdueTasks.length / tasks.length) * 100) : 0;
+        const avgVelocityPerSprint = sprints.length > 0 ? Math.round(tasks.filter(t => t.status === "done").reduce((s, t) => s + (t.points || 0), 0) / sprints.length) : 0;
+        const burnoutMembers = members.filter(m => {
+          const load = tasks.filter(t => (t.assigneeIds as number[])?.includes(m.id) && t.status !== "done").length;
+          return load > 5;
+        });
+        return {
+          projectCompletion: { predicted: `${Math.min(100, completionRate + Math.round(avgVelocityPerSprint * 0.8))}%`, current: `${completionRate}%`, trend: completionRate > 50 ? "on_track" : "behind" },
+          sprintSuccess: { probability: blockedRate < 10 && overdueRate < 15 ? "85%" : blockedRate < 20 ? "65%" : "40%", factors: [`${blockedRate}% blocked rate`, `${overdueRate}% overdue rate`, `${avgVelocityPerSprint} pts/sprint avg`] },
+          burnoutRisk: { membersAtRisk: burnoutMembers.map(m => m.name), riskLevel: burnoutMembers.length > 2 ? "high" : burnoutMembers.length > 0 ? "moderate" : "low" },
+          deadlineForecast: { tasksLikelyToMiss: overdueTasks.length + tasks.filter(t => t.status !== "done" && t.due && (new Date(t.due).getTime() - Date.now()) < 3 * 24 * 60 * 60 * 1000).length, recommendation: overdueTasks.length > 3 ? "Redistribute overdue tasks immediately" : "On track — monitor daily" },
+          nextSprintRecommendation: `Plan for ${Math.round(avgVelocityPerSprint * 0.9)} points based on ${sprints.length} sprint history`,
+        };
+      })(),
+    },
   };
 
   const result = analyses[feature];

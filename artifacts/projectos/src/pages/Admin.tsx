@@ -10,7 +10,12 @@ import {
   Flame, Tags, Split, ScrollText, Crosshair, Radar, Timer, Radio,
   ShieldAlert, Milestone, Wrench, Megaphone, UserCheck, Heart, Hash,
   Grip, Import, Database, Lock, SunMoon, Keyboard, Mail,
-  GitPullRequest, Link2, FolderArchive, Palette, UserPlus
+  GitPullRequest, Link2, FolderArchive, Palette, UserPlus,
+  Repeat, MailPlus, Gamepad2, GraduationCap, Handshake, BrainCircuit,
+  ClipboardCheck, Trophy, Calculator, Shapes, ShieldCheck, Focus,
+  GitCompareArrows, Pickaxe, Telescope, Binary, Shuffle, Fingerprint,
+  History, Bookmark, GanttChart, Megaphone as MegaphoneIcon, Rows3,
+  Store, BookMarked, CircleDot, SquareStack, Cog, Scale
 } from "lucide-react";
 
 const API = `${import.meta.env.VITE_API_URL || ""}/api`;
@@ -63,6 +68,29 @@ const AI_FEATURES_2 = [
   { key: "csv_preview", title: "Data Import/Export", icon: Database, color: "#38bdf8", desc: "Preview CSV import/export structure for all data types" },
 ];
 
+const AI_FEATURES_3 = [
+  { key: "context_switcher", title: "Context Switcher", icon: Shuffle, color: "#6366f1", desc: "Predict which task each member should work on next based on urgency and patterns" },
+  { key: "email_drafter", title: "Email Drafter", icon: MailPlus, color: "#22c55e", desc: "Auto-draft stakeholder update emails from live project data" },
+  { key: "retro_facilitator", title: "Retro Facilitator", icon: Gamepad2, color: "#f97316", desc: "Generate retrospective exercises tailored to sprint performance" },
+  { key: "onboarding_planner", title: "Onboarding Planner", icon: GraduationCap, color: "#8b5cf6", desc: "Create personalized 3-week onboarding plans for new team members" },
+  { key: "pair_programming", title: "Pair Programming Optimizer", icon: Handshake, color: "#ec4899", desc: "Suggest optimal pair programming matches based on skills and projects" },
+  { key: "knowledge_decay", title: "Knowledge Decay Detector", icon: BrainCircuit, color: "#ef4444", desc: "Identify outdated docs, stale decisions, and knowledge gaps" },
+  { key: "decision_logger", title: "Decision Logger", icon: ClipboardCheck, color: "#0ea5e9", desc: "Auto-capture decision rationale from task transitions and status changes" },
+  { key: "competitive_velocity", title: "Competitive Benchmark", icon: Trophy, color: "#f59e0b", desc: "Compare team velocity against industry benchmarks and averages" },
+  { key: "cost_per_feature", title: "Cost-Per-Feature", icon: Calculator, color: "#14b8a6", desc: "Calculate true cost of each feature from hours, rates, and scope" },
+  { key: "sprint_themes", title: "Sprint Theme Detector", icon: Shapes, color: "#a78bfa", desc: "Identify natural themes and patterns in sprint work (bug fixing, feature, etc.)" },
+  { key: "blocker_predictor", title: "Blocker Predictor", icon: ShieldCheck, color: "#e11d48", desc: "Predict which tasks will become blocked before they actually do" },
+  { key: "meeting_roi", title: "Meeting ROI Calculator", icon: Scale, color: "#64748b", desc: "Calculate meeting costs vs output based on attendee rates and duration" },
+  { key: "priority_decay", title: "Priority Decay Analyzer", icon: Repeat, color: "#d946ef", desc: "Identify high-priority tasks that have been stale and repeatedly ignored" },
+  { key: "team_growth", title: "Team Growth Tracker", icon: TrendingUp, color: "#84cc16", desc: "Track individual skill growth from task complexity and project breadth" },
+  { key: "handoff_analyzer", title: "Handoff Risk Analyzer", icon: GitCompareArrows, color: "#06b6d4", desc: "Identify risky task handoffs between team members with different roles" },
+  { key: "focus_time", title: "Focus Time Optimizer", icon: Focus, color: "#3b82f6", desc: "Suggest optimal focus time blocks and deep work schedules per member" },
+  { key: "dependency_chain_risk", title: "Dependency Chain Risk", icon: GitBranch, color: "#7c3aed", desc: "Identify risky dependency chains and bottleneck stages per project" },
+  { key: "workflow_patterns", title: "Workflow Pattern Mining", icon: Pickaxe, color: "#f472b6", desc: "Discover common workflow patterns, bottlenecks, and ownership gaps" },
+  { key: "project_similarity", title: "Project Similarity Finder", icon: Telescope, color: "#0d9488", desc: "Find similar projects for estimation based on tags, size, and scope" },
+  { key: "sprint_themes_2", title: "Predictive Analytics", icon: Binary, color: "#38bdf8", desc: "ML-style predictions combining velocity, burnout, and deadline signals" },
+];
+
 const PLATFORM_FEATURES = [
   { key: "table_view", title: "Table / Spreadsheet View", icon: Table, category: "Views", desc: "Airtable-style spreadsheet with inline editing, sorting, and grouping", status: "ready" },
   { key: "gallery_view", title: "Gallery View", icon: LayoutGrid, category: "Views", desc: "Visual card grid layout for image-heavy tasks or design assets", status: "ready" },
@@ -99,6 +127,25 @@ const PLATFORM_FEATURES = [
   { key: "time_blocking", title: "Time Blocking", icon: Clock, category: "Time", desc: "Block calendar time for tasks with Google Calendar sync", status: "ready" },
   { key: "white_label", title: "White-Label Portal", icon: Palette, category: "Enterprise", desc: "Custom branding, logos, and domain for client portals", status: "ready" },
   { key: "resource_forecast", title: "Resource Forecasting", icon: TrendingUp, category: "Resource", desc: "Predict future resource needs based on project pipeline", status: "ready" },
+  { key: "gantt_chart", title: "Gantt Chart View", icon: GanttChart, category: "Views", desc: "Interactive Gantt chart with task dependencies and critical path highlighting", status: "ready" },
+  { key: "database_views", title: "Database Views (Notion-style)", icon: Rows3, category: "Views", desc: "Create multiple views of the same data — table, board, calendar, gallery", status: "ready" },
+  { key: "synced_blocks", title: "Synced Blocks / Components", icon: Repeat, category: "Collaboration", desc: "Reusable content blocks that update everywhere when edited once", status: "ready" },
+  { key: "sub_pages", title: "Sub-Pages / Nested Docs", icon: BookMarked, category: "Documents", desc: "Infinitely nested pages within documents — tree-style wiki structure", status: "ready" },
+  { key: "template_marketplace", title: "Template Marketplace", icon: Store, category: "Enterprise", desc: "Browse and install community-built project templates and workflows", status: "ready" },
+  { key: "version_history", title: "Version History UI", icon: History, category: "Documents", desc: "Visual diff viewer for document revisions with restore capability", status: "ready" },
+  { key: "favorites", title: "Favorites / Bookmarks", icon: Bookmark, category: "UX", desc: "Pin frequently accessed tasks, projects, and documents to quick-access bar", status: "ready" },
+  { key: "audit_log", title: "Audit Log", icon: Fingerprint, category: "Security", desc: "Complete audit trail of all user actions with timestamps and IP addresses", status: "ready" },
+  { key: "data_retention", title: "Data Retention Policies", icon: Database, category: "Security", desc: "Configure auto-delete rules for old tasks, logs, and attachments", status: "ready" },
+  { key: "workspace_analytics", title: "Workspace Analytics", icon: BarChart3, category: "Analytics", desc: "Organization-wide dashboard with adoption, engagement, and productivity metrics", status: "ready" },
+  { key: "activity_feed", title: "Global Activity Feed", icon: Activity, category: "Collaboration", desc: "Real-time feed of all workspace changes — task updates, comments, and completions", status: "ready" },
+  { key: "task_dependencies", title: "Task Dependencies Graph", icon: GitBranch, category: "Tasks", desc: "Visual dependency graph with drag-to-link and circular dependency detection", status: "ready" },
+  { key: "custom_emoji", title: "Custom Emoji / Icons", icon: CircleDot, category: "UX", desc: "Upload custom emoji and icons for projects, statuses, and reactions", status: "ready" },
+  { key: "checklist_templates", title: "Checklist Templates", icon: ClipboardCheck, category: "Tasks", desc: "Reusable checklist templates for QA, deployment, and onboarding processes", status: "ready" },
+  { key: "integration_marketplace", title: "Integration Marketplace", icon: SquareStack, category: "Integration", desc: "Browse and install 100+ integrations — Slack, GitHub, Jira, Figma, and more", status: "ready" },
+  { key: "mobile_push", title: "Mobile Push Notifications", icon: Megaphone, category: "Notifications", desc: "Configure push notification rules for mobile app users", status: "ready" },
+  { key: "api_rate_limiting", title: "API Rate Limiting", icon: Cog, category: "Integration", desc: "Configure rate limits per API key with usage analytics and alerts", status: "ready" },
+  { key: "contract_management", title: "Contract Management", icon: FileText, category: "Finance", desc: "Track client contracts, SOWs, and renewal dates with budget linking", status: "ready" },
+  { key: "custom_themes", title: "Custom Theme Builder", icon: Palette, category: "UX", desc: "Create custom color schemes with live preview and team sharing", status: "ready" },
 ];
 
 export default function Admin() {
@@ -186,7 +233,7 @@ export default function Admin() {
           <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
 
             {tab === "overview" && <OverviewTab stats={adminStats} />}
-            {tab === "ai-features" && <AIFeaturesTab features={AI_FEATURES} features2={AI_FEATURES_2} results={aiResults} loading={loadingAi} onRun={runAiFeature} enabled={enabledFeatures} onToggle={toggleFeature} />}
+            {tab === "ai-features" && <AIFeaturesTab features={AI_FEATURES} features2={AI_FEATURES_2} features3={AI_FEATURES_3} results={aiResults} loading={loadingAi} onRun={runAiFeature} enabled={enabledFeatures} onToggle={toggleFeature} />}
             {tab === "features" && <FeatureFlagsTab features={PLATFORM_FEATURES} enabled={enabledFeatures} onToggle={toggleFeature} />}
             {tab === "templates" && <TemplatesTab templates={templates} setTemplates={setTemplates} show={showNewTemplate} setShow={setShowNewTemplate} />}
             {tab === "custom-fields" && <CustomFieldsTab fields={customFields} setFields={setCustomFields} show={showNewField} setShow={setShowNewField} />}
@@ -373,25 +420,26 @@ function AIFeatureCard({ f, i, expandedFeature, setExpandedFeature, results, loa
   );
 }
 
-function AIFeaturesTab({ features, features2, results, loading, onRun, enabled, onToggle }: {
-  features: typeof AI_FEATURES; features2: typeof AI_FEATURES_2; results: Record<string, any>; loading: string | null;
+function AIFeaturesTab({ features, features2, features3, results, loading, onRun, enabled, onToggle }: {
+  features: typeof AI_FEATURES; features2: typeof AI_FEATURES_2; features3: typeof AI_FEATURES_3; results: Record<string, any>; loading: string | null;
   onRun: (key: string) => void; enabled: Record<string, boolean>; onToggle: (key: string) => void;
 }) {
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
-  const [aiSection, setAiSection] = useState<"core" | "advanced">("core");
+  const [aiSection, setAiSection] = useState<"core" | "advanced" | "predictive">("core");
+  const total = features.length + features2.length + features3.length;
 
   return (
     <div className="space-y-4">
-      <div className="bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border border-purple-500/20 rounded-xl p-5">
+      <div className="bg-gradient-to-r from-purple-500/10 via-cyan-500/10 to-emerald-500/10 border border-purple-500/20 rounded-xl p-5">
         <div className="flex items-center gap-3 mb-2">
           <Cpu className="w-5 h-5 text-purple-400" />
           <h2 className="text-lg font-bold">AI Command Center</h2>
-          <span className="px-2 py-0.5 text-[10px] bg-purple-500/20 text-purple-300 rounded-full font-bold uppercase">40 AI Features</span>
+          <span className="px-2 py-0.5 text-[10px] bg-purple-500/20 text-purple-300 rounded-full font-bold uppercase">{total} AI Features</span>
         </div>
-        <p className="text-sm text-muted-foreground">40 intelligent features that no competitor has. Run any analysis instantly, toggle features on/off for your workspace.</p>
+        <p className="text-sm text-muted-foreground">{total} intelligent features that no competitor has. Run any analysis instantly, toggle features on/off for your workspace.</p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <button onClick={() => setAiSection("core")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${aiSection === "core" ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-card border border-border text-muted-foreground hover:text-foreground'}`}>
           <Brain className="w-4 h-4" /> Core AI ({features.length})
@@ -400,10 +448,14 @@ function AIFeaturesTab({ features, features2, results, loading, onRun, enabled, 
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${aiSection === "advanced" ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' : 'bg-card border border-border text-muted-foreground hover:text-foreground'}`}>
           <Sparkles className="w-4 h-4" /> Advanced AI ({features2.length})
         </button>
+        <button onClick={() => setAiSection("predictive")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${aiSection === "predictive" ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-card border border-border text-muted-foreground hover:text-foreground'}`}>
+          <BrainCircuit className="w-4 h-4" /> Predictive AI ({features3.length})
+        </button>
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">
-        {(aiSection === "core" ? features : features2).map((f, i) => (
+        {(aiSection === "core" ? features : aiSection === "advanced" ? features2 : features3).map((f, i) => (
           <AIFeatureCard key={f.key} f={f} i={i} expandedFeature={expandedFeature} setExpandedFeature={setExpandedFeature}
             results={results} loading={loading} onRun={onRun} enabled={enabled} onToggle={onToggle} />
         ))}
@@ -978,6 +1030,389 @@ function AIResultView({ data, featureKey }: { data: any; featureKey: string }) {
         </div>
         <div className="bg-white/5 p-2 rounded-lg"><span className="font-medium">Time Entries</span><span className="text-muted-foreground ml-2">{data.exportPreview.timeEntries.totalRows} rows</span></div>
         <div className="bg-white/5 p-2 rounded-lg"><span className="font-medium">Members</span><span className="text-muted-foreground ml-2">{data.exportPreview.members.totalRows} rows</span></div>
+      </div>
+    );
+  }
+
+  if (featureKey === "context_switcher" && data.predictions) {
+    return (
+      <div className="space-y-2">
+        {data.predictions.map((p: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ backgroundColor: p.color }}>{p.member.split(" ").map((w: string) => w[0]).join("")}</div>
+              <span className="font-medium">{p.member}</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${p.confidence === "high" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>{p.confidence}</span>
+            </div>
+            <div className="text-muted-foreground">Now: {p.currentFocus}</div>
+            <div className="text-primary">Next: {p.predictedNext}</div>
+            <div className="text-[10px] text-muted-foreground">{p.reason}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "email_drafter" && data.drafts) {
+    return (
+      <div className="space-y-3">
+        {data.drafts.map((d: any, i: number) => (
+          <div key={i} className="bg-white/5 p-3 rounded-lg text-xs">
+            <div className="flex justify-between mb-1">
+              <span className="font-bold">{d.project}</span>
+              <span className="text-muted-foreground">{d.client}</span>
+            </div>
+            <div className="text-primary text-[11px] mb-2 font-medium">{d.subject}</div>
+            <pre className="text-[10px] text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto bg-white/5 p-2 rounded">{d.body}</pre>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "retro_facilitator" && data.exercises) {
+    return (
+      <div className="space-y-2 text-xs">
+        <div className="bg-primary/10 p-3 rounded-lg border border-primary/20">
+          <div className="text-primary font-bold mb-1">Recommended: {data.exercises.recommended.name}</div>
+          <div className="text-muted-foreground">{data.exercises.recommended.prompt}</div>
+          <div className="text-[10px] text-muted-foreground mt-1">{data.exercises.recommended.duration} · {data.exercises.recommended.focus}</div>
+        </div>
+        {data.exercises.all.filter((e: any) => e.name !== data.exercises.recommended.name).map((e: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg">
+            <div className="font-medium">{e.name} <span className="text-muted-foreground font-normal">({e.duration})</span></div>
+            <div className="text-muted-foreground text-[10px]">{e.prompt}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "onboarding_planner" && data.plans) {
+    return (
+      <div className="space-y-3">
+        {data.plans.map((p: any, i: number) => (
+          <div key={i} className="bg-white/5 p-3 rounded-lg text-xs">
+            <div className="font-bold mb-2">{p.project}</div>
+            {[{ label: "Week 1", items: p.week1 }, { label: "Week 2", items: p.week2 }, { label: "Week 3", items: p.week3 }].map((w, j) => (
+              <div key={j} className="mb-1">
+                <div className="text-[10px] font-bold text-primary uppercase">{w.label}</div>
+                {w.items.map((item: string, k: number) => <div key={k} className="text-muted-foreground pl-2">• {item}</div>)}
+              </div>
+            ))}
+            {p.keyContacts.length > 0 && (
+              <div className="flex gap-1 mt-1">{p.keyContacts.map((c: any, j: number) => (
+                <div key={j} className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 rounded">
+                  <div className="w-4 h-4 rounded-full text-[7px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: c.color }}>{c.name.split(" ").map((w: string) => w[0]).join("")}</div>
+                  <span className="text-[10px]">{c.name}</span>
+                </div>
+              ))}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "pair_programming" && data.pairings) {
+    return (
+      <div className="space-y-2">
+        {data.pairings.length === 0 && <p className="text-xs text-muted-foreground">No optimal pairings found</p>}
+        {data.pairings.map((p: any, i: number) => (
+          <div key={i} className="flex items-center gap-3 bg-white/5 p-2 rounded-lg text-xs">
+            <div className="flex items-center gap-1">
+              <div className="w-5 h-5 rounded-full text-[8px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: p.member1.color }}>{p.member1.name.split(" ").map((w: string) => w[0]).join("")}</div>
+              <span>{p.member1.name}</span>
+            </div>
+            <span className="text-muted-foreground">+</span>
+            <div className="flex items-center gap-1">
+              <div className="w-5 h-5 rounded-full text-[8px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: p.member2.color }}>{p.member2.name.split(" ").map((w: string) => w[0]).join("")}</div>
+              <span>{p.member2.name}</span>
+            </div>
+            <span className="ml-auto text-[10px] text-emerald-400">{p.reason}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "knowledge_decay" && data.outdated) {
+    return (
+      <div className="space-y-2">
+        {data.outdated.length === 0 && <p className="text-xs text-emerald-400">No knowledge decay detected!</p>}
+        {data.outdated.map((item: any, i: number) => (
+          <div key={i} className="bg-amber-500/10 p-2 rounded-lg text-xs">
+            <div className="flex justify-between">
+              <span className="font-medium text-amber-400">{item.title}</span>
+              <span className="text-muted-foreground">{item.age}d old</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">{item.risk}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "decision_logger" && data.decisions) {
+    return (
+      <div className="space-y-2">
+        {data.decisions.map((d: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="font-medium line-clamp-1">{d.title}</div>
+            {d.decisions.map((dec: string, j: number) => (
+              <div key={j} className="text-muted-foreground text-[10px] pl-2">• {dec}</div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "competitive_velocity" && data.benchmarks) {
+    const b = data.benchmarks;
+    return (
+      <div className="space-y-2 text-xs">
+        <div className="grid grid-cols-3 gap-2">
+          {b.comparison.map((c: any, i: number) => (
+            <div key={i} className="bg-white/5 p-2 rounded-lg text-center">
+              <div className="text-[10px] text-muted-foreground">{c.metric}</div>
+              <div className={`font-bold ${c.status === "above" || c.status === "healthy" ? "text-emerald-400" : "text-amber-400"}`}>{c.yours}</div>
+              <div className="text-[10px] text-muted-foreground">vs {c.industry}</div>
+            </div>
+          ))}
+        </div>
+        <div className={`p-2 rounded-lg text-xs ${b.overall.includes("above") ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>{b.overall}</div>
+      </div>
+    );
+  }
+
+  if (featureKey === "cost_per_feature" && data.features) {
+    return (
+      <div className="space-y-2">
+        {data.features.slice(0, 8).map((f: any, i: number) => (
+          <div key={i} className="flex items-center justify-between bg-white/5 p-2 rounded-lg text-xs">
+            <span className="line-clamp-1 flex-1">{f.title}</span>
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${f.costEfficiency === "low_cost" ? "bg-emerald-500/20 text-emerald-400" : f.costEfficiency === "moderate" ? "bg-amber-500/20 text-amber-400" : "bg-rose-500/20 text-rose-400"}`}>${f.estimatedCost}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "sprint_themes" && data.themes) {
+    return (
+      <div className="space-y-2">
+        {data.themes.map((t: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="flex justify-between mb-1">
+              <span className="font-medium">{t.sprint}</span>
+              <span className="px-1.5 py-0.5 bg-primary/20 text-primary rounded text-[10px] font-bold">{t.theme}</span>
+            </div>
+            <div className="flex gap-2 text-[10px] text-muted-foreground">
+              <span>{t.taskCount} tasks</span>
+              {t.topTags.map((tag: any, j: number) => <span key={j} className="px-1 bg-white/5 rounded">{tag.tag} ({tag.count})</span>)}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "blocker_predictor" && data.predictions) {
+    return (
+      <div className="space-y-2">
+        {data.predictions.length === 0 && <p className="text-xs text-emerald-400">No blocker risks detected!</p>}
+        {data.predictions.map((p: any, i: number) => (
+          <div key={i} className={`text-xs p-2 rounded-lg ${p.prediction === "likely" ? "bg-rose-500/10" : p.prediction === "possible" ? "bg-amber-500/10" : "bg-white/5"}`}>
+            <div className="flex justify-between mb-0.5">
+              <span className="font-medium line-clamp-1">{p.title}</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${p.prediction === "likely" ? "bg-rose-500/20 text-rose-400" : "bg-amber-500/20 text-amber-400"}`}>{p.blockerRisk}% risk</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">{p.reasons.join(" · ")}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "meeting_roi" && data.analysis) {
+    return (
+      <div className="space-y-2 text-xs">
+        {data.analysis.meetings.map((m: any, i: number) => (
+          <div key={i} className="flex items-center justify-between bg-white/5 p-2 rounded-lg">
+            <span>{m.name}</span>
+            <div className="flex gap-3 text-muted-foreground">
+              <span>{m.duration}h</span>
+              <span>{m.attendees} people</span>
+              <span className="font-bold text-foreground">${m.costPerOccurrence}/mtg</span>
+            </div>
+          </div>
+        ))}
+        <div className="bg-amber-500/10 p-2 rounded-lg text-amber-400">Monthly cost: <strong>${data.analysis.monthlyTotal.toLocaleString()}</strong></div>
+        <div className="bg-primary/10 text-primary p-2 rounded-lg flex items-center gap-2"><Lightbulb className="w-3 h-3" /> {data.analysis.recommendation}</div>
+      </div>
+    );
+  }
+
+  if (featureKey === "priority_decay" && data.decayed) {
+    return (
+      <div className="space-y-2">
+        {data.decayed.length === 0 && <p className="text-xs text-emerald-400">No priority decay detected!</p>}
+        {data.decayed.map((t: any, i: number) => (
+          <div key={i} className="bg-amber-500/10 p-2 rounded-lg text-xs">
+            <div className="flex justify-between">
+              <span className="font-medium text-amber-400 line-clamp-1">{t.title}</span>
+              <span className="text-muted-foreground">{t.ageDays}d · {t.priority}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">{t.suggestion}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "team_growth" && data.growth) {
+    return (
+      <div className="space-y-2">
+        {data.growth.map((m: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-5 h-5 rounded-full text-[8px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: m.color }}>{m.member.split(" ").map((w: string) => w[0]).join("")}</div>
+              <span className="font-medium">{m.member}</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${m.trend === "rapid_growth" ? "bg-emerald-500/20 text-emerald-400" : m.trend === "steady" ? "bg-blue-500/20 text-blue-400" : "bg-amber-500/20 text-amber-400"}`}>{m.level}</span>
+            </div>
+            <div className="flex gap-2 text-[10px] text-muted-foreground">
+              <span>{m.metrics.totalCompleted} completed</span>
+              <span>{m.metrics.complexTasks} complex</span>
+              <span>{m.metrics.projectBreadth} projects</span>
+            </div>
+            <div className="h-1 bg-white/5 rounded-full mt-1 overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${m.metrics.growthScore}%` }} /></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "focus_time" && data.recommendations) {
+    return (
+      <div className="space-y-2">
+        {data.recommendations.map((r: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-5 h-5 rounded-full text-[8px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: r.color }}>{r.member.split(" ").map((w: string) => w[0]).join("")}</div>
+              <span className="font-medium">{r.member}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">AM: {r.suggestedSchedule.morningFocus}</div>
+            <div className="text-[10px] text-muted-foreground">PM: {r.suggestedSchedule.afternoonTasks || "Batch small tasks"}</div>
+            <div className="text-[10px] text-primary mt-0.5">{r.recommendation}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "dependency_chain_risk" && data.chains) {
+    return (
+      <div className="space-y-2">
+        {data.chains.map((c: any, i: number) => (
+          <div key={i} className={`text-xs p-2 rounded-lg ${c.risk === "high" ? "bg-rose-500/10" : c.risk === "medium" ? "bg-amber-500/10" : "bg-white/5"}`}>
+            <div className="flex justify-between mb-1">
+              <span className="font-medium">{c.project}</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${c.risk === "high" ? "bg-rose-500/20 text-rose-400" : c.risk === "medium" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400"}`}>{c.risk} risk</span>
+            </div>
+            <div className="flex gap-2 text-[10px] text-muted-foreground">
+              <span>{c.blocked} blocked</span>
+              <span>{c.inProgress} in-progress</span>
+              <span>{c.reviewQueue} in review</span>
+            </div>
+            <div className="text-[10px] text-primary mt-0.5">{c.suggestion}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "workflow_patterns" && data.patterns) {
+    return (
+      <div className="space-y-2">
+        {data.patterns.patterns.map((p: any, i: number) => (
+          <div key={i} className={`text-xs p-2 rounded-lg ${p.severity === "high" ? "bg-rose-500/10 text-rose-400" : p.severity === "medium" ? "bg-amber-500/10 text-amber-400" : "bg-blue-500/10 text-blue-400"}`}>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="font-medium">{p.pattern}</span>
+              <span className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase ${p.severity === "high" ? "bg-rose-500/20" : p.severity === "medium" ? "bg-amber-500/20" : "bg-blue-500/20"}`}>{p.severity}</span>
+            </div>
+            <div className="text-[10px]">{p.insight}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "project_similarity" && data.similarities) {
+    return (
+      <div className="space-y-2">
+        {data.similarities.map((s: any, i: number) => (
+          <div key={i} className="bg-white/5 p-2 rounded-lg text-xs">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-medium">{s.project1}</span>
+              <span className="text-muted-foreground">↔</span>
+              <span className="font-medium">{s.project2}</span>
+              <span className="ml-auto font-bold text-primary">{s.similarity}%</span>
+            </div>
+            {s.sharedTags.length > 0 && <div className="flex gap-1">{s.sharedTags.map((t: string, j: number) => <span key={j} className="px-1 py-0.5 bg-primary/10 text-primary rounded text-[10px]">{t}</span>)}</div>}
+            <div className="text-[10px] text-muted-foreground mt-0.5">{s.useCase}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (featureKey === "sprint_themes_2" && data.predictions) {
+    const p = data.predictions;
+    return (
+      <div className="space-y-2 text-xs">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white/5 p-2 rounded-lg">
+            <div className="text-[10px] text-muted-foreground">Project Completion</div>
+            <div className={`font-bold text-lg ${p.projectCompletion.trend === "on_track" ? "text-emerald-400" : "text-amber-400"}`}>{p.projectCompletion.predicted}</div>
+            <div className="text-[10px] text-muted-foreground">Current: {p.projectCompletion.current}</div>
+          </div>
+          <div className="bg-white/5 p-2 rounded-lg">
+            <div className="text-[10px] text-muted-foreground">Sprint Success</div>
+            <div className="font-bold text-lg text-primary">{p.sprintSuccess.probability}</div>
+            <div className="text-[10px] text-muted-foreground">{p.sprintSuccess.factors[0]}</div>
+          </div>
+        </div>
+        <div className={`p-2 rounded-lg ${p.burnoutRisk.riskLevel === "high" ? "bg-rose-500/10 text-rose-400" : p.burnoutRisk.riskLevel === "moderate" ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"}`}>
+          Burnout Risk: <strong>{p.burnoutRisk.riskLevel}</strong> {p.burnoutRisk.membersAtRisk.length > 0 && `— ${p.burnoutRisk.membersAtRisk.join(", ")}`}
+        </div>
+        <div className="bg-white/5 p-2 rounded-lg">Deadline Risk: <strong>{p.deadlineForecast.tasksLikelyToMiss}</strong> tasks likely to miss · {p.deadlineForecast.recommendation}</div>
+        <div className="bg-primary/10 text-primary p-2 rounded-lg flex items-center gap-2"><Lightbulb className="w-3 h-3" /> {p.nextSprintRecommendation}</div>
+      </div>
+    );
+  }
+
+  if (featureKey === "handoff_analyzer" && data.handoffs) {
+    return (
+      <div className="space-y-2">
+        {data.handoffs.length === 0 && <p className="text-xs text-emerald-400">No risky handoffs detected!</p>}
+        {data.handoffs.map((h: any, i: number) => (
+          <div key={i} className={`text-xs p-2 rounded-lg ${h.riskLevel === "medium" ? "bg-amber-500/10" : "bg-white/5"}`}>
+            <div className="font-medium line-clamp-1 mb-1">{h.task}</div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded-full text-[7px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: h.from.color }}>{h.from.name.split(" ").map((w: string) => w[0]).join("")}</div>
+                <span>{h.from.name}</span>
+              </div>
+              <span className="text-muted-foreground">→</span>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded-full text-[7px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: h.to.color }}>{h.to.name.split(" ").map((w: string) => w[0]).join("")}</div>
+                <span>{h.to.name}</span>
+              </div>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{h.reason}</div>
+          </div>
+        ))}
       </div>
     );
   }
