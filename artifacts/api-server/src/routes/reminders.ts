@@ -1,70 +1,72 @@
 import { Router, type IRouter } from "express";
 import { db, remindersTable, notificationsTable } from "@workspace/db";
 import { eq, and, lte, desc } from "drizzle-orm";
-import twilio from "twilio";
+import cron from "node-cron";
+import { sendSMS, makeVoiceCall } from "../services/twilio.service";
+import { sendEmailViaSendGrid, isSendGridConfigured } from "../services/sendgrid.service";
+import { createInAppNotification } from "../services/notification.service";
 
 const router: IRouter = Router();
 
-function getTwilioClient() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
-  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
-  const apiKeySid = process.env.TWILIO_API_KEY_SID?.trim();
-  const apiKeySecret = process.env.TWILIO_API_KEY_SECRET?.trim();
-  if (!accountSid) throw new Error("TWILIO_ACCOUNT_SID not configured");
-  if (apiKeySid && apiKeySecret) return twilio(apiKeySid, apiKeySecret, { accountSid });
-  if (authToken) return twilio(accountSid, authToken);
-  throw new Error("Twilio credentials not configured");
-}
-
 async function dispatchReminder(reminder: any): Promise<void> {
-  const twilioPhone = process.env.TWILIO_PHONE_NUMBER || "+19035225399";
-
   try {
     switch (reminder.notificationType) {
       case "sms": {
-        const client = getTwilioClient();
-        await client.messages.create({
-          to: reminder.target,
-          from: twilioPhone,
-          body: `📋 Reminder: ${reminder.title}\n${reminder.message}`,
-        });
+        const sid = await sendSMS(
+          reminder.target,
+          `📋 Reminder: ${reminder.title}\n${reminder.message}`,
+        );
+        await db.update(remindersTable)
+          .set({ status: "sent", sentAt: new Date(), jobId: sid })
+          .where(eq(remindersTable.id, reminder.id));
         break;
       }
       case "call": {
-        const client = getTwilioClient();
-        const twiml = `<Response><Say voice="alice">${reminder.title}. ${reminder.message}</Say></Response>`;
-        await client.calls.create({
-          to: reminder.target,
-          from: twilioPhone,
-          twiml,
-        });
+        const sid = await makeVoiceCall(
+          reminder.target,
+          `${reminder.title}. ${reminder.message}`,
+        );
+        await db.update(remindersTable)
+          .set({ status: "sent", sentAt: new Date(), jobId: sid })
+          .where(eq(remindersTable.id, reminder.id));
         break;
       }
       case "email": {
-        const client = getTwilioClient();
-        await client.messages.create({
-          to: reminder.target,
-          from: twilioPhone,
-          body: `📧 Reminder: ${reminder.title}\n${reminder.message}`,
-        });
+        if (isSendGridConfigured()) {
+          await sendEmailViaSendGrid(
+            reminder.target,
+            `Reminder: ${reminder.title}`,
+            reminder.message,
+          );
+        } else {
+          await sendSMS(
+            reminder.target,
+            `📧 Reminder: ${reminder.title}\n${reminder.message}`,
+          );
+        }
+        await db.update(remindersTable)
+          .set({ status: "sent", sentAt: new Date() })
+          .where(eq(remindersTable.id, reminder.id));
         break;
       }
       case "in_app":
       default: {
-        await db.insert(notificationsTable).values({
-          userId: reminder.userId,
-          type: "reminder",
-          title: reminder.title,
-          message: reminder.message,
-          link: reminder.projectId ? `/tasks?projectId=${reminder.projectId}` : undefined,
-        });
+        await createInAppNotification(
+          reminder.userId,
+          reminder.title,
+          reminder.message,
+          {
+            reminderId: reminder.id,
+            projectId: reminder.projectId,
+            calendarEventId: reminder.calendarEventId,
+          },
+        );
+        await db.update(remindersTable)
+          .set({ status: "sent", sentAt: new Date() })
+          .where(eq(remindersTable.id, reminder.id));
         break;
       }
     }
-
-    await db.update(remindersTable)
-      .set({ status: "sent", sentAt: new Date() })
-      .where(eq(remindersTable.id, reminder.id));
   } catch (error: any) {
     await db.update(remindersTable)
       .set({ status: "failed", errorMessage: error.message })
@@ -79,7 +81,7 @@ router.get("/reminders", async (_req, res): Promise<void> => {
 });
 
 router.post("/reminders", async (req, res): Promise<void> => {
-  const { title, message, scheduledAt, notificationType, target, projectId, userId } = req.body;
+  const { title, message, scheduledAt, notificationType, target, projectId, userId, calendarEventId } = req.body;
   if (!title || !message || !scheduledAt) {
     res.status(400).json({ error: "Title, message, and scheduledAt are required" });
     return;
@@ -94,6 +96,7 @@ router.post("/reminders", async (req, res): Promise<void> => {
     notificationType: notificationType || "in_app",
     target: target || "",
     status: "pending",
+    calendarEventId: calendarEventId || null,
   }).returning();
 
   res.status(201).json(reminder);
@@ -136,28 +139,45 @@ router.post("/reminders/:id/send-now", async (req, res): Promise<void> => {
   res.json(updated);
 });
 
-setInterval(async () => {
+router.get("/reminders/stats", async (_req, res): Promise<void> => {
+  const all = await db.select().from(remindersTable);
+  const pending = all.filter(r => r.status === "pending").length;
+  const sent = all.filter(r => r.status === "sent").length;
+  const failed = all.filter(r => r.status === "failed").length;
+  const cancelled = all.filter(r => r.status === "cancelled").length;
+  res.json({ total: all.length, pending, sent, failed, cancelled });
+});
+
+cron.schedule("*/30 * * * * *", async () => {
   try {
     const dueReminders = await db.select().from(remindersTable)
       .where(and(
         eq(remindersTable.status, "pending"),
-        lte(remindersTable.scheduledAt, new Date())
+        lte(remindersTable.scheduledAt, new Date()),
       ));
+
     for (const r of dueReminders) {
       const [claimed] = await db.update(remindersTable)
         .set({ status: "processing" })
         .where(and(
           eq(remindersTable.id, r.id),
-          eq(remindersTable.status, "pending")
+          eq(remindersTable.status, "pending"),
         ))
         .returning();
+
       if (claimed) {
         await dispatchReminder(claimed);
       }
     }
+
+    if (dueReminders.length > 0) {
+      console.log(`[Cron] Dispatched ${dueReminders.length} reminder(s)`);
+    }
   } catch (e) {
-    console.error("Reminder sweep error:", e);
+    console.error("[Cron] Reminder sweep error:", e);
   }
-}, 30000);
+});
+
+console.log("[Cron] Reminder sweep scheduled — runs every 30 seconds");
 
 export default router;
