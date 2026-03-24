@@ -21,6 +21,7 @@ import apiKeysRouter from "./api-keys";
 import messagingRouter from "./messaging";
 import remindersRouter from "./reminders";
 import emailRoutingRouter from "./email-routing";
+import calendarRouter from "./calendar";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(apiKeysRouter);
 router.use(messagingRouter);
 router.use(remindersRouter);
 router.use(emailRoutingRouter);
+router.use(calendarRouter);
 
 export default router;

@@ -33,6 +33,7 @@ ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and T
     - **Notification Center:** Real-time in-app notifications.
     - **Messaging Center:** Integrates Twilio for SMS, voice calls, and email via SMS, with comprehensive contact and message history management.
     - **Email Hub:** A 4-tab system for email management, including an inbox, project-specific composition, email routing rules, and reminder scheduling with Twilio integration.
+    - **Calendar (`/calendar`):** Full Google Calendar integration with month grid and agenda views, event sync, create/edit/delete events (synced to Google Calendar), event detail modals with attendee status, conference links, and integrated reminder creation (in-app, SMS, voice call via Twilio). Supports clicking days to view events, color-coded event labels, and all-day events.
     - **Super Admin (`/admin`):** A comprehensive administrative interface featuring an overview dashboard, an AI Command Center with 60 AI features (Core, Advanced, Predictive), 55 configurable Feature Flags, Task Templates, Custom Fields, Expense Tracking, API & Email Integration settings, and robust Security controls (YubiKey/WebAuthn FIDO2, session-based auth).
     - **Platform Guide (`/guide`):** Comprehensive in-app documentation with left-side navigation covering 19 sections (Getting Started, Dashboard, Tasks, Sprints, Time & Billing, Goals, Portfolio, Documents, Announcements, Standups, Messaging, Email Hub, Email Routing, Reminders, Super Admin, Security, AI Features, Keyboard Shortcuts, API Reference). Includes live project email directory with copy buttons, code examples, tips, and warnings.
     - **Command Palette:** Global search functionality.
@@ -65,6 +66,7 @@ ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and T
 - **Validation:** Zod
 - **API Codegen:** Orval
 - **Messaging/Communication:** Twilio (for SMS, voice, email via SMS dispatch)
+- **Calendar Integration:** Google Calendar API (googleapis) via Replit Integration OAuth connector
 - **Email Providers (Configurable):** SMTP, SendGrid, Mailgun, AWS SES, Postmark
 - **Security:** YubiKey, WebAuthn FIDO2 (for multi-factor authentication)
 - **Version Control Integration:** GitHub, GitLab (for PR linking)
