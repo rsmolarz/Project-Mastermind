@@ -58,7 +58,8 @@ artifacts-monorepo/
   - **60 AI Features**: Core AI (20: risk prediction, sprint planning, budget forecast, priority optimizer, duplicate detection, team sentiment, scope creep, bottleneck detection, time estimation, quality score, workload balancer, dependency mapper, retro insights, progress reports, smart scheduling, resource optimizer, knowledge graph, client reports, smart standups, capacity planning) + Advanced AI (20: auto-tagger, task decomposer, release notes gen, velocity predictor, skill matcher, burnout detector, task aging analyzer, communication gap detector, effort vs impact matrix, deadline risk analyzer, resource conflict detector, tech debt scorer, milestone tracker, velocity optimizer, cross-project dependencies, meeting agenda generator, customer impact analyzer, deep project health, automation suggestions, data import/export) + Predictive AI (20: context switcher, email drafter, retro facilitator, onboarding planner, pair programming, knowledge decay, decision logger, competitive velocity, cost per feature, sprint themes, blocker predictor, meeting ROI, priority decay, team growth, handoff analyzer, focus time, dependency chain risk, workflow patterns, project similarity, predictive analytics engine)
   - **55 Feature Flags**: Views (table, gallery, roadmap, mind map, whiteboard), Tasks (triage inbox, templates, custom statuses, unique IDs, multi-project), Data (custom fields, formula fields, linked records, rollup fields, CSV import), Agile (cycle time, epics board, critical path, baseline comparison), Integration (webhook/API, email-to-task, GitHub/GitLab PR linking), Security (role-based permissions, guest access, SSO/SAML), Finance (expense tracking), UX (dark/light mode, keyboard nav), Notifications (digest emails), Collaboration (real-time presence), Design (video/image proofing), Time (time blocking), Enterprise (white-label portal), Resource (resource forecasting), System (automations), Analytics (funnel analysis, cohort analysis, heatmaps, A/B testing), Documents (version control, approval workflows), plus more
 - **Messaging Center** (`/messaging`): Full Twilio integration with SMS sending, voice calls (text-to-speech), email via SMS. Compose tab (channel selector, recipient, message body), Contacts management (CRUD, search, quick-select), Message History (filter by channel), Twilio Live data (raw messages/calls from Twilio API), Settings (account info, phone numbers, webhook URLs). Inbound webhook endpoints for receiving SMS and voice calls.
-- **Sidebar**: Workspace section (Dashboard, My Tasks with badge, Overdue with count badge), Active Projects with task count badges, Tools section (Docs, Time, Sprints, Messaging), Insights section (Portfolio, Goals, Standups, Announcements), Admin section (Super Admin), Team Online avatars, AI Assistant button
+- **Email Hub** (`/email`): 4-tab email management system — Email Inbox (search/filter by direction, detail view with full content), Compose (send-to-project with project selector, from/to/subject/body), Email Routes (map email addresses to projects, pause/activate/delete routes), Reminders (schedule in-app/SMS/voice/email reminders with Twilio dispatch, send-now, cancel). Stats cards showing totals/inbound/outbound/active routes/pending reminders. Subject tag routing (`[WEBPLAT]`, `[MOBILE]`, `[APIGW]`) for auto-routing inbound emails. Inbound webhook with secret validation. Atomic reminder dispatch with processing claim.
+- **Sidebar**: Workspace section (Dashboard, My Tasks with badge, Overdue with count badge), Active Projects with task count badges, Tools section (Docs, Time, Sprints, Messaging, Email Hub), Insights section (Portfolio, Goals, Standups, Announcements), Admin section (Super Admin), Team Online avatars, AI Assistant button
 
 ## Pages & Routes
 
@@ -72,11 +73,12 @@ artifacts-monorepo/
 - `/portfolio` — Project Portfolio
 - `/documents` — Documents & Wiki
 - `/messaging` — Messaging Center (compose SMS/voice/email, contacts, history, Twilio live data, settings)
+- `/email` — Email Hub (inbox, compose/send-to-project, email routes, reminders scheduling)
 - `/admin` — Super Admin (overview, AI Command Center, feature flags, templates, custom fields, expenses, API & email, security, system config)
 
 ## Database Tables
 
-- `projects` — id, name, icon, color, client, budget, health, phase
+- `projects` — id, name, icon, color, client, budget, health, phase, tag
 - `members` — id, name, initials, color, role, rate, capacity
 - `tasks` — id, title, type, status, priority, projectId, sprintId, assigneeIds (JSONB), points, due, tags (JSONB), subtasks (JSONB), notes, sortOrder, recurrence (JSONB), createdAt
 - `sprints` — id, name, projectId, startDate, endDate, goal, status
@@ -97,6 +99,10 @@ artifacts-monorepo/
 - `security_sessions` — id, token, method, expiresAt, createdAt
 - `contacts` — id, name, email, phone, company, role, avatar, tags (JSONB), notes, createdAt
 - `messages` — id, contactId, direction, channel, from_addr, to_addr, subject, body, status, twilioSid, metadata (JSONB), createdAt
+- `reminders` — id, userId, projectId, title, message, scheduledAt, notificationType, target, status, errorMessage, sentAt, createdAt
+- `email_routes` — id, projectId, assignedEmail, isActive, createdAt
+- `email_logs` — id, projectId, fromAddress, toAddress, subject, bodyText, bodyHtml, provider, direction, gmailMessageId, rawHeaders (JSONB), attachments (JSONB), metadata (JSONB), receivedAt, createdAt
+- `gmail_accounts` — id, userId, email, accessTokenEncrypted, refreshTokenEncrypted, tokenExpiryDate, scopes, lastSyncHistoryId, lastSyncAt, isActive, createdAt
 
 ## API Routes (mounted at /api)
 
@@ -128,6 +134,10 @@ artifacts-monorepo/
 - `POST /messaging/webhook/incoming`, `POST /messaging/webhook/voice`
 - `GET/POST /contacts`, `PATCH/DELETE /contacts/:id`
 - `GET /admin/stats`, `POST /admin/ai/analyze`
+- `GET/POST /reminders`, `PATCH/DELETE /reminders/:id`, `POST /reminders/:id/send-now`
+- `GET /email-routing/routes`, `POST /email-routing/routes`, `PATCH/DELETE /email-routing/routes/:id`
+- `GET /email-routing/logs`, `GET /email-routing/logs/:id`, `GET /email-routing/stats`
+- `POST /email-routing/send-to-project`, `POST /email-routing/inbound`
 
 ## Key Commands
 

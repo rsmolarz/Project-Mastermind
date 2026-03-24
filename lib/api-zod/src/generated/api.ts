@@ -26,6 +26,7 @@ export const ListProjectsResponseItem = zod.object({
   budget: zod.number(),
   health: zod.number(),
   phase: zod.string(),
+  tag: zod.string(),
   createdAt: zod.date(),
 });
 export const ListProjectsResponse = zod.array(ListProjectsResponseItem);
@@ -41,6 +42,7 @@ export const CreateProjectBody = zod.object({
   budget: zod.number(),
   health: zod.number().optional(),
   phase: zod.string().optional(),
+  tag: zod.string().optional(),
 });
 
 /**
@@ -58,6 +60,7 @@ export const UpdateProjectBody = zod.object({
   budget: zod.number().optional(),
   health: zod.number().optional(),
   phase: zod.string().optional(),
+  tag: zod.string().optional(),
 });
 
 export const UpdateProjectResponse = zod.object({
@@ -69,6 +72,7 @@ export const UpdateProjectResponse = zod.object({
   budget: zod.number(),
   health: zod.number(),
   phase: zod.string(),
+  tag: zod.string(),
   createdAt: zod.date(),
 });
 

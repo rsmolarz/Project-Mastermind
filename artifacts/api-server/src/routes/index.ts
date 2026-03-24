@@ -19,6 +19,8 @@ import customFieldsRouter from "./custom-fields";
 import adminRouter from "./admin";
 import apiKeysRouter from "./api-keys";
 import messagingRouter from "./messaging";
+import remindersRouter from "./reminders";
+import emailRoutingRouter from "./email-routing";
 
 const router: IRouter = Router();
 
@@ -42,5 +44,7 @@ router.use(customFieldsRouter);
 router.use(adminRouter);
 router.use(apiKeysRouter);
 router.use(messagingRouter);
+router.use(remindersRouter);
+router.use(emailRoutingRouter);
 
 export default router;

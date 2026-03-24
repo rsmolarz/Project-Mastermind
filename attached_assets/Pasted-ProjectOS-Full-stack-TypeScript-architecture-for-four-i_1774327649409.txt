@@ -1,0 +1,1193 @@
+ProjectOS: Full-stack TypeScript architecture for four interconnected systems
+The optimal architecture for ProjectOS combines BullMQ for reliable reminder scheduling, SendGrid Inbound Parse and AWS SES/SNS for dual-path email reception, the googleapis SDK with encrypted token storage for Gmail integration, and Drizzle ORM's pgTable API for a type-safe PostgreSQL schema. This plan lays out every file, schema definition, and code module needed to ship these four systems on a Replit-hosted Express + React + PostgreSQL stack. Each system is isolated into its own Express router module, shares a unified Drizzle schema, and communicates through well-defined internal service functions.
+
+Project file structure and npm dependencies
+src/
+├── server/
+│   ├── index.ts                    # Express app entry point
+│   ├── env.ts                      # Zod-validated environment config
+│   ├── db/
+│   │   ├── index.ts                # Drizzle client initialization
+│   │   └── schema.ts               # All Drizzle table + enum definitions
+│   ├── lib/
+│   │   ├── crypto.ts               # AES-256-GCM encrypt/decrypt for OAuth tokens
+│   │   ├── asyncHandler.ts         # Express async error wrapper
+│   │   └── errors.ts               # Custom AppError classes
+│   ├── services/
+│   │   ├── twilio.service.ts       # SMS + Voice call dispatch
+│   │   ├── sendgrid.service.ts     # Email sending via SendGrid
+│   │   ├── ses.service.ts          # Email sending via AWS SES
+│   │   ├── gmail.service.ts        # Gmail API client (OAuth, list, get, send)
+│   │   ├── calendar.service.ts     # Google Calendar API client
+│   │   ├── notification.service.ts # In-app notification creation + WebSocket broadcast
+│   │   └── emailParser.service.ts  # Subject tag extraction, project matching
+│   ├── jobs/
+│   │   ├── reminderWorker.ts       # BullMQ worker — dispatches due reminders
+│   │   └── queue.ts                # BullMQ queue + scheduling helpers
+│   ├── routes/
+│   │   ├── reminders.ts            # SYSTEM 1 — reminder CRUD + scheduling
+│   │   ├── emailRouting.ts         # SYSTEM 2 — inbound webhooks + project mapping
+│   │   ├── gmailSync.ts            # SYSTEM 3 — Gmail OAuth + inbox sync
+│   │   └── emailForm.ts            # SYSTEM 4 — send-to-project endpoint
+│   ├── middleware/
+│   │   ├── verifyTwilio.ts         # Twilio X-Twilio-Signature check
+│   │   ├── verifySendgrid.ts       # SendGrid ECDSA signature check
+│   │   └── errorHandler.ts         # Global Express error handler
+│   └── websocket.ts                # WebSocket server for in-app notifications
+└── client/
+    └── components/
+        └── SendToProjectForm.tsx   # SYSTEM 4 — React form component
+Core npm dependencies (all have built-in or community TypeScript types):
+
+Package	Purpose	Version note
+twilio	SMS + Voice calls (native TS)	^5.x
+@sendgrid/mail	Email sending (native TS)	^8.x
+@sendgrid/eventwebhook	Webhook signature verification	^8.x
+@aws-sdk/client-ses	SES sending (SDK v3, native TS)	^3.x
+@aws-sdk/client-s3	Fetch raw emails from S3	^3.x
+googleapis	Gmail + Calendar APIs	^144.x
+bullmq + ioredis	Job queue with delayed jobs (native TS)	^5.x
+node-cron + @types/node-cron	Recurring sweep fallback	^3.x
+drizzle-orm + drizzle-kit	PostgreSQL ORM	^0.38.x
+multer + @types/multer	Multipart file upload parsing	^1.x
+mailparser	Raw MIME email parsing	^3.x
+ws + @types/ws	WebSocket server	^8.x
+zod	Env validation + request schemas	^3.x
+Drizzle ORM schema covers all five new tables
+The schema below uses pgEnum for constrained values, jsonb for flexible metadata, and timestamp with defaultNow() for audit trails. 
+Drizzle ORM
+ Every table uses serial primary keys and explicitly typed columns.
+
+typescript
+// src/server/db/schema.ts
+import {
+  pgTable, pgEnum, serial, text, varchar, integer,
+  boolean, timestamp, jsonb, index, uniqueIndex,
+} from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+
+// ── Shared enums ──────────────────────────────────────────────
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'sms', 'call', 'email', 'in_app',
+]);
+
+export const reminderStatusEnum = pgEnum('reminder_status', [
+  'pending', 'sent', 'failed', 'cancelled',
+]);
+
+export const emailProviderEnum = pgEnum('email_provider', [
+  'sendgrid', 'ses', 'gmail',
+]);
+
+// ── Existing table reference (assumed) ────────────────────────
+export const projects = pgTable('projects', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  tag: varchar('tag', { length: 100 }).notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  name: text('name'),
+  phone: varchar('phone', { length: 20 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ── SYSTEM 1: Reminders ───────────────────────────────────────
+export const reminders = pgTable('reminders', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  title: varchar('title', { length: 255 }).notNull(),
+  message: text('message').notNull(),
+  scheduledAt: timestamp('scheduled_at').notNull(),
+  notificationType: notificationTypeEnum('notification_type').notNull(),
+  target: varchar('target', { length: 255 }).notNull(), // phone or email
+  status: reminderStatusEnum('status').default('pending').notNull(),
+  jobId: varchar('job_id', { length: 255 }),             // BullMQ job ID
+  calendarEventId: varchar('calendar_event_id', { length: 255 }),
+  errorMessage: text('error_message'),
+  sentAt: timestamp('sent_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ([
+  index('reminders_scheduled_idx').on(table.scheduledAt),
+  index('reminders_status_idx').on(table.status),
+  index('reminders_user_idx').on(table.userId),
+]));
+
+// ── SYSTEM 1: In-app notifications ───────────────────────────
+export const notifications = pgTable('notifications', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  title: varchar('title', { length: 255 }).notNull(),
+  message: text('message').notNull(),
+  read: boolean('read').default(false).notNull(),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ([
+  index('notifications_user_read_idx').on(table.userId, table.read),
+]));
+
+// ── SYSTEM 2: Email routing ──────────────────────────────────
+export const emailRoutes = pgTable('email_routes', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').references(() => projects.id).notNull(),
+  assignedEmail: varchar('assigned_email', { length: 255 }).notNull().unique(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ([
+  uniqueIndex('email_routes_email_idx').on(table.assignedEmail),
+]));
+
+// ── SYSTEM 2 + 3: Email logs ─────────────────────────────────
+export const emailLogs = pgTable('email_logs', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').references(() => projects.id),
+  fromAddress: varchar('from_address', { length: 255 }).notNull(),
+  toAddress: varchar('to_address', { length: 255 }),
+  subject: varchar('subject', { length: 500 }).notNull(),
+  bodyText: text('body_text'),
+  bodyHtml: text('body_html'),
+  provider: emailProviderEnum('provider').notNull(),
+  gmailMessageId: varchar('gmail_message_id', { length: 255 }),
+  rawHeaders: jsonb('raw_headers').$type<Record<string, string>>(),
+  attachments: jsonb('attachments').$type<Array<{
+    filename: string; contentType: string; size: number;
+  }>>(),
+  receivedAt: timestamp('received_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ([
+  index('email_logs_project_idx').on(table.projectId),
+  index('email_logs_gmail_msg_idx').on(table.gmailMessageId),
+]));
+
+// ── SYSTEM 3: Gmail connected accounts ───────────────────────
+export const gmailAccounts = pgTable('gmail_accounts', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  accessTokenEncrypted: text('access_token_encrypted').notNull(),
+  refreshTokenEncrypted: text('refresh_token_encrypted').notNull(),
+  tokenExpiryDate: timestamp('token_expiry_date'),
+  scopes: text('scopes'),
+  lastSyncHistoryId: varchar('last_sync_history_id', { length: 100 }),
+  lastSyncAt: timestamp('last_sync_at'),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ([
+  uniqueIndex('gmail_accounts_email_idx').on(table.email),
+]));
+
+// ── Relations ─────────────────────────────────────────────────
+export const projectsRelations = relations(projects, ({ many }) => ({
+  emailRoutes: many(emailRoutes),
+  emailLogs: many(emailLogs),
+}));
+
+export const emailRoutesRelations = relations(emailRoutes, ({ one }) => ({
+  project: one(projects, {
+    fields: [emailRoutes.projectId],
+    references: [projects.id],
+  }),
+}));
+
+// Type exports for use across the codebase
+export type Reminder = typeof reminders.$inferSelect;
+export type InsertReminder = typeof reminders.$inferInsert;
+export type Notification = typeof notifications.$inferSelect;
+export type EmailLog = typeof emailLogs.$inferSelect;
+export type GmailAccount = typeof gmailAccounts.$inferSelect;
+export type EmailRoute = typeof emailRoutes.$inferSelect;
+The gmailAccounts table stores encrypted access and refresh tokens — never plaintext. The emailLogs table serves both inbound webhook emails (System 2) and synced Gmail emails (System 3), unified by the provider enum column. The jsonb columns for attachments and rawHeaders use Drizzle's $type<T>() generic to get full TypeScript inference. 
+Drizzle ORM
+
+Environment validation catches missing secrets at startup
+typescript
+// src/server/env.ts
+import 'dotenv/config';
+import { z } from 'zod';
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.coerce.number().default(3000),
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url().default('redis://localhost:6379'),
+
+  // Twilio
+  TWILIO_ACCOUNT_SID: z.string().startsWith('AC'),
+  TWILIO_AUTH_TOKEN: z.string().min(32),
+  TWILIO_PHONE_NUMBER: z.string().startsWith('+'),
+
+  // Google OAuth
+  GOOGLE_CLIENT_ID: z.string().endsWith('.apps.googleusercontent.com'),
+  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  GOOGLE_REDIRECT_URI: z.string().url(),
+
+  // SendGrid
+  SENDGRID_API_KEY: z.string().startsWith('SG.'),
+  SENDGRID_WEBHOOK_PUBLIC_KEY: z.string().optional(),
+  SENDGRID_FROM_EMAIL: z.string().email(),
+
+  // AWS
+  AWS_ACCESS_KEY_ID: z.string().min(16),
+  AWS_SECRET_ACCESS_KEY: z.string().min(1),
+  AWS_SES_REGION: z.string().default('us-east-1'),
+  AWS_S3_EMAIL_BUCKET: z.string().optional(),
+
+  // Encryption
+  TOKEN_ENCRYPTION_KEY: z.string().length(64), // 32 bytes hex-encoded
+  APP_BASE_URL: z.string().url(),
+});
+
+const parsed = envSchema.safeParse(process.env);
+if (!parsed.success) {
+  console.error('❌ Environment validation failed:', parsed.error.format());
+  process.exit(1);
+}
+export const env = parsed.data;
+AES-256-GCM encryption protects stored OAuth tokens
+typescript
+// src/server/lib/crypto.ts
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { env } from '../env';
+
+const ALGORITHM = 'aes-256-gcm';
+const KEY = Buffer.from(env.TOKEN_ENCRYPTION_KEY, 'hex'); // 32 bytes
+
+export function encrypt(plaintext: string): string {
+  const iv = randomBytes(16);
+  const cipher = createCipheriv(ALGORITHM, KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  // Format: iv:tag:ciphertext (all hex-encoded)
+  return `${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
+}
+
+export function decrypt(encoded: string): string {
+  const [ivHex, tagHex, ciphertextHex] = encoded.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const tag = Buffer.from(tagHex, 'hex');
+  const ciphertext = Buffer.from(ciphertextHex, 'hex');
+  const decipher = createDecipheriv(ALGORITHM, KEY, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+The GCM mode provides both confidentiality and authentication — any tampered ciphertext will throw on decryption. 
+Gitbooks
+ The iv is unique per encryption and stored alongside the ciphertext, while the single TOKEN_ENCRYPTION_KEY is a 256-bit hex string generated once via openssl rand -hex 32.
+
+Shared utilities: async handler and error classes
+typescript
+// src/server/lib/errors.ts
+export class AppError extends Error {
+  constructor(public message: string, public statusCode: number, public code: string) {
+    super(message);
+    this.name = 'AppError';
+  }
+}
+export class NotFoundError extends AppError {
+  constructor(message = 'Resource not found') { super(message, 404, 'NOT_FOUND'); }
+}
+export class ValidationError extends AppError {
+  constructor(message = 'Validation failed', public details?: unknown) {
+    super(message, 400, 'VALIDATION_ERROR');
+  }
+}
+
+// src/server/lib/asyncHandler.ts
+import { Request, Response, NextFunction } from 'express';
+
+export const asyncHandler = (
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
+) => (req: Request, res: Response, next: NextFunction) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+// src/server/middleware/errorHandler.ts
+import { Request, Response, NextFunction } from 'express';
+import { AppError } from '../lib/errors';
+
+export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction) {
+  console.error(`[Error] ${err.message}`, err.stack);
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({ error: { message: err.message, code: err.code } });
+  }
+  res.status(500).json({ error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } });
+}
+System 1: Reminder scheduling with BullMQ and multi-channel dispatch
+The reminder system uses BullMQ delayed jobs as its primary mechanism. When a user creates a reminder, the backend inserts a DB row and enqueues a BullMQ job with a delay equal to scheduledAt - now. A separate worker process picks up fired jobs and dispatches through the correct channel. A node-cron sweep runs every minute as a safety net to catch any jobs that Redis might have lost.
+
+typescript
+// src/server/services/twilio.service.ts
+import Twilio from 'twilio';
+import { env } from '../env';
+
+const client = new Twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
+
+export async function sendSMS(to: string, body: string): Promise<string> {
+  const message = await client.messages.create({
+    to,
+    from: env.TWILIO_PHONE_NUMBER,
+    body,
+  });
+  return message.sid;
+}
+
+export async function makeVoiceCall(to: string, message: string): Promise<string> {
+  const twiml = `<Response><Say voice="alice" language="en-US">${escapeXml(message)}</Say></Response>`;
+  const call = await client.calls.create({
+    to,
+    from: env.TWILIO_PHONE_NUMBER,
+    twiml,
+  });
+  return call.sid;
+}
+
+function escapeXml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+typescript
+// src/server/jobs/queue.ts
+import { Queue } from 'bullmq';
+import IORedis from 'ioredis';
+import { env } from '../env';
+
+export const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null });
+
+export interface ReminderJobData {
+  reminderId: number;
+  userId: number;
+  notificationType: 'sms' | 'call' | 'email' | 'in_app';
+  target: string;
+  title: string;
+  message: string;
+}
+
+export const reminderQueue = new Queue<ReminderJobData>('reminders', { connection });
+
+export async function scheduleReminderJob(
+  data: ReminderJobData,
+  scheduledAt: Date
+): Promise<string> {
+  const delay = Math.max(scheduledAt.getTime() - Date.now(), 0);
+  const job = await reminderQueue.add('send-reminder', data, {
+    delay,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: { count: 1000 },
+    removeOnFail: { count: 5000 },
+  });
+  return job.id!;
+}
+typescript
+// src/server/jobs/reminderWorker.ts
+import { Worker, Job } from 'bullmq';
+import { connection, ReminderJobData } from './queue';
+import { sendSMS, makeVoiceCall } from '../services/twilio.service';
+import { sendEmailViaSendGrid } from '../services/sendgrid.service';
+import { createInAppNotification } from '../services/notification.service';
+import { db } from '../db';
+import { reminders } from '../db/schema';
+import { eq } from 'drizzle-orm';
+
+const worker = new Worker<ReminderJobData>(
+  'reminders',
+  async (job: Job<ReminderJobData>) => {
+    const { reminderId, notificationType, target, title, message } = job.data;
+    try {
+      switch (notificationType) {
+        case 'sms':
+          await sendSMS(target, `${title}: ${message}`);
+          break;
+        case 'call':
+          await makeVoiceCall(target, `${title}. ${message}`);
+          break;
+        case 'email':
+          await sendEmailViaSendGrid(target, title, message);
+          break;
+        case 'in_app':
+          await createInAppNotification(job.data.userId, title, message);
+          break;
+      }
+      await db.update(reminders)
+        .set({ status: 'sent', sentAt: new Date() })
+        .where(eq(reminders.id, reminderId));
+    } catch (error: any) {
+      await db.update(reminders)
+        .set({ status: 'failed', errorMessage: error.message })
+        .where(eq(reminders.id, reminderId));
+      throw error; // BullMQ will retry based on attempts config
+    }
+  },
+  { connection, concurrency: 10 }
+);
+
+worker.on('failed', (job, err) => {
+  console.error(`Reminder job ${job?.id} failed: ${err.message}`);
+});
+
+export { worker };
+typescript
+// src/server/routes/reminders.ts
+import { Router } from 'express';
+import { asyncHandler } from '../lib/asyncHandler';
+import { db } from '../db';
+import { reminders, InsertReminder } from '../db/schema';
+import { scheduleReminderJob } from '../jobs/queue';
+import { eq, and, lte } from 'drizzle-orm';
+import { z } from 'zod';
+
+const router = Router();
+
+const createReminderSchema = z.object({
+  title: z.string().min(1).max(255),
+  message: z.string().min(1),
+  scheduledAt: z.string().datetime(),
+  notificationType: z.enum(['sms', 'call', 'email', 'in_app']),
+  target: z.string().min(1),
+});
+
+// POST /api/reminders — create a new reminder
+router.post('/', asyncHandler(async (req, res) => {
+  const body = createReminderSchema.parse(req.body);
+  const userId = (req as any).userId; // from auth middleware
+
+  const [reminder] = await db.insert(reminders).values({
+    userId,
+    title: body.title,
+    message: body.message,
+    scheduledAt: new Date(body.scheduledAt),
+    notificationType: body.notificationType,
+    target: body.target,
+  }).returning();
+
+  const jobId = await scheduleReminderJob({
+    reminderId: reminder.id,
+    userId,
+    notificationType: body.notificationType,
+    target: body.target,
+    title: body.title,
+    message: body.message,
+  }, new Date(body.scheduledAt));
+
+  await db.update(reminders).set({ jobId }).where(eq(reminders.id, reminder.id));
+  res.status(201).json({ reminder: { ...reminder, jobId } });
+}));
+
+// GET /api/reminders — list user's reminders
+router.get('/', asyncHandler(async (req, res) => {
+  const userId = (req as any).userId;
+  const result = await db.select().from(reminders).where(eq(reminders.userId, userId));
+  res.json({ reminders: result });
+}));
+
+// DELETE /api/reminders/:id — cancel a reminder
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  await db.update(reminders)
+    .set({ status: 'cancelled' })
+    .where(eq(reminders.id, id));
+  res.json({ success: true });
+}));
+
+export default router;
+The node-cron fallback runs every minute inside the main Express process to catch any pending reminders that BullMQ may have missed due to Redis downtime:
+
+typescript
+// Inside src/server/index.ts, after app initialization
+import cron from 'node-cron';
+
+cron.schedule('* * * * *', async () => {
+  const dueReminders = await db.select().from(reminders)
+    .where(and(
+      eq(reminders.status, 'pending'),
+      lte(reminders.scheduledAt, new Date())
+    ));
+  for (const r of dueReminders) {
+    await scheduleReminderJob({
+      reminderId: r.id, userId: r.userId,
+      notificationType: r.notificationType, target: r.target,
+      title: r.title, message: r.message,
+    }, new Date()); // delay=0, fire immediately
+  }
+});
+System 2: Dual-path email routing through webhooks
+Inbound emails arrive via two paths: SendGrid Inbound Parse (multipart/form-data) 
+hookdeck
+ and AWS SES via SNS (JSON). Both converge on the same project-matching logic.
+
+typescript
+// src/server/middleware/verifySendgrid.ts
+import { Request, Response, NextFunction } from 'express';
+import { EventWebhook, EventWebhookHeader } from '@sendgrid/eventwebhook';
+import { env } from '../env';
+
+export function verifySendgridSignature(req: Request, res: Response, next: NextFunction) {
+  if (!env.SENDGRID_WEBHOOK_PUBLIC_KEY) return next();
+  const signature = req.headers[EventWebhookHeader.SIGNATURE().toLowerCase()] as string;
+  const timestamp = req.headers[EventWebhookHeader.TIMESTAMP().toLowerCase()] as string;
+  const ew = new EventWebhook();
+  const key = ew.convertPublicKeyToECDSA(env.SENDGRID_WEBHOOK_PUBLIC_KEY);
+  if (!ew.verifySignature(key, (req as any).rawBody, signature, timestamp)) {
+    return res.status(401).json({ error: 'Invalid webhook signature' });
+  }
+  next();
+}
+
+// src/server/middleware/verifyTwilio.ts
+import twilio from 'twilio';
+import { Request, Response, NextFunction } from 'express';
+import { env } from '../env';
+
+export function verifyTwilioSignature(req: Request, res: Response, next: NextFunction) {
+  const signature = req.headers['x-twilio-signature'] as string;
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const url = `${protocol}://${req.get('host')}${req.originalUrl}`;
+  if (!twilio.validateRequest(env.TWILIO_AUTH_TOKEN, signature, url, req.body)) {
+    return res.status(403).json({ error: 'Invalid Twilio signature' });
+  }
+  next();
+}
+typescript
+// src/server/services/emailParser.service.ts
+import { db } from '../db';
+import { emailRoutes, projects, emailLogs } from '../db/schema';
+import { eq } from 'drizzle-orm';
+
+/** Extract [ProjectTag] from subject line */
+export function extractProjectTag(subject: string): string | null {
+  const match = subject.match(/\[([^\]]+)\]/);
+  return match ? match[1] : null;
+}
+
+/** Match email to project by address or subject tag */
+export async function matchProject(
+  toAddress: string,
+  subject: string
+): Promise<number | null> {
+  // Strategy 1: unique address mapping
+  const [route] = await db.select()
+    .from(emailRoutes)
+    .where(eq(emailRoutes.assignedEmail, toAddress.toLowerCase()));
+  if (route) return route.projectId;
+
+  // Strategy 2: subject line tag
+  const tag = extractProjectTag(subject);
+  if (tag) {
+    const [project] = await db.select()
+      .from(projects)
+      .where(eq(projects.tag, tag));
+    if (project) return project.id;
+  }
+  return null;
+}
+
+/** Store parsed email in logs */
+export async function storeInboundEmail(params: {
+  projectId: number | null;
+  fromAddress: string;
+  toAddress: string;
+  subject: string;
+  bodyText: string | null;
+  bodyHtml: string | null;
+  provider: 'sendgrid' | 'ses' | 'gmail';
+  attachments?: Array<{ filename: string; contentType: string; size: number }>;
+}) {
+  return db.insert(emailLogs).values(params).returning();
+}
+typescript
+// src/server/routes/emailRouting.ts
+import { Router } from 'express';
+import multer from 'multer';
+import { asyncHandler } from '../lib/asyncHandler';
+import { matchProject, storeInboundEmail } from '../services/emailParser.service';
+import { db } from '../db';
+import { emailRoutes, projects } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { simpleParser } from 'mailparser';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { env } from '../env';
+
+const router = Router();
+const upload = multer(); // memory storage for SendGrid multipart
+
+// GET /api/email-routing/projects — list projects with assigned emails
+router.get('/projects', asyncHandler(async (_req, res) => {
+  const result = await db.select({
+    projectId: projects.id,
+    projectName: projects.name,
+    tag: projects.tag,
+    assignedEmail: emailRoutes.assignedEmail,
+  }).from(projects)
+    .leftJoin(emailRoutes, eq(emailRoutes.projectId, projects.id));
+  res.json({ projects: result });
+}));
+
+// POST /api/email-routing/assign — assign email address to a project
+router.post('/assign', asyncHandler(async (req, res) => {
+  const { projectId, email } = req.body;
+  const [route] = await db.insert(emailRoutes)
+    .values({ projectId, assignedEmail: email.toLowerCase() })
+    .returning();
+  res.status(201).json({ route });
+}));
+
+// POST /api/webhooks/sendgrid-inbound — SendGrid Inbound Parse webhook
+// SendGrid sends multipart/form-data with fields: from, to, subject, text, html, envelope, etc.
+router.post('/webhooks/sendgrid-inbound', upload.any(), asyncHandler(async (req, res) => {
+  const { from, to, subject, text, html } = req.body;
+  const projectId = await matchProject(to, subject);
+  const attachments = (req.files as Express.Multer.File[] || []).map(f => ({
+    filename: f.originalname,
+    contentType: f.mimetype,
+    size: f.size,
+  }));
+  await storeInboundEmail({
+    projectId,
+    fromAddress: from,
+    toAddress: to,
+    subject,
+    bodyText: text || null,
+    bodyHtml: html || null,
+    provider: 'sendgrid',
+    attachments,
+  });
+  res.status(200).send('OK');
+}));
+
+// POST /api/webhooks/ses-inbound — AWS SES via SNS
+router.post('/webhooks/ses-inbound', asyncHandler(async (req, res) => {
+  const snsMessage = req.body;
+
+  // Handle SNS subscription confirmation
+  if (snsMessage.Type === 'SubscriptionConfirmation') {
+    await fetch(snsMessage.SubscribeURL);
+    return res.status(200).send('Confirmed');
+  }
+
+  if (snsMessage.Type !== 'Notification') {
+    return res.status(200).send('OK');
+  }
+
+  const notification = JSON.parse(snsMessage.Message);
+  const mail = notification.mail;
+  const commonHeaders = mail.commonHeaders;
+
+  // If SES stored in S3, fetch and parse the raw MIME
+  let bodyText: string | null = null;
+  let bodyHtml: string | null = null;
+
+  if (notification.receipt?.action?.type === 'S3') {
+    const s3 = new S3Client({ region: env.AWS_SES_REGION });
+    const obj = await s3.send(new GetObjectCommand({
+      Bucket: notification.receipt.action.bucketName,
+      Key: notification.receipt.action.objectKey || mail.messageId,
+    }));
+    const rawEmail = await obj.Body!.transformToString();
+    const parsed = await simpleParser(rawEmail);
+    bodyText = parsed.text || null;
+    bodyHtml = parsed.html || null;
+  } else if (notification.content) {
+    // SNS action includes content directly (max 150KB)
+    const parsed = await simpleParser(notification.content);
+    bodyText = parsed.text || null;
+    bodyHtml = parsed.html || null;
+  }
+
+  const toAddress = commonHeaders.to?.[0] || mail.destination?.[0] || '';
+  const subject = commonHeaders.subject || '';
+  const projectId = await matchProject(toAddress, subject);
+
+  await storeInboundEmail({
+    projectId,
+    fromAddress: commonHeaders.from?.[0] || mail.source,
+    toAddress,
+    subject,
+    bodyText,
+    bodyHtml,
+    provider: 'ses',
+  });
+  res.status(200).send('OK');
+}));
+
+export default router;
+The SendGrid payload arrives as multipart/form-data — multer handles it automatically. The SES/SNS payload is JSON, requiring the SNS subscription confirmation handshake before real notifications begin. When SES uses the S3 action, the worker fetches the raw MIME from the bucket and parses it with mailparser's simpleParser, which extracts subject, body (text + HTML), attachments, and headers in a single call.
+
+System 3: Gmail API OAuth2 flow with encrypted token persistence
+typescript
+// src/server/services/gmail.service.ts
+import { google } from 'googleapis';
+import { db } from '../db';
+import { gmailAccounts } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { encrypt, decrypt } from '../lib/crypto';
+import { env } from '../env';
+
+const SCOPES = [
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/calendar.readonly',
+];
+
+export function createOAuth2Client() {
+  return new google.auth.OAuth2(
+    env.GOOGLE_CLIENT_ID,
+    env.GOOGLE_CLIENT_SECRET,
+    env.GOOGLE_REDIRECT_URI
+  );
+}
+
+export function getAuthUrl(): string {
+  const oauth2Client = createOAuth2Client();
+  return oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',  // forces refresh_token on every authorization
+    scope: SCOPES,
+  });
+}
+
+/** Exchange auth code for tokens, encrypt, store in DB */
+export async function handleOAuthCallback(code: string, userId: number) {
+  const oauth2Client = createOAuth2Client();
+  const { tokens } = await oauth2Client.getToken(code);
+
+  oauth2Client.setCredentials(tokens);
+  const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+  const profile = await gmail.users.getProfile({ userId: 'me' });
+  const email = profile.data.emailAddress!;
+
+  await db.insert(gmailAccounts).values({
+    userId,
+    email,
+    accessTokenEncrypted: encrypt(tokens.access_token!),
+    refreshTokenEncrypted: encrypt(tokens.refresh_token!),
+    tokenExpiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+    scopes: SCOPES.join(' '),
+  }).onConflictDoUpdate({
+    target: gmailAccounts.email,
+    set: {
+      accessTokenEncrypted: encrypt(tokens.access_token!),
+      refreshTokenEncrypted: encrypt(tokens.refresh_token!),
+      tokenExpiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+    },
+  });
+
+  return { email };
+}
+
+/** Restore an authenticated Gmail client from stored tokens */
+export async function getAuthedGmailClient(accountId: number) {
+  const [account] = await db.select().from(gmailAccounts)
+    .where(eq(gmailAccounts.id, accountId));
+  if (!account) throw new Error('Gmail account not found');
+
+  const oauth2Client = createOAuth2Client();
+  oauth2Client.setCredentials({
+    access_token: decrypt(account.accessTokenEncrypted),
+    refresh_token: decrypt(account.refreshTokenEncrypted),
+    expiry_date: account.tokenExpiryDate?.getTime(),
+  });
+
+  // Listen for automatic token refresh events and persist new tokens
+  oauth2Client.on('tokens', async (newTokens) => {
+    const updates: Record<string, any> = {
+      accessTokenEncrypted: encrypt(newTokens.access_token!),
+    };
+    if (newTokens.refresh_token) {
+      updates.refreshTokenEncrypted = encrypt(newTokens.refresh_token);
+    }
+    if (newTokens.expiry_date) {
+      updates.tokenExpiryDate = new Date(newTokens.expiry_date);
+    }
+    await db.update(gmailAccounts).set(updates).where(eq(gmailAccounts.id, accountId));
+  });
+
+  return google.gmail({ version: 'v1', auth: oauth2Client });
+}
+
+/** Decode Gmail base64url-encoded body part */
+function decodeBody(data: string): string {
+  return Buffer.from(data, 'base64url').toString('utf8');
+}
+
+/** Recursively find body parts in multipart messages */
+function findBodyParts(
+  payload: any
+): { text: string | null; html: string | null } {
+  let text: string | null = null;
+  let html: string | null = null;
+
+  if (payload.mimeType === 'text/plain' && payload.body?.data) {
+    text = decodeBody(payload.body.data);
+  } else if (payload.mimeType === 'text/html' && payload.body?.data) {
+    html = decodeBody(payload.body.data);
+  }
+
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      const nested = findBodyParts(part);
+      if (nested.text) text = nested.text;
+      if (nested.html) html = nested.html;
+    }
+  }
+  return { text, html };
+}
+
+/** Fetch and parse messages from Gmail inbox */
+export async function syncInbox(accountId: number, maxResults = 50) {
+  const gmail = await getAuthedGmailClient(accountId);
+  const [account] = await db.select().from(gmailAccounts)
+    .where(eq(gmailAccounts.id, accountId));
+
+  const listResponse = await gmail.users.messages.list({
+    userId: 'me',
+    maxResults,
+    q: 'in:inbox',
+  });
+
+  const messageIds = listResponse.data.messages || [];
+  const results = [];
+
+  // Process in chunks of 20 to respect rate limits
+  for (let i = 0; i < messageIds.length; i += 20) {
+    const chunk = messageIds.slice(i, i + 20);
+    const messages = await Promise.all(
+      chunk.map(m => gmail.users.messages.get({
+        userId: 'me', id: m.id!, format: 'full',
+      }))
+    );
+
+    for (const msg of messages) {
+      const headers = msg.data.payload?.headers || [];
+      const getHeader = (name: string) =>
+        headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
+
+      const subject = getHeader('Subject');
+      const from = getHeader('From');
+      const date = getHeader('Date');
+      const { text, html } = findBodyParts(msg.data.payload);
+
+      results.push({
+        gmailMessageId: msg.data.id!,
+        subject, from, date,
+        bodyText: text, bodyHtml: html,
+      });
+    }
+  }
+  return results;
+}
+Key implementation details: the prompt: 'consent' parameter in generateAuthUrl forces Google to return a fresh refresh_token every time, solving the common gotcha where refresh tokens only appear on first authorization. The oauth2Client.on('tokens') listener automatically persists refreshed access tokens to the database, so the system is self-healing when tokens expire. Body extraction handles Gmail's recursive multipart structure via a depth-first walk of the parts tree, decoding each base64url segment with Node's native Buffer.from(data, 'base64url').
+
+typescript
+// src/server/routes/gmailSync.ts
+import { Router } from 'express';
+import { asyncHandler } from '../lib/asyncHandler';
+import { getAuthUrl, handleOAuthCallback, syncInbox } from '../services/gmail.service';
+import { matchProject, storeInboundEmail } from '../services/emailParser.service';
+import { db } from '../db';
+import { gmailAccounts, emailLogs } from '../db/schema';
+import { eq, and } from 'drizzle-orm';
+
+const router = Router();
+
+// POST /api/gmail/connect — redirect user to Google OAuth consent screen
+router.post('/connect', asyncHandler(async (_req, res) => {
+  const url = getAuthUrl();
+  res.json({ authUrl: url });
+}));
+
+// GET /api/gmail/callback — OAuth callback handler
+router.get('/callback', asyncHandler(async (req, res) => {
+  const code = req.query.code as string;
+  const userId = (req as any).userId;
+  const { email } = await handleOAuthCallback(code, userId);
+  res.json({ success: true, email });
+}));
+
+// GET /api/gmail/accounts — list connected Gmail accounts
+router.get('/accounts', asyncHandler(async (req, res) => {
+  const userId = (req as any).userId;
+  const accounts = await db.select({
+    id: gmailAccounts.id,
+    email: gmailAccounts.email,
+    lastSyncAt: gmailAccounts.lastSyncAt,
+    isActive: gmailAccounts.isActive,
+  }).from(gmailAccounts).where(eq(gmailAccounts.userId, userId));
+  res.json({ accounts });
+}));
+
+// POST /api/gmail/sync — trigger inbox sync for an account
+router.post('/sync', asyncHandler(async (req, res) => {
+  const { accountId } = req.body;
+  const messages = await syncInbox(accountId);
+
+  let imported = 0;
+  for (const msg of messages) {
+    // Skip already-processed emails
+    const [existing] = await db.select({ id: emailLogs.id })
+      .from(emailLogs)
+      .where(eq(emailLogs.gmailMessageId, msg.gmailMessageId));
+    if (existing) continue;
+
+    const projectId = await matchProject('', msg.subject);
+    await storeInboundEmail({
+      projectId,
+      fromAddress: msg.from,
+      toAddress: '',
+      subject: msg.subject,
+      bodyText: msg.bodyText,
+      bodyHtml: msg.bodyHtml,
+      provider: 'gmail',
+    });
+    imported++;
+  }
+
+  await db.update(gmailAccounts)
+    .set({ lastSyncAt: new Date() })
+    .where(eq(gmailAccounts.id, accountId));
+
+  res.json({ imported, total: messages.length });
+}));
+
+export default router;
+System 4: React form and backend send-to-project endpoint
+typescript
+// src/server/routes/emailForm.ts
+import { Router } from 'express';
+import { asyncHandler } from '../lib/asyncHandler';
+import sgMail from '@sendgrid/mail';
+import { env } from '../env';
+import { db } from '../db';
+import { projects } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import multer from 'multer';
+
+const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+sgMail.setApiKey(env.SENDGRID_API_KEY);
+
+// POST /api/email/send-to-project
+router.post('/send-to-project', upload.single('attachment'), asyncHandler(async (req, res) => {
+  const { projectId, subject, body } = req.body;
+
+  const [project] = await db.select().from(projects).where(eq(projects.id, parseInt(projectId)));
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const taggedSubject = `[${project.tag}] ${subject}`;
+  const msg: any = {
+    to: env.SENDGRID_FROM_EMAIL,   // routes back through your inbound parse
+    from: env.SENDGRID_FROM_EMAIL,
+    subject: taggedSubject,
+    text: body,
+    html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+  };
+
+  if (req.file) {
+    msg.attachments = [{
+      content: req.file.buffer.toString('base64'),
+      filename: req.file.originalname,
+      type: req.file.mimetype,
+      disposition: 'attachment',
+    }];
+  }
+
+  await sgMail.send(msg);
+  res.json({ success: true, subject: taggedSubject });
+}));
+
+export default router;
+tsx
+// src/client/components/SendToProjectForm.tsx
+import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+
+interface Project { id: number; name: string; tag: string; }
+
+export function SendToProjectForm() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState('');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  useEffect(() => {
+    fetch('/api/email-routing/projects')
+      .then(r => r.json())
+      .then(data => setProjects(data.projects));
+  }, []);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setStatus('sending');
+
+    const formData = new FormData();
+    formData.append('projectId', projectId);
+    formData.append('subject', subject);
+    formData.append('body', body);
+    if (file) formData.append('attachment', file);
+
+    try {
+      const res = await fetch('/api/email/send-to-project', {
+        method: 'POST', body: formData,
+      });
+      if (!res.ok) throw new Error('Send failed');
+      setStatus('sent');
+      setSubject(''); setBody(''); setFile(null);
+    } catch {
+      setStatus('error');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-lg mx-auto p-6">
+      <div>
+        <label className="block text-sm font-medium mb-1">Project</label>
+        <select
+          value={projectId}
+          onChange={(e) => setProjectId(e.target.value)}
+          required
+          className="w-full border rounded px-3 py-2"
+        >
+          <option value="">Select a project...</option>
+          {projects.map(p => (
+            <option key={p.id} value={p.id}>{p.name} [{p.tag}]</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Subject</label>
+        <input
+          type="text" value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          required className="w-full border rounded px-3 py-2"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Message</label>
+        <textarea
+          value={body} onChange={(e) => setBody(e.target.value)}
+          required rows={6} className="w-full border rounded px-3 py-2"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Attachment (optional)</label>
+        <input
+          type="file"
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] || null)}
+        />
+      </div>
+      <button
+        type="submit" disabled={status === 'sending'}
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+      >
+        {status === 'sending' ? 'Sending...' : 'Send to Project'}
+      </button>
+      {status === 'sent' && <p className="text-green-600">Email sent successfully!</p>}
+      {status === 'error' && <p className="text-red-600">Failed to send. Please try again.</p>}
+    </form>
+  );
+}
+WebSocket server enables real-time in-app notifications
+typescript
+// src/server/websocket.ts
+import { Server as HttpServer } from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
+
+const clients = new Map<number, Set<WebSocket>>(); // userId -> connections
+
+export function initWebSocket(server: HttpServer) {
+  const wss = new WebSocketServer({ server, path: '/ws/notifications' });
+
+  wss.on('connection', (ws, req) => {
+    // Expect userId as query param (in production, verify JWT here)
+    const url = new URL(req.url!, `http://${req.headers.host}`);
+    const userId = parseInt(url.searchParams.get('userId') || '0');
+    if (!userId) { ws.close(); return; }
+
+    if (!clients.has(userId)) clients.set(userId, new Set());
+    clients.get(userId)!.add(ws);
+
+    ws.on('close', () => {
+      clients.get(userId)?.delete(ws);
+      if (clients.get(userId)?.size === 0) clients.delete(userId);
+    });
+  });
+}
+
+export function broadcastToUser(userId: number, payload: object) {
+  const sockets = clients.get(userId);
+  if (!sockets) return;
+  const message = JSON.stringify(payload);
+  for (const ws of sockets) {
+    if (ws.readyState === WebSocket.OPEN) ws.send(message);
+  }
+}
+typescript
+// src/server/services/notification.service.ts
+import { db } from '../db';
+import { notifications } from '../db/schema';
+import { broadcastToUser } from '../websocket';
+
+export async function createInAppNotification(userId: number, title: string, message: string) {
+  const [notification] = await db.insert(notifications)
+    .values({ userId, title, message })
+    .returning();
+  broadcastToUser(userId, { type: 'notification', notification });
+  return notification;
+}
+Express app wires everything together
+typescript
+// src/server/index.ts
+import express from 'express';
+import { createServer } from 'http';
+import { env } from './env';
+import { errorHandler } from './middleware/errorHandler';
+import { initWebSocket } from './websocket';
+import reminderRouter from './routes/reminders';
+import emailRoutingRouter from './routes/emailRouting';
+import gmailSyncRouter from './routes/gmailSync';
+import emailFormRouter from './routes/emailForm';
+import './jobs/reminderWorker'; // starts the BullMQ worker
+
+const app = express();
+
+// Parse JSON with raw body preservation for webhook signature verification
+app.use(express.json({
+  verify: (req: any, _res, buf) => { req.rawBody = buf.toString('utf8'); },
+}));
+app.use(express.urlencoded({ extended: false }));
+
+// Mount routers
+app.use('/api/reminders', reminderRouter);
+app.use('/api/email-routing', emailRoutingRouter);
+app.use('/api/gmail', gmailSyncRouter);
+app.use('/api/email', emailFormRouter);
+
+// Global error handler (must be last)
+app.use(errorHandler);
+
+const server = createServer(app);
+initWebSocket(server);
+
+server.listen(env.PORT, () => {
+  console.log(`ProjectOS running on port ${env.PORT}`);
+});
+Key architectural decisions and their rationale
+BullMQ over pure node-cron for reminders. node-cron is memory-only — a process restart loses all scheduled jobs. BullMQ persists delayed jobs in Redis, supports automatic retries with exponential backoff, and provides changeDelay() for rescheduling. The node-cron sweep is retained only as a fallback that catches any reminder where BullMQ's delay somehow didn't fire, giving the system belt-and-suspenders reliability.
+
+Dual email receiving paths are necessary for resilience. SendGrid Inbound Parse requires only MX record configuration and sends clean multipart form data. AWS SES via SNS requires more setup (receipt rules, SNS topics, optional S3 buckets) but is dramatically cheaper at scale ($0.10 per 1,000 emails vs SendGrid's metered pricing) and provides spam/virus/SPF/DKIM verdicts in the receipt metadata. Running both paths means you can fail over between providers.
+
+Gmail token encryption uses AES-256-GCM specifically because GCM mode provides authenticated encryption — any bit-flip or truncation of stored ciphertext will cause decryption to fail with an authentication error rather than silently producing garbage. The IV is regenerated per encryption and stored alongside the ciphertext, so identical plaintext tokens produce different ciphertext. The single hex-encoded TOKEN_ENCRYPTION_KEY avoids the cost explosion of per-token KMS calls.
+
+Drizzle's $type<T>() generic on jsonb columns bridges PostgreSQL's schemaless JSON storage with TypeScript's type system. The attachments column typed as $type<Array<{filename: string; contentType: string; size: number}>>() means every query result is fully typed at compile time, while the database stores flexible JSON. The $inferSelect and $inferInsert type helpers eliminate manual type duplication — insert types correctly make defaultNow() columns optional while select types include them as required.
+
+SendGrid's Inbound Parse webhook sends multipart/form-data, not JSON. This is the most common mistake in implementation — using express.json() on the webhook endpoint will silently fail. The route uses multer middleware with no storage configuration (memory mode) to parse the multipart payload. Fields arrive as req.body.from, req.body.subject, req.body.text, req.body.html, while file attachments appear in req.files.
+
+The Gmail oauth2Client.on('tokens') event listener is the critical piece that makes the system self-healing. When the googleapis library automatically refreshes an expired access token (which happens transparently 5 minutes before expiry), this listener fires and the new token is encrypted and persisted to PostgreSQL. Without this listener, refreshed tokens exist only in memory and are lost on restart, forcing users to re-authenticate.
+
+Conclusion
+This architecture separates concerns cleanly: each of the four systems is a standalone Express router module, all sharing the unified Drizzle schema and service layer. The BullMQ + node-cron hybrid gives you both precision scheduling and crash resilience for reminders. The dual-path webhook design (SendGrid + SES) gives flexibility and provider redundancy for inbound email. Gmail OAuth tokens are encrypted at rest with AES-256-GCM and automatically refreshed via the tokens event. The WebSocket layer enables real-time in-app notification delivery alongside the DB-backed polling fallback. Every module uses strict TypeScript, Zod validation on inputs, and the asyncHandler wrapper to ensure errors flow through Express's error middleware rather than crashing the process.
+
