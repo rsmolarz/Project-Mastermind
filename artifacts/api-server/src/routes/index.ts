@@ -22,6 +22,10 @@ import messagingRouter from "./messaging";
 import remindersRouter from "./reminders";
 import emailRoutingRouter from "./email-routing";
 import calendarRouter from "./calendar";
+import invoicesRouter from "./finance/invoices";
+import portfoliosRouter from "./finance/portfolios";
+import transactionsRouter from "./finance/transactions";
+import virtualCardsRouter from "./finance/virtual-cards";
 
 const router: IRouter = Router();
 
@@ -48,5 +52,9 @@ router.use(messagingRouter);
 router.use(remindersRouter);
 router.use(emailRoutingRouter);
 router.use(calendarRouter);
+router.use(invoicesRouter);
+router.use(portfoliosRouter);
+router.use(transactionsRouter);
+router.use(virtualCardsRouter);
 
 export default router;

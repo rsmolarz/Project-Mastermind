@@ -82,3 +82,18 @@ ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and T
 - **`websocket.ts`** — WebSocket server at `/ws/notifications` with session cookie authentication; per-user connection tracking
 - **`lib/session.ts`** — Shared session validation (`pos_session` cookie parsing + DB token verification)
 - **Reminder Dispatch Flow:** node-cron sweep (every 30s) → atomic claim (`pending→processing`) → dispatch via notification type (in_app/sms/call/email) → status update (sent/failed)
+
+## Finance API (for Investment Docs app)
+
+External-facing API endpoints for the Investment Docs personal finance app, authenticated via API keys or session cookies.
+
+**Endpoints:**
+- `/api/finance/invoices` — Full CRUD, send via email, mark paid/partial, pull unpaid, recurring support
+- `/api/finance/portfolios` — Portfolio management with holdings, auto-recalculated totals/gains
+- `/api/finance/portfolios/:id/holdings` — CRUD holdings with P&L calculations
+- `/api/finance/transactions` — Transaction tracking with categories, filtering, summary stats
+- `/api/finance/virtual-cards` — Create/manage Privacy.com virtual cards, sync transactions from Privacy.com
+
+**Database tables:** `invoices`, `invoice_line_items`, `portfolios`, `portfolio_holdings`, `finance_transactions`, `virtual_cards`
+
+**Privacy.com Integration:** `privacy.service.ts` — card CRUD, transaction listing, via `PRIVACY_COM_API_KEY` env secret
