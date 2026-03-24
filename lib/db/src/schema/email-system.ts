@@ -10,6 +10,8 @@ export const remindersTable = pgTable("reminders", {
   notificationType: text("notification_type").notNull().default("in_app"),
   target: text("target").notNull().default(""),
   status: text("status").notNull().default("pending"),
+  jobId: text("job_id"),
+  calendarEventId: text("calendar_event_id"),
   errorMessage: text("error_message"),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
