@@ -20,6 +20,7 @@ runButton = "Project"
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
+integrations = ["google-calendar:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -29,3 +30,6 @@ timeoutMs = 20000
 
 [userenv.shared]
 TWILIO_PHONE_NUMBER = "+19035225399"
+
+[nix]
+channel = "stable-25_05"
