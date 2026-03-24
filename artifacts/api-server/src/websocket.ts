@@ -1,5 +1,6 @@
 import type { Server as HttpServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import { validateSessionToken, parseSessionFromCookie } from "./lib/session";
 
 const clients = new Map<number, Set<WebSocket>>();
 
@@ -9,7 +10,19 @@ export function initWebSocket(server: HttpServer) {
     path: "/ws/notifications",
   });
 
-  wss.on("connection", (ws, req) => {
+  wss.on("connection", async (ws, req) => {
+    const sessionToken = parseSessionFromCookie(req.headers.cookie);
+    if (!sessionToken) {
+      ws.close(1008, "Authentication required");
+      return;
+    }
+
+    const valid = await validateSessionToken(sessionToken);
+    if (!valid) {
+      ws.close(1008, "Invalid or expired session");
+      return;
+    }
+
     const url = new URL(req.url!, `http://${req.headers.host}`);
     const userId = parseInt(url.searchParams.get("userId") || "0");
 

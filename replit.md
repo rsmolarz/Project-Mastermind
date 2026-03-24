@@ -68,5 +68,17 @@ ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and T
 - **Messaging/Communication:** Twilio (for SMS, voice, email via SMS dispatch)
 - **Calendar Integration:** Google Calendar API (googleapis) via Replit Integration OAuth connector
 - **Email Providers (Configurable):** SMTP, SendGrid, Mailgun, AWS SES, Postmark
+- **Email Delivery:** SendGrid (`@sendgrid/mail`) for reminder/notification emails
+- **Task Scheduling:** node-cron for periodic reminder sweeps (every 30s)
+- **Real-time:** WebSocket (`ws`) for live notification broadcasts (authenticated via `pos_session` cookie)
 - **Security:** YubiKey, WebAuthn FIDO2 (for multi-factor authentication)
 - **Version Control Integration:** GitHub, GitLab (for PR linking)
+
+## Services Architecture
+
+- **`twilio.service.ts`** — SMS sending and voice calls via Twilio API (key-based or auth-token auth)
+- **`sendgrid.service.ts`** — Email delivery via SendGrid with HTML templates; graceful fallback to SMS when unconfigured
+- **`notification.service.ts`** — Creates in-app notifications and broadcasts via WebSocket in real-time
+- **`websocket.ts`** — WebSocket server at `/ws/notifications` with session cookie authentication; per-user connection tracking
+- **`lib/session.ts`** — Shared session validation (`pos_session` cookie parsing + DB token verification)
+- **Reminder Dispatch Flow:** node-cron sweep (every 30s) → atomic claim (`pending→processing`) → dispatch via notification type (in_app/sms/call/email) → status update (sent/failed)
