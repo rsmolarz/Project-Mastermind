@@ -96,5 +96,7 @@ External-facing API endpoints for the Investment Docs personal finance app, auth
 
 **Database tables:** `invoices`, `invoice_line_items`, `portfolios`, `portfolio_holdings`, `finance_transactions`, `virtual_cards`
 
+**MotionOS Authentication:** MotionOS app authenticates via `X-API-Key` header or `Bearer` token using `MOTIONOS_API_KEY` secret — no session login needed
+
 **Privacy.com Integration:** `privacy.service.ts` — card CRUD, transaction listing, via `PRIVACY_COM_API_KEY` env secret
 **Privacy.com Webhook:** `POST /api/finance/virtual-cards/webhook` — auto-syncs transactions on card activity (auth-bypassed); handles authorization, settlement, decline events; deduplicates by transaction token; updates card spend totals

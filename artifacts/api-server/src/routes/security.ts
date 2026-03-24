@@ -80,9 +80,24 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     return;
   }
 
+  const motionosKey = process.env.MOTIONOS_API_KEY;
+  if (motionosKey) {
+    const xApiKey = req.headers["x-api-key"];
+    if (xApiKey === motionosKey) {
+      next();
+      return;
+    }
+  }
+
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
+
+    if (motionosKey && token === motionosKey) {
+      next();
+      return;
+    }
+
     const sessions = await db.select().from(securitySessionsTable)
       .where(and(eq(securitySessionsTable.token, token), gt(securitySessionsTable.expiresAt, new Date())));
     if (sessions.length > 0) {
