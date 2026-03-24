@@ -17,6 +17,7 @@ import Sprints from "@/pages/Sprints";
 import Admin from "@/pages/Admin";
 import Messaging from "@/pages/Messaging";
 import EmailHub from "@/pages/EmailHub";
+import Guide from "@/pages/Guide";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -44,6 +45,7 @@ function Router() {
         <Route path="/admin" component={Admin} />
         <Route path="/messaging" component={Messaging} />
         <Route path="/email" component={EmailHub} />
+        <Route path="/guide" component={Guide} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { 
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
-  Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail
+  Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -116,6 +116,7 @@ export function Sidebar({
           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Admin</div>
           <div className="space-y-0.5">
             <NavItem item={{ icon: Shield, label: "Super Admin", path: "/admin" }} />
+            <NavItem item={{ icon: BookOpen, label: "Platform Guide", path: "/guide" }} />
           </div>
         </div>
 
