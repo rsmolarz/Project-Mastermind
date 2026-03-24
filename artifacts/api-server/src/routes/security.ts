@@ -67,7 +67,8 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     req.path.startsWith("/security/") ||
     req.path === "/health" ||
     req.path.startsWith("/messaging/webhook/") ||
-    req.path === "/email-routing/inbound"
+    req.path === "/email-routing/inbound" ||
+    req.path === "/finance/virtual-cards/webhook"
   ) {
     next();
     return;

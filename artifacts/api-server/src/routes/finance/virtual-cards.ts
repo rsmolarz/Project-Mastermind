@@ -170,4 +170,77 @@ router.get("/finance/virtual-cards/:id/transactions", async (req, res): Promise<
   res.json(transactions);
 });
 
+router.post("/finance/virtual-cards/webhook", async (req, res): Promise<void> => {
+  try {
+    const event = req.body;
+    const eventType = event?.type;
+    const txData = event?.transaction || event;
+
+    if (!txData?.token) {
+      res.status(400).json({ error: "Invalid webhook payload" });
+      return;
+    }
+
+    const existing = await db.select().from(transactionsTable)
+      .where(eq(transactionsTable.privacyTransactionToken, txData.token));
+
+    const amount = (txData.settled_amount ?? txData.amount ?? 0) / 100;
+    const cardToken = txData.card?.token;
+    const merchantDesc = txData.merchant?.descriptor || "Privacy.com transaction";
+
+    if (existing.length === 0) {
+      await db.insert(transactionsTable).values({
+        type: "expense",
+        category: "virtual_card",
+        description: merchantDesc,
+        amount: amount.toFixed(2),
+        currency: "USD",
+        status: (txData.status || eventType || "pending").toLowerCase(),
+        virtualCardId: cardToken || null,
+        privacyTransactionToken: txData.token,
+        metadata: {
+          webhookEvent: eventType,
+          merchant: txData.merchant,
+          card_last_four: txData.card?.last_four,
+          result: txData.result,
+        },
+        transactedAt: txData.created ? new Date(txData.created) : new Date(),
+      });
+    } else {
+      await db.update(transactionsTable).set({
+        amount: amount.toFixed(2),
+        status: (txData.status || eventType || "completed").toLowerCase(),
+        metadata: {
+          webhookEvent: eventType,
+          merchant: txData.merchant,
+          card_last_four: txData.card?.last_four,
+          result: txData.result,
+          updatedVia: "webhook",
+        },
+      }).where(eq(transactionsTable.privacyTransactionToken, txData.token));
+    }
+
+    if (cardToken) {
+      const [card] = await db.select().from(virtualCardsTable)
+        .where(eq(virtualCardsTable.privacyCardToken, cardToken));
+      if (card) {
+        const cardTxs = await db.select().from(transactionsTable)
+          .where(eq(transactionsTable.virtualCardId, cardToken));
+        const totalSpent = cardTxs.reduce((s, t) => s + Number(t.amount), 0);
+        await db.update(virtualCardsTable).set({
+          totalSpent: totalSpent.toFixed(2),
+          state: txData.card?.state || card.state,
+          updatedAt: new Date(),
+        }).where(eq(virtualCardsTable.id, card.id));
+      }
+    }
+
+    console.log(`[Privacy Webhook] ${eventType || "event"}: ${merchantDesc} $${amount.toFixed(2)}`);
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error("[Privacy Webhook] Error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
