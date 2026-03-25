@@ -100,3 +100,19 @@ External-facing API endpoints for the Investment Docs personal finance app, auth
 
 **Privacy.com Integration:** `privacy.service.ts` — card CRUD, transaction listing, via `PRIVACY_COM_API_KEY` env secret
 **Privacy.com Webhook:** `POST /api/finance/virtual-cards/webhook` — auto-syncs transactions on card activity (auth-bypassed); handles authorization, settlement, decline events; deduplicates by transaction token; updates card spend totals
+
+**Finance API Docs:** `GET /api/finance/docs` — returns full JSON documentation of all finance endpoints, auth methods, models, and request/response formats
+
+## Email-to-Project Recommendations
+
+Scans emails and recommends project assignments with confidence scores. Categorizes emails into 16 types (billing, proposals, contracts, support, feature-requests, meetings, reports, design, devops, onboarding, reviews, updates, marketing, hiring, legal, general).
+
+**Matching strategy** (highest to lowest priority): subject tag `[TAG]` → email route match → project name in content → client name match → domain match → tag mention
+
+**Endpoints:**
+- `GET /api/email-projects/recommendations` — Scan unassigned emails and suggest projects (with confidence scores)
+- `GET /api/email-projects/categories` — Categorize all emails into types with sample emails
+- `POST /api/email-projects/accept` — Accept a recommendation (assigns email to project)
+- `POST /api/email-projects/accept-bulk` — Bulk accept recommendations
+- `POST /api/email-projects/deny` — Deny a recommendation
+- `POST /api/email-projects/create-from-category` — Create a new project from a category and auto-assign matching emails

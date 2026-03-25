@@ -26,6 +26,8 @@ import invoicesRouter from "./finance/invoices";
 import portfoliosRouter from "./finance/portfolios";
 import transactionsRouter from "./finance/transactions";
 import virtualCardsRouter from "./finance/virtual-cards";
+import financeDocsRouter from "./finance/api-docs";
+import emailProjectsRouter from "./email-projects";
 
 const router: IRouter = Router();
 
@@ -56,5 +58,7 @@ router.use(invoicesRouter);
 router.use(portfoliosRouter);
 router.use(transactionsRouter);
 router.use(virtualCardsRouter);
+router.use(financeDocsRouter);
+router.use(emailProjectsRouter);
 
 export default router;
