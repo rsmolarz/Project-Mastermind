@@ -4,7 +4,8 @@ import {
   Mail, Send, Plus, Search, Clock, Bell, ArrowUpRight, ArrowDownLeft,
   CheckCircle2, XCircle, Trash2, Edit3, RefreshCw, Inbox, Route,
   Calendar, AlertTriangle, MailPlus, Filter, ChevronRight, Tag,
-  Target, Zap, Globe, Settings2, Play, Pause, MapPin, FileText
+  Target, Zap, Globe, Settings2, Play, Pause, MapPin, FileText,
+  FolderOpen, ThumbsUp, ThumbsDown, Sparkles
 } from "lucide-react";
 
 const API = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
@@ -22,7 +23,7 @@ async function apiFetch(path: string, opts?: RequestInit) {
   return res.json();
 }
 
-type Tab = "inbox" | "compose" | "routes" | "reminders";
+type Tab = "inbox" | "compose" | "routes" | "reminders" | "categories";
 
 const statusColors: Record<string, string> = {
   pending: "text-yellow-400 bg-yellow-400/10",
@@ -77,6 +78,46 @@ export default function EmailHub() {
   const { data: reminders = [] } = useQuery({
     queryKey: ["reminders"],
     queryFn: () => apiFetch("/reminders"),
+  });
+
+  const { data: emailCategories } = useQuery({
+    queryKey: ["email-categories"],
+    queryFn: () => apiFetch("/email-projects/categories"),
+    enabled: tab === "categories",
+  });
+
+  const { data: emailRecommendations, refetch: refetchRecommendations } = useQuery({
+    queryKey: ["email-recommendations"],
+    queryFn: () => apiFetch("/email-projects/recommendations?limit=100&unassigned=false"),
+    enabled: tab === "categories",
+  });
+
+  const acceptRecommendation = useMutation({
+    mutationFn: (data: { emailId: number; projectId: number }) =>
+      apiFetch("/email-projects/accept", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["email-recommendations"] });
+      queryClient.invalidateQueries({ queryKey: ["email-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["email-logs"] });
+    },
+  });
+
+  const denyRecommendation = useMutation({
+    mutationFn: (data: { emailId: number }) =>
+      apiFetch("/email-projects/deny", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["email-recommendations"] });
+    },
+  });
+
+  const createProjectFromCategory = useMutation({
+    mutationFn: (data: { category: string; projectName: string }) =>
+      apiFetch("/email-projects/create-from-category", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["email-recommendations"] });
+      queryClient.invalidateQueries({ queryKey: ["email-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
   });
 
   const createRoute = useMutation({
@@ -153,6 +194,7 @@ export default function EmailHub() {
     { id: "compose" as Tab, icon: MailPlus, label: "Compose" },
     { id: "routes" as Tab, icon: Route, label: "Email Routes", count: emailStats?.activeRoutes },
     { id: "reminders" as Tab, icon: Bell, label: "Reminders", count: reminders.filter((r: any) => r.status === "pending").length },
+    { id: "categories" as Tab, icon: FolderOpen, label: "Categories" },
   ];
 
   return (
@@ -723,6 +765,114 @@ export default function EmailHub() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "categories" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-violet-400" />
+                  Email Categories & Project Recommendations
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Emails are auto-categorized and matched to your projects. Accept or deny suggestions below.
+                </p>
+              </div>
+              <button
+                onClick={() => refetchRecommendations()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-sm font-medium transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Rescan
+              </button>
+            </div>
+
+            {emailCategories && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(emailCategories.categories as Record<string, { count: number }>).map(([cat, info]) => (
+                  <div key={cat} className="bg-card border border-border rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Tag className="w-4 h-4 text-violet-400" />
+                      <span className="text-sm font-medium capitalize">{cat}</span>
+                    </div>
+                    <div className="text-2xl font-bold">{info.count}</div>
+                    <span className="text-xs text-muted-foreground">
+                      {info.count === 1 ? "email" : "emails"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Recommendations ({emailRecommendations?.total || 0})
+              </h3>
+              {emailRecommendations?.recommendations?.length === 0 && (
+                <div className="bg-card border border-border rounded-2xl p-8 text-center text-muted-foreground">
+                  <Mail className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p>No email recommendations right now.</p>
+                  <p className="text-sm mt-1">Send more emails or add new projects to get suggestions.</p>
+                </div>
+              )}
+              {emailRecommendations?.recommendations?.map((rec: any) => (
+                <div key={rec.emailId} className="bg-card border border-border rounded-2xl p-4 hover:border-violet-500/30 transition-colors group">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-400/10 text-violet-400 capitalize">
+                          {rec.suggestedCategory}
+                        </span>
+                        {rec.currentProject && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-400/10 text-emerald-400">
+                            Assigned: {rec.currentProject}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-medium truncate">{rec.subject || "(no subject)"}</h4>
+                      <p className="text-sm text-muted-foreground truncate">{rec.from}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      {rec.suggestedProject ? (
+                        <>
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-emerald-400 flex items-center gap-1">
+                              <Target className="w-3.5 h-3.5" />
+                              {rec.suggestedProject.name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {rec.suggestedProject.confidence}% — {rec.suggestedProject.reason}
+                            </div>
+                          </div>
+                          {!rec.currentProject && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => acceptRecommendation.mutate({ emailId: rec.emailId, projectId: rec.suggestedProject.id })}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-medium transition-colors"
+                              >
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => denyRecommendation.mutate({ emailId: rec.emailId })}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-xs font-medium transition-colors"
+                              >
+                                <ThumbsDown className="w-3.5 h-3.5" />
+                                Deny
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">No match found</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
