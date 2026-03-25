@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
   Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen, Calendar,
-  Users, Zap, FileInput, Flag, ShieldCheck, BarChart3
+  Users, Zap, FileInput, Flag, ShieldCheck, BarChart3, Sun, Activity, Tag, LayoutTemplate, Star
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -65,6 +65,7 @@ export function Sidebar({
           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Workspace</div>
           <div className="space-y-0.5">
             <NavItem item={{ icon: Home, label: "Dashboard", path: "/" }} />
+            <NavItem item={{ icon: Sun, label: "My Day", path: "/my-day" }} />
             <NavItem item={{ icon: CheckSquare, label: "My Tasks", path: "/tasks", badge: tasks.filter(t => (t.assigneeIds as number[])?.includes(1) && t.status !== "done").length }} />
             <NavItem item={{ icon: AlertTriangle, label: "Overdue", path: "/tasks", query: "filter=overdue", badge: overdue.length, alert: true }} />
           </div>
@@ -112,7 +113,9 @@ export function Sidebar({
             <NavItem item={{ icon: PieChart, label: "Portfolio", path: "/portfolio" }} />
             <NavItem item={{ icon: Target, label: "Goals & OKRs", path: "/goals" }} />
             <NavItem item={{ icon: Users, label: "Workload", path: "/workload" }} />
-            <NavItem item={{ icon: BarChart3, label: "Project Updates", path: "/project-updates" }} />
+            <NavItem item={{ icon: BarChart3, label: "Reports", path: "/reports" }} />
+            <NavItem item={{ icon: Activity, label: "Activity Feed", path: "/activity" }} />
+            <NavItem item={{ icon: ClipboardList, label: "Project Updates", path: "/project-updates" }} />
             <NavItem item={{ icon: ClipboardList, label: "Standups", path: "/standups" }} />
             <NavItem item={{ icon: Megaphone, label: "Announcements", path: "/announcements" }} />
           </div>
@@ -123,6 +126,8 @@ export function Sidebar({
           <div className="space-y-0.5">
             <NavItem item={{ icon: Zap, label: "Automations", path: "/automations" }} />
             <NavItem item={{ icon: ShieldCheck, label: "Approvals", path: "/approvals" }} />
+            <NavItem item={{ icon: Tag, label: "Tags", path: "/tags" }} />
+            <NavItem item={{ icon: LayoutTemplate, label: "Templates", path: "/templates" }} />
           </div>
         </div>
 

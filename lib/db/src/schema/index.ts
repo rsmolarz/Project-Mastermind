@@ -26,3 +26,6 @@ export * from "./approvals";
 export * from "./project-updates";
 export * from "./saved-views";
 export * from "./favorites";
+export * from "./project-templates";
+export * from "./tags";
+export * from "./webhooks";

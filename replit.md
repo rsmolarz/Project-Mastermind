@@ -39,6 +39,11 @@ ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and T
     - **Milestones (`/milestones`):** Key project checkpoints with due dates, statuses (upcoming, in_progress, completed, missed), color coding, and days-remaining tracking.
     - **Approvals (`/approvals`):** Request/track task approvals. Requester picks an approver, who gets notified. Approver can approve/reject with comments. Filter by status.
     - **Project Updates (`/project-updates`):** Periodic status reports with on_track/at_risk/off_track/completed status, highlights, blockers, and next steps. Filter by project.
+    - **Reports & Analytics (`/reports`):** 4-tab analytics dashboard (Overview, Projects, Team, Trends). Overview: KPI cards (total tasks, completion rate, overdue, hours), priority/status/type breakdowns with bar charts. Projects: per-project completion rates and overdue counts. Team: member cards with assigned/completed tasks and hours. Trends: 30-day task creation/completion activity chart. CSV export button.
+    - **Tags & Labels (`/tags`):** Create, manage, and categorize custom tags with colors. Tags grouped by category (general, priority, status, type, department, client). Inline delete with color dots.
+    - **Project Templates (`/templates`):** 6 built-in presets (Software Sprint, Marketing Campaign, Client Onboarding, Product Launch, Bug Triage, Design Sprint) each with default tasks. Create custom templates with custom task sets. One-click use preset to save template.
+    - **My Day (`/my-day`):** Focus mode showing personalized daily view — greeting, today's date, stat cards (in progress, done today, hours tracked), overdue/due today/in progress/coming up task sections with inline done toggling.
+    - **Activity Feed (`/activity`):** Global cross-project activity stream grouped by day, showing who did what with action icons and relative timestamps.
     - **Calendar (`/calendar`):** Full Google Calendar integration with month grid and agenda views, event sync, create/edit/delete events (synced to Google Calendar), event detail modals with attendee status, conference links, and integrated reminder creation (in-app, SMS, voice call via Twilio). Supports clicking days to view events, color-coded event labels, and all-day events.
     - **Super Admin (`/admin`):** A comprehensive administrative interface featuring an overview dashboard, an AI Command Center with 60 AI features (Core, Advanced, Predictive), 55 configurable Feature Flags, Task Templates, Custom Fields, Expense Tracking, API & Email Integration settings, and robust Security controls (YubiKey/WebAuthn FIDO2, session-based auth).
     - **Platform Guide (`/guide`):** Comprehensive in-app documentation with left-side navigation covering 19 sections (Getting Started, Dashboard, Tasks, Sprints, Time & Billing, Goals, Portfolio, Documents, Announcements, Standups, Messaging, Email Hub, Email Routing, Reminders, Super Admin, Security, AI Features, Keyboard Shortcuts, API Reference). Includes live project email directory with copy buttons, code examples, tips, and warnings.
@@ -113,6 +118,29 @@ External-facing API endpoints for the Investment Docs personal finance app, auth
 - `project_updates` — Periodic status reports with highlights, blockers, next steps
 - `saved_views` — Custom filtered/sorted task views
 - `favorites` — Starred/favorited entities (projects, tasks, etc.)
+- `project_templates` — Reusable project templates with default tasks and milestones
+- `tags` — Custom tags with colors and categories
+- `webhooks` — Outgoing webhook configurations with event subscriptions and delivery tracking
+
+## Outgoing Webhooks
+
+Deliver events to external services when things happen in ProjectOS.
+
+**Endpoints:**
+- `GET /api/webhooks` — List all webhooks (secrets are masked)
+- `POST /api/webhooks` — Create webhook (HTTPS only, no internal/private IPs)
+- `PATCH /api/webhooks/:id` — Update webhook
+- `DELETE /api/webhooks/:id` — Delete webhook
+- `POST /api/webhooks/:id/test` — Send test payload (10s timeout, SSRF-protected)
+
+**Security:** URL validation blocks localhost, private IPs (10.x, 172.16-31.x, 192.168.x), metadata endpoints, and non-HTTPS URLs. Secrets are masked in GET responses.
+
+## Reports & Analytics
+
+**Endpoints:**
+- `GET /api/reports/overview` — Full analytics: task counts, completion rate, by priority/status/type, per-project stats, per-member stats, 30-day trend
+- `GET /api/reports/export?format=csv` — Export all tasks as CSV
+- `POST /api/reports/import` — Bulk import tasks from JSON array
 
 **MotionOS Authentication:** MotionOS app authenticates via `X-API-Key` header or `Bearer` token using `MOTIONOS_API_KEY` secret — no session login needed
 

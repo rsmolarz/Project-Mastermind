@@ -37,6 +37,10 @@ import projectUpdatesRouter from "./project-updates";
 import savedViewsRouter from "./saved-views";
 import favoritesRouter from "./favorites";
 import workloadRouter from "./workload";
+import projectTemplatesRouter from "./project-templates";
+import tagsRouter from "./tags";
+import outgoingWebhooksRouter from "./outgoing-webhooks";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -78,5 +82,9 @@ router.use(projectUpdatesRouter);
 router.use(savedViewsRouter);
 router.use(favoritesRouter);
 router.use(workloadRouter);
+router.use(projectTemplatesRouter);
+router.use(tagsRouter);
+router.use(outgoingWebhooksRouter);
+router.use(reportsRouter);
 
 export default router;

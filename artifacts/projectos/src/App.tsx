@@ -25,6 +25,11 @@ import Forms from "@/pages/Forms";
 import Milestones from "@/pages/Milestones";
 import Approvals from "@/pages/Approvals";
 import ProjectUpdates from "@/pages/ProjectUpdates";
+import Reports from "@/pages/Reports";
+import Tags from "@/pages/Tags";
+import ProjectTemplates from "@/pages/ProjectTemplates";
+import MyDay from "@/pages/MyDay";
+import ActivityFeed from "@/pages/ActivityFeed";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -60,6 +65,11 @@ function Router() {
         <Route path="/milestones" component={Milestones} />
         <Route path="/approvals" component={Approvals} />
         <Route path="/project-updates" component={ProjectUpdates} />
+        <Route path="/reports" component={Reports} />
+        <Route path="/tags" component={Tags} />
+        <Route path="/templates" component={ProjectTemplates} />
+        <Route path="/my-day" component={MyDay} />
+        <Route path="/activity" component={ActivityFeed} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
