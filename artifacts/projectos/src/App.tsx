@@ -19,6 +19,12 @@ import Messaging from "@/pages/Messaging";
 import EmailHub from "@/pages/EmailHub";
 import Guide from "@/pages/Guide";
 import CalendarPage from "@/pages/Calendar";
+import Workload from "@/pages/Workload";
+import Automations from "@/pages/Automations";
+import Forms from "@/pages/Forms";
+import Milestones from "@/pages/Milestones";
+import Approvals from "@/pages/Approvals";
+import ProjectUpdates from "@/pages/ProjectUpdates";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -48,6 +54,12 @@ function Router() {
         <Route path="/email" component={EmailHub} />
         <Route path="/guide" component={Guide} />
         <Route path="/calendar" component={CalendarPage} />
+        <Route path="/workload" component={Workload} />
+        <Route path="/automations" component={Automations} />
+        <Route path="/forms" component={Forms} />
+        <Route path="/milestones" component={Milestones} />
+        <Route path="/approvals" component={Approvals} />
+        <Route path="/project-updates" component={ProjectUpdates} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

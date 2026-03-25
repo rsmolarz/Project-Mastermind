@@ -32,7 +32,13 @@ ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and T
     - **Documents/Wiki:** Split-pane editor with markdown rendering and AI content generation.
     - **Notification Center:** Real-time in-app notifications.
     - **Messaging Center:** Integrates Twilio for SMS, voice calls, and email via SMS, with comprehensive contact and message history management.
-    - **Email Hub:** A 4-tab system for email management, including an inbox, project-specific composition, email routing rules, and reminder scheduling with Twilio integration.
+    - **Email Hub:** A 5-tab system for email management, including an inbox, project-specific composition, email routing rules, reminder scheduling with Twilio integration, and email categories with project recommendations (accept/deny).
+    - **Workload Management (`/workload`):** Visual capacity planning showing team utilization %, active tasks, story points, overdue count, tasks by project/priority, and load level (overloaded/heavy/optimal/light).
+    - **Automations (`/automations`):** Rule engine — "When X happens, do Y". Supports triggers (task_created, task_status_changed, task_assigned, task_completed, task_overdue, sprint_started, sprint_completed) with actions (change_status, change_priority, assign, notify). Rules fire automatically on task create/update. UI supports create, enable/disable, test run, delete.
+    - **Intake Forms (`/forms`):** Public form builder that auto-creates tasks. Create forms with custom fields (text, email, number, select, date, checkbox), assign to projects, share public URLs. Submissions auto-generate tasks. Auth-bypassed public endpoint at `/api/forms/public/:slug/submit`.
+    - **Milestones (`/milestones`):** Key project checkpoints with due dates, statuses (upcoming, in_progress, completed, missed), color coding, and days-remaining tracking.
+    - **Approvals (`/approvals`):** Request/track task approvals. Requester picks an approver, who gets notified. Approver can approve/reject with comments. Filter by status.
+    - **Project Updates (`/project-updates`):** Periodic status reports with on_track/at_risk/off_track/completed status, highlights, blockers, and next steps. Filter by project.
     - **Calendar (`/calendar`):** Full Google Calendar integration with month grid and agenda views, event sync, create/edit/delete events (synced to Google Calendar), event detail modals with attendee status, conference links, and integrated reminder creation (in-app, SMS, voice call via Twilio). Supports clicking days to view events, color-coded event labels, and all-day events.
     - **Super Admin (`/admin`):** A comprehensive administrative interface featuring an overview dashboard, an AI Command Center with 60 AI features (Core, Advanced, Predictive), 55 configurable Feature Flags, Task Templates, Custom Fields, Expense Tracking, API & Email Integration settings, and robust Security controls (YubiKey/WebAuthn FIDO2, session-based auth).
     - **Platform Guide (`/guide`):** Comprehensive in-app documentation with left-side navigation covering 19 sections (Getting Started, Dashboard, Tasks, Sprints, Time & Billing, Goals, Portfolio, Documents, Announcements, Standups, Messaging, Email Hub, Email Routing, Reminders, Super Admin, Security, AI Features, Keyboard Shortcuts, API Reference). Includes live project email directory with copy buttons, code examples, tips, and warnings.
@@ -95,6 +101,18 @@ External-facing API endpoints for the Investment Docs personal finance app, auth
 - `/api/finance/virtual-cards` — Create/manage Privacy.com virtual cards, sync transactions from Privacy.com
 
 **Database tables:** `invoices`, `invoice_line_items`, `portfolios`, `portfolio_holdings`, `finance_transactions`, `virtual_cards`
+
+## New Feature Database Tables
+
+- `task_dependencies` — Task dependency relationships (finish_to_start, start_to_start, etc.)
+- `automations` — Automation rules with triggers, conditions, actions, run counts
+- `forms` — Intake form definitions with custom fields, slug-based URLs
+- `form_submissions` — Form submission data with optional auto-created task links
+- `milestones` — Project milestones with due dates and completion tracking
+- `approvals` — Task approval requests/responses between team members
+- `project_updates` — Periodic status reports with highlights, blockers, next steps
+- `saved_views` — Custom filtered/sorted task views
+- `favorites` — Starred/favorited entities (projects, tasks, etc.)
 
 **MotionOS Authentication:** MotionOS app authenticates via `X-API-Key` header or `Bearer` token using `MOTIONOS_API_KEY` secret — no session login needed
 

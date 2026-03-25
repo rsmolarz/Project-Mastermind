@@ -1,7 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { 
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
-  Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen, Calendar
+  Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen, Calendar,
+  Users, Zap, FileInput, Flag, ShieldCheck, BarChart3
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -100,6 +101,8 @@ export function Sidebar({
             <NavItem item={{ icon: MessageSquare, label: "Messaging", path: "/messaging" }} />
             <NavItem item={{ icon: Mail, label: "Email Hub", path: "/email" }} />
             <NavItem item={{ icon: Calendar, label: "Calendar", path: "/calendar" }} />
+            <NavItem item={{ icon: Flag, label: "Milestones", path: "/milestones" }} />
+            <NavItem item={{ icon: FileInput, label: "Forms", path: "/forms" }} />
           </div>
         </div>
 
@@ -108,8 +111,18 @@ export function Sidebar({
           <div className="space-y-0.5">
             <NavItem item={{ icon: PieChart, label: "Portfolio", path: "/portfolio" }} />
             <NavItem item={{ icon: Target, label: "Goals & OKRs", path: "/goals" }} />
+            <NavItem item={{ icon: Users, label: "Workload", path: "/workload" }} />
+            <NavItem item={{ icon: BarChart3, label: "Project Updates", path: "/project-updates" }} />
             <NavItem item={{ icon: ClipboardList, label: "Standups", path: "/standups" }} />
             <NavItem item={{ icon: Megaphone, label: "Announcements", path: "/announcements" }} />
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Workflow</div>
+          <div className="space-y-0.5">
+            <NavItem item={{ icon: Zap, label: "Automations", path: "/automations" }} />
+            <NavItem item={{ icon: ShieldCheck, label: "Approvals", path: "/approvals" }} />
           </div>
         </div>
 

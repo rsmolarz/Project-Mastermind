@@ -28,6 +28,15 @@ import transactionsRouter from "./finance/transactions";
 import virtualCardsRouter from "./finance/virtual-cards";
 import financeDocsRouter from "./finance/api-docs";
 import emailProjectsRouter from "./email-projects";
+import taskDependenciesRouter from "./task-dependencies";
+import automationsRouter from "./automations";
+import formsRouter from "./forms";
+import milestonesRouter from "./milestones";
+import approvalsRouter from "./approvals";
+import projectUpdatesRouter from "./project-updates";
+import savedViewsRouter from "./saved-views";
+import favoritesRouter from "./favorites";
+import workloadRouter from "./workload";
 
 const router: IRouter = Router();
 
@@ -60,5 +69,14 @@ router.use(transactionsRouter);
 router.use(virtualCardsRouter);
 router.use(financeDocsRouter);
 router.use(emailProjectsRouter);
+router.use(taskDependenciesRouter);
+router.use(automationsRouter);
+router.use(formsRouter);
+router.use(milestonesRouter);
+router.use(approvalsRouter);
+router.use(projectUpdatesRouter);
+router.use(savedViewsRouter);
+router.use(favoritesRouter);
+router.use(workloadRouter);
 
 export default router;

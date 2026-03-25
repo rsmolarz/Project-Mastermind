@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db, tasksTable, activityLogTable } from "@workspace/db";
+import { runAutomations } from "./automations";
 import {
   ListTasksQueryParams,
   ListTasksResponse,
@@ -72,6 +73,11 @@ router.post("/tasks", async (req, res): Promise<void> => {
     actorId: (parsed.data.assigneeIds as number[])?.[0] || 1,
   });
 
+  runAutomations("task_created", { taskId: task.id, projectId: task.projectId, status: task.status, priority: task.priority }).catch(console.error);
+  if ((task.assigneeIds as number[])?.length > 0) {
+    runAutomations("task_assigned", { taskId: task.id, projectId: task.projectId, assigneeIds: task.assigneeIds }).catch(console.error);
+  }
+
   res.status(201).json(GetTaskResponse.parse(task));
 });
 
@@ -128,6 +134,16 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
     details: { fields: Object.keys(updateData) },
     actorId: 1,
   });
+
+  if (updateData.status !== undefined) {
+    runAutomations("task_status_changed", { taskId: task.id, projectId: task.projectId, status: task.status, previousStatus: parsed.data.status }).catch(console.error);
+    if (task.status === "done") {
+      runAutomations("task_completed", { taskId: task.id, projectId: task.projectId }).catch(console.error);
+    }
+  }
+  if (updateData.assigneeIds !== undefined) {
+    runAutomations("task_assigned", { taskId: task.id, projectId: task.projectId, assigneeIds: task.assigneeIds }).catch(console.error);
+  }
 
   res.json(UpdateTaskResponse.parse(task));
 });
