@@ -79,6 +79,14 @@ Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Moti
 -   **Everything View (ClickUp):** Cross-project aggregated task view with group-by (project/status/priority/assignee), filters, and search.
 -   **Time Estimate vs Tracked (ClickUp):** Visual comparison widget in task modal showing estimated hours vs actual tracked time with progress bar and budget indicator.
 -   **Relationship Types (ClickUp):** Extended task linking with 6 relationship types: related, duplicates, blocks, is-blocked-by, parent-of, child-of. Color-coded badges.
+-   **Custom Task IDs (ClickUp):** Readable task IDs like "API-001", "MOB-005" based on project name prefix + padded task number. Displayed in task modal header and table view.
+-   **Task Watchers (ClickUp):** Watch/unwatch button in task modal. Watcher avatars displayed. localStorage persisted.
+-   **Comment Assignments (ClickUp):** Assign comments as action items to team members. Assigned badge shows assignee name. Removable via X button.
+-   **Nested Docs / Sub-pages (ClickUp):** Documents page supports parent-child document hierarchy. Sidebar tree view with expand/collapse. Add sub-page button in toolbar. Breadcrumb navigation to parent. Sub-pages listed at bottom of parent document.
+-   **Due Date Reminders (ClickUp):** Remind-me dropdown in task modal (15min, 1hr, 1day, 3days before due). Reminder badge indicator. localStorage persisted.
+-   **Task Priority Colors on Kanban Cards (ClickUp):** Colored left border strip on kanban cards — rose for critical, amber for high, blue for medium, slate for low.
+-   **Spaces / Folders (ClickUp):** Folder grouping for projects in sidebar. Collapsible folder tree with project count. Create folder button. localStorage persisted.
+-   **Inbox / Notification Feed (ClickUp):** Personal notification inbox page with assignment, overdue, due-soon, and completion notifications. Filter by all/unread/starred/assignments/mentions. Star, archive, mark-read actions. localStorage persisted.
 
 **Backend:**
 An Express 5 API server handles REST endpoints with Zod for validation and Drizzle ORM for PostgreSQL. API codegen uses Orval for React Query hooks and Zod schemas.

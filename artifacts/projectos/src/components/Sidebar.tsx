@@ -4,12 +4,41 @@ import {
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
   Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen, Calendar,
   Users, Zap, FileInput, Flag, ShieldCheck, BarChart3, Sun, Activity, Tag, LayoutTemplate, Star, Trash2, Settings, UserPlus,
-  Pencil, Puzzle, Brain, StickyNote, Bell, RefreshCw, X, Wifi, Layers
+  Pencil, Puzzle, Brain, StickyNote, Bell, RefreshCw, X, Wifi, Layers, Inbox, FolderOpen, ChevronDown as ChevronDownIcon, ChevronRight as ChevronRightIcon
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
 import { useTasks } from "@/hooks/use-tasks";
 import { Avatar } from "./ui/shared";
+
+function FolderGroup({ name, projects, tasks }: { name: string; projects: any[]; tasks: any[] }) {
+  const [open, setOpen] = useState(true);
+  const totalOpen = projects.reduce((sum, p) => sum + tasks.filter(t => t.projectId === p.id && t.status !== "done").length, 0);
+  return (
+    <div>
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 px-3 py-1.5 w-full text-left rounded-lg hover:bg-white/5 transition-colors">
+        {open ? <ChevronDownIcon className="w-3 h-3 text-muted-foreground" /> : <ChevronRightIcon className="w-3 h-3 text-muted-foreground" />}
+        <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+        <span className="text-xs font-bold text-foreground flex-1 truncate">{name}</span>
+        <span className="text-[10px] font-mono text-muted-foreground">{totalOpen}</span>
+      </button>
+      {open && (
+        <div className="ml-3 pl-2 border-l border-border/30 space-y-0.5 mt-0.5">
+          {projects.map(p => {
+            const openCount = tasks.filter(t => t.projectId === p.id && t.status !== "done").length;
+            return (
+              <Link key={p.id} href={`/tasks?projectId=${p.id}`} className="flex items-center gap-3 px-3 py-1.5 rounded-xl text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all duration-200 text-sm">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                <span className="font-medium truncate flex-1">{p.name}</span>
+                {openCount > 0 && <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground">{openCount}</span>}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Sidebar({ 
   onOpenCmd, 
@@ -24,6 +53,9 @@ export function Sidebar({
   const { data: tasks = [] } = useTasks();
   const [favorites, setFavorites] = useState<{ label: string; path: string; icon: string }[]>(() => {
     try { return JSON.parse(localStorage.getItem("projectos-favorites") || "[]"); } catch { return []; }
+  });
+  const [projectFolders, setProjectFolders] = useState<Record<number, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-project-folders") || "{}"); } catch { return {}; }
   });
 
   const removeFavorite = (path: string) => {
@@ -48,7 +80,8 @@ export function Sidebar({
     { label: "Automations", path: "/automations", icon: "⚡" }, { label: "Approvals", path: "/approvals", icon: "✔️" },
     { label: "Tags", path: "/tags", icon: "🏷️" }, { label: "Templates", path: "/templates", icon: "📑" },
     { label: "Integrations", path: "/integrations", icon: "🔌" }, { label: "Pulse", path: "/pulse", icon: "📡" },
-    { label: "Everything", path: "/everything", icon: "🔮" }, { label: "Super Admin", path: "/admin", icon: "🛡️" },
+    { label: "Everything", path: "/everything", icon: "🔮" }, { label: "Inbox", path: "/inbox", icon: "📥" },
+    { label: "Super Admin", path: "/admin", icon: "🛡️" },
     { label: "Settings", path: "/settings", icon: "⚙️" }, { label: "Guest Access", path: "/guests", icon: "👤" },
     { label: "Trash & Archive", path: "/trash", icon: "🗑️" },
   ];
@@ -146,32 +179,67 @@ export function Sidebar({
             <NavItem item={{ icon: Home, label: "Dashboard", path: "/" }} />
             <NavItem item={{ icon: Sun, label: "My Day", path: "/my-day" }} />
             <NavItem item={{ icon: Layers, label: "Everything", path: "/everything" }} />
+            <NavItem item={{ icon: Inbox, label: "Inbox", path: "/inbox" }} />
             <NavItem item={{ icon: CheckSquare, label: "My Tasks", path: "/tasks", badge: tasks.filter(t => (t.assigneeIds as number[])?.includes(1) && t.status !== "done").length }} />
             <NavItem item={{ icon: AlertTriangle, label: "Overdue", path: "/tasks", query: "filter=overdue", badge: overdue.length, alert: true }} />
           </div>
         </div>
 
-        {projects.length > 0 && (
-          <div>
-            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Active Projects</div>
-            <div className="space-y-0.5">
-              {projects.map(p => {
-                const openCount = tasks.filter(t => t.projectId === p.id && t.status !== "done").length;
-                return (
-                  <Link key={p.id} href={`/tasks?projectId=${p.id}`} className="flex items-center gap-3 px-3 py-2 rounded-xl text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all duration-200">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-                    <span className="font-medium text-sm truncate flex-1">{p.name}</span>
-                    {openCount > 0 && (
-                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                        {openCount}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+        {projects.length > 0 && (() => {
+          const folders: Record<string, typeof projects> = {};
+          const ungrouped: typeof projects = [];
+          projects.forEach(p => {
+            const folder = projectFolders[p.id];
+            if (folder) {
+              if (!folders[folder]) folders[folder] = [];
+              folders[folder].push(p);
+            } else {
+              ungrouped.push(p);
+            }
+          });
+          return (
+            <div>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Spaces & Projects</div>
+                <button onClick={() => {
+                  const name = prompt("New folder name:");
+                  if (name?.trim() && ungrouped.length > 0) {
+                    const projectName = prompt(`Which project to add to "${name.trim()}"? Enter project name:\n${ungrouped.map(p => `- ${p.name}`).join("\n")}`);
+                    const target = ungrouped.find(p => p.name.toLowerCase().includes((projectName || "").toLowerCase()));
+                    if (target) {
+                      const updated = { ...projectFolders, [target.id]: name.trim() };
+                      setProjectFolders(updated);
+                      localStorage.setItem("projectos-project-folders", JSON.stringify(updated));
+                    }
+                  }
+                }} className="text-muted-foreground hover:text-primary" title="Create folder">
+                  <FolderOpen className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="space-y-1">
+                {Object.entries(folders).map(([folderName, folderProjects]) => (
+                  <FolderGroup key={folderName} name={folderName} projects={folderProjects} tasks={tasks} />
+                ))}
+                <div className="space-y-0.5">
+                  {ungrouped.map(p => {
+                    const openCount = tasks.filter(t => t.projectId === p.id && t.status !== "done").length;
+                    return (
+                      <Link key={p.id} href={`/tasks?projectId=${p.id}`} className="flex items-center gap-3 px-3 py-2 rounded-xl text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all duration-200">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                        <span className="font-medium text-sm truncate flex-1">{p.name}</span>
+                        {openCount > 0 && (
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                            {openCount}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         <div>
           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Tools</div>

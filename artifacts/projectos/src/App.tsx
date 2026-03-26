@@ -43,6 +43,7 @@ import Reminders from "@/pages/Reminders";
 import Cycles from "@/pages/Cycles";
 import Pulse from "@/pages/Pulse";
 import Everything from "@/pages/Everything";
+import InboxPage from "@/pages/Inbox";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -95,6 +96,7 @@ function Router() {
         <Route path="/cycles" component={Cycles} />
         <Route path="/pulse" component={Pulse} />
         <Route path="/everything" component={Everything} />
+        <Route path="/inbox" component={InboxPage} />
         <Route path="/shared/:token" component={SharedView} />
         <Route component={NotFound} />
       </Switch>

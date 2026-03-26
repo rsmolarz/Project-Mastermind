@@ -12,7 +12,7 @@ import {
   LayoutGrid, List, ChevronDown, ChevronRight, Calendar, Trash2, ArrowRight,
   Filter, Save, Bookmark, X, MessageSquare, Activity, Send, Repeat,
   Square, CheckSquare, Table, Image, Map, Inbox, GanttChart, Smile, ListChecks,
-  Copy, Archive, Link2, Paperclip, Upload, Minimize2
+  Copy, Archive, Link2, Paperclip, Upload, Minimize2, Bell, UserPlus
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from "date-fns";
 import { useSearch } from "wouter";
@@ -69,6 +69,15 @@ export default function Tasks() {
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [taskChecklists, setTaskChecklists] = useState<Record<number, { id: number; text: string; done: boolean }[]>>(() => {
     try { return JSON.parse(localStorage.getItem("projectos-task-checklists") || "{}"); } catch { return {}; }
+  });
+  const [taskWatchers, setTaskWatchers] = useState<Record<number, number[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-task-watchers") || "{}"); } catch { return {}; }
+  });
+  const [taskReminders, setTaskReminders] = useState<Record<number, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-task-reminders") || "{}"); } catch { return {}; }
+  });
+  const [commentAssignments, setCommentAssignments] = useState<Record<number, number>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-comment-assignments") || "{}"); } catch { return {}; }
   });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [aiInput, setAiInput] = useState("");
@@ -1345,6 +1354,61 @@ export default function Tasks() {
       {renderBulkBar()}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isNewTask ? "Create Task" : "Edit Task"} maxWidth="max-w-2xl">
+        {!isNewTask && formData.id && (() => {
+          const project = projects.find((p: any) => p.id === formData.projectId);
+          const prefix = project?.name ? project.name.replace(/[^A-Z]/g, "").slice(0, 3) || project.name.slice(0, 3).toUpperCase() : "TSK";
+          const taskIdStr = `${prefix}-${String(formData.id).padStart(3, "0")}`;
+          return (
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg">{taskIdStr}</span>
+              {(() => {
+                const watchers = taskWatchers[formData.id] || [];
+                const isWatching = watchers.includes(1);
+                return (
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => {
+                      const next = isWatching ? watchers.filter(w => w !== 1) : [...watchers, 1];
+                      const updated = { ...taskWatchers, [formData.id]: next };
+                      setTaskWatchers(updated);
+                      localStorage.setItem("projectos-task-watchers", JSON.stringify(updated));
+                    }} className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg transition-colors ${isWatching ? "bg-cyan-500/15 text-cyan-400" : "text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary"}`}>
+                      <Eye className="w-3 h-3" /> {isWatching ? "Watching" : "Watch"}
+                    </button>
+                    {watchers.length > 0 && (
+                      <div className="flex -space-x-1">
+                        {watchers.slice(0, 4).map(wId => {
+                          const m = members.find((m: any) => m.id === wId);
+                          return m ? (
+                            <div key={wId} className="w-5 h-5 rounded-full border border-card text-[8px] font-bold text-white flex items-center justify-center"
+                              style={{ backgroundColor: m.color }} title={`${m.name} is watching`}>{m.name?.charAt(0)}</div>
+                          ) : null;
+                        })}
+                        {watchers.length > 4 && <span className="text-[10px] text-muted-foreground ml-1">+{watchers.length - 4}</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              {formData.due && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  <Bell className="w-3 h-3 text-muted-foreground" />
+                  <select value={taskReminders[formData.id] || ""} onChange={e => {
+                    const updated = { ...taskReminders, [formData.id]: e.target.value };
+                    setTaskReminders(updated);
+                    localStorage.setItem("projectos-task-reminders", JSON.stringify(updated));
+                  }} className="text-[10px] bg-secondary/50 border border-border rounded-lg px-2 py-1 outline-none focus:border-primary">
+                    <option value="">No reminder</option>
+                    <option value="15min">15 min before</option>
+                    <option value="1hr">1 hour before</option>
+                    <option value="1day">1 day before</option>
+                    <option value="3days">3 days before</option>
+                  </select>
+                  {taskReminders[formData.id] && <span className="text-[10px] text-amber-400 font-bold">🔔</span>}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         <div className="flex gap-1 mb-6 border-b border-border pb-3">
           {(["details", "comments", "activity"] as const).map(tab => (
             <button key={tab} onClick={() => setModalTab(tab)}
@@ -1976,6 +2040,21 @@ export default function Tasks() {
                           <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}</span>
                         </div>
                         <p className="text-sm text-foreground/80 whitespace-pre-wrap">{c.content}</p>
+                        {commentAssignments[c.id] && (() => {
+                          const assignee = members.find((m: any) => m.id === commentAssignments[c.id]);
+                          return assignee ? (
+                            <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg w-fit">
+                              <UserPlus className="w-3 h-3 text-amber-400" />
+                              <span className="text-[10px] font-bold text-amber-400">Assigned to {assignee.name}</span>
+                              <button onClick={() => {
+                                const next = { ...commentAssignments };
+                                delete next[c.id];
+                                setCommentAssignments(next);
+                                localStorage.setItem("projectos-comment-assignments", JSON.stringify(next));
+                              }} className="text-amber-400/60 hover:text-amber-400 ml-1"><X className="w-3 h-3" /></button>
+                            </div>
+                          ) : null;
+                        })()}
                         <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                           {Object.entries(reactions).filter(([, v]) => v > 0).map(([emoji, count]) => (
                             <button key={emoji} onClick={() => addReaction(emoji)} className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded-full text-xs hover:bg-primary/20 transition-colors">
@@ -1994,6 +2073,26 @@ export default function Tasks() {
                               </div>
                             )}
                           </div>
+                          {!commentAssignments[c.id] && (
+                            <div className="relative group/assign">
+                              <button className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors" title="Assign comment">
+                                <UserPlus className="w-3.5 h-3.5" />
+                              </button>
+                              <div className="absolute bottom-full left-0 mb-1 bg-card border border-border rounded-lg shadow-xl p-1.5 min-w-[140px] opacity-0 group-hover/assign:opacity-100 pointer-events-none group-hover/assign:pointer-events-auto z-50 space-y-0.5 transition-opacity">
+                                <div className="text-[10px] font-bold text-muted-foreground px-1 pb-1">Assign to:</div>
+                                {members.map((m: any) => (
+                                  <button key={m.id} onClick={() => {
+                                    const next = { ...commentAssignments, [c.id]: m.id };
+                                    setCommentAssignments(next);
+                                    localStorage.setItem("projectos-comment-assignments", JSON.stringify(next));
+                                  }} className="w-full text-left px-2 py-1 rounded text-xs hover:bg-white/10 flex items-center gap-2">
+                                    <div className="w-4 h-4 rounded-full text-[8px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: m.color }}>{m.name?.charAt(0)}</div>
+                                    {m.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

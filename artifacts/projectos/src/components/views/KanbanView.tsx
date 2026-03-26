@@ -12,11 +12,11 @@ const STATUSES = [
   { id: "blocked", label: "Blocked", color: "text-rose-400", dot: "bg-rose-400", border: "border-rose-400/30" },
 ];
 
-const PRIORITY_MAP: Record<string, { color: string; icon: string; badge: string }> = {
-  critical: { color: "red", icon: "🔴", badge: "bg-rose-500/15 text-rose-400 border-rose-500/20" },
-  high: { color: "yellow", icon: "🟡", badge: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
-  medium: { color: "blue", icon: "🔵", badge: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
-  low: { color: "gray", icon: "⚪", badge: "bg-gray-500/15 text-gray-400 border-gray-500/20" },
+const PRIORITY_MAP: Record<string, { color: string; icon: string; badge: string; border: string }> = {
+  critical: { color: "red", icon: "🔴", badge: "bg-rose-500/15 text-rose-400 border-rose-500/20", border: "border-l-rose-500" },
+  high: { color: "yellow", icon: "🟡", badge: "bg-amber-500/15 text-amber-400 border-amber-500/20", border: "border-l-amber-400" },
+  medium: { color: "blue", icon: "🔵", badge: "bg-blue-500/15 text-blue-400 border-blue-500/20", border: "border-l-blue-400" },
+  low: { color: "gray", icon: "⚪", badge: "bg-gray-500/15 text-gray-400 border-gray-500/20", border: "border-l-slate-400" },
 };
 
 type Props = {
@@ -135,7 +135,7 @@ export default function KanbanView({ tasks, projects, members, onTaskClick, onNe
                       return (
                         <Card key={task.id} draggable onDragStart={e => onDragStart(e, task.id)}
                           onClick={() => onTaskClick(task)}
-                          className={`p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-black/10 ${
+                          className={`p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-black/10 border-l-[3px] ${pr.border} ${
                             isOverdue ? "border-rose-500/40 shadow-rose-500/5" : ""
                           }`}>
                           <div className="flex items-start justify-between mb-2">
