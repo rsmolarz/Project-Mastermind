@@ -11,6 +11,7 @@ export const projectsTable = pgTable("projects", {
   budget: real("budget").notNull().default(0),
   health: integer("health").notNull().default(100),
   phase: text("phase").notNull().default("Planning"),
+  description: text("description").notNull().default(""),
   tag: text("tag").notNull().default(""),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

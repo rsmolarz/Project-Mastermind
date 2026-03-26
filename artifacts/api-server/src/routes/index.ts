@@ -45,6 +45,11 @@ import taskAttachmentsRouter from "./task-attachments";
 import automationRunsRouter from "./automation-runs";
 import taskLinksRouter from "./task-links";
 import trashRouter from "./trash";
+import userPreferencesRouter from "./user-preferences";
+import guestsRouter from "./guests";
+import dashboardWidgetsRouter from "./dashboard-widgets";
+import searchRouter from "./search";
+import importExportRouter from "./import-export";
 
 const router: IRouter = Router();
 
@@ -94,5 +99,10 @@ router.use(taskAttachmentsRouter);
 router.use(automationRunsRouter);
 router.use(taskLinksRouter);
 router.use(trashRouter);
+router.use(userPreferencesRouter);
+router.use(guestsRouter);
+router.use(dashboardWidgetsRouter);
+router.use(searchRouter);
+router.use(importExportRouter);
 
 export default router;

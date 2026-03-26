@@ -147,6 +147,12 @@ export default function Tasks() {
 
   const [showLinkPicker, setShowLinkPicker] = useState(false);
   const [linkSearch, setLinkSearch] = useState("");
+  const [groupBy, setGroupBy] = useState<"status" | "priority" | "assignee" | "group" | "none">("status");
+
+  const subItems = useMemo(() => {
+    if (!formData?.id) return [];
+    return allTasks.filter(t => t.parentTaskId === formData.id);
+  }, [allTasks, formData?.id]);
 
   const tasks = useMemo(() => {
     let filtered = allTasks;
@@ -747,6 +753,17 @@ export default function Tasks() {
           <button onClick={() => setShowFilterBar(!showFilterBar)} className={`p-2 rounded-xl border border-border transition-colors ${showFilterBar ? "bg-primary/15 text-primary border-primary/30" : "text-muted-foreground hover:text-foreground"}`}>
             <Filter className="w-4 h-4" />
           </button>
+          <select
+            value={groupBy}
+            onChange={e => setGroupBy(e.target.value as any)}
+            className="bg-background text-xs rounded-lg px-2 py-2 border border-border text-foreground"
+          >
+            <option value="status">Group: Status</option>
+            <option value="priority">Group: Priority</option>
+            <option value="assignee">Group: Assignee</option>
+            <option value="group">Group: Section</option>
+            <option value="none">No Grouping</option>
+          </select>
           <div className="relative w-full md:w-80">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none"><Sparkles className="w-4 h-4 text-primary" /></div>
             <Input value={aiInput} onChange={e => setAiInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAiCreate()} placeholder="AI: 'fix auth bug critical due friday'" className="pl-10" />
@@ -857,8 +874,16 @@ export default function Tasks() {
                 </select>
               </div>
               <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Start Date</label>
+                <Input type="date" value={formData.startDate ? format(new Date(formData.startDate), "yyyy-MM-dd") : ""} onChange={e => setFormData({ ...formData, startDate: e.target.value || null })} />
+              </div>
+              <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Due Date</label>
                 <Input type="date" value={formData.due ? format(new Date(formData.due), "yyyy-MM-dd") : ""} onChange={e => setFormData({ ...formData, due: e.target.value || null })} />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Group</label>
+                <Input value={formData.groupName || "Default"} onChange={e => setFormData({ ...formData, groupName: e.target.value })} placeholder="Section name" />
               </div>
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Recurrence</label>
@@ -937,6 +962,26 @@ export default function Tasks() {
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Notes</label>
               <Textarea value={formData.notes || ""} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Add context, links, or details here..." />
             </div>
+
+            {!isNewTask && subItems.length > 0 && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
+                  Sub-Items ({subItems.length})
+                </label>
+                <div className="space-y-1.5">
+                  {subItems.map((si: any) => {
+                    const statusInfo = STATUSES.find(s => s.id === si.status);
+                    return (
+                      <div key={si.id} onClick={() => openTask(si)} className="flex items-center gap-2 bg-secondary/30 rounded-lg px-3 py-2 cursor-pointer hover:bg-secondary/50 transition-colors">
+                        <div className={`w-2 h-2 rounded-full ${statusInfo?.dot || "bg-slate-400"}`} />
+                        <span className="text-sm flex-1 truncate">{si.title}</span>
+                        <span className="text-[10px] text-muted-foreground">{si.status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {!isNewTask && (
               <div>

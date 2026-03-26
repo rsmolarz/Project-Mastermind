@@ -32,3 +32,6 @@ export * from "./webhooks";
 export * from "./task-attachments";
 export * from "./automation-runs";
 export * from "./task-links";
+export * from "./user-preferences";
+export * from "./guests";
+export * from "./dashboard-widgets";
