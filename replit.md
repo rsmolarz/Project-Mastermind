@@ -23,7 +23,7 @@ ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and T
 - UI/UX incorporates Framer Motion for animations, Lucide React for icons, and `react-markdown` for document rendering.
 - Key UI features include:
     - **Dashboard:** Provides an AI Briefing, key statistics (in-progress, overdue, hours today, goals on track), needs attention list, project budgets, recent documents, active sprints, and goals summary.
-    - **Tasks:** Offers 7 views (Board, List, Table, Calendar, Gallery, Roadmap, Triage) with features like drag-and-drop Kanban, AI natural language task creation, URL filtering, filter bars, saved filters, bulk actions, and recurring tasks.
+    - **Tasks:** Offers 8 views (Board, List, Table, Calendar, Gallery, Roadmap, Gantt, Triage) with features like drag-and-drop Kanban, AI natural language task creation, URL filtering, filter bars, saved filters, bulk actions, recurring tasks, subtask checklist UI (add/toggle/delete subtasks with progress counter), and comment reactions (emoji picker with 👍❤️🎉😄🔥👀💯🚀).
     - **Sprints:** Includes burndown and velocity charts, and sprint stat cards.
     - **Time Tracking:** Features a live timer and detailed time entry management with billing indicators.
     - **Goals & OKRs:** Goal cards with progress tracking and AI Health Check.

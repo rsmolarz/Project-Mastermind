@@ -10,7 +10,7 @@ import {
   Plus, CheckCircle2, Clock, PlayCircle, Eye, AlertOctagon, MoreHorizontal, Sparkles,
   LayoutGrid, List, ChevronDown, ChevronRight, Calendar, Trash2, ArrowRight,
   Filter, Save, Bookmark, X, MessageSquare, Activity, Send, Repeat,
-  Square, CheckSquare, Table, Image, Map, Inbox
+  Square, CheckSquare, Table, Image, Map, Inbox, GanttChart, Smile, ListChecks
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from "date-fns";
 import { useSearch } from "wouter";
@@ -44,7 +44,7 @@ export default function Tasks() {
   const { data: projects = [] } = useProjects();
   const { data: members = [] } = useMembers();
 
-  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage" | "gantt">("kanban");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [aiInput, setAiInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,6 +52,11 @@ export default function Tasks() {
   const [formData, setFormData] = useState<any>({});
   const [modalTab, setModalTab] = useState<"details" | "comments" | "activity">("details");
   const [commentText, setCommentText] = useState("");
+  const [commentReactions, setCommentReactions] = useState<Record<number, Record<string, number>>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-comment-reactions") || "{}"); } catch { return {}; }
+  });
+  const [showEmojiPicker, setShowEmojiPicker] = useState<number | null>(null);
+  const REACTION_EMOJIS = ["👍", "❤️", "🎉", "😄", "🔥", "👀", "💯", "🚀"];
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
@@ -447,6 +452,78 @@ export default function Tasks() {
     );
   };
 
+  // ─── Gantt Chart View ───
+  const renderGantt = () => {
+    const now = new Date();
+    const ganttStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const ganttEnd = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+    const totalDays = Math.ceil((ganttEnd.getTime() - ganttStart.getTime()) / (1000 * 60 * 60 * 24));
+    const months: { label: string; days: number; offset: number }[] = [];
+    for (let m = 0; m < 3; m++) {
+      const mStart = new Date(now.getFullYear(), now.getMonth() + m, 1);
+      const mEnd = new Date(now.getFullYear(), now.getMonth() + m + 1, 0);
+      months.push({ label: format(mStart, "MMM yyyy"), days: mEnd.getDate(), offset: Math.ceil((mStart.getTime() - ganttStart.getTime()) / (1000 * 60 * 60 * 24)) });
+    }
+    const tasksWithDates = tasks.filter(t => t.due).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const todayOffset = Math.ceil((now.getTime() - ganttStart.getTime()) / (1000 * 60 * 60 * 24));
+
+    return (
+      <div className="pb-8 px-2 overflow-x-auto">
+        <div className="min-w-[900px]">
+          <div className="flex border-b border-border mb-1">
+            <div className="w-[250px] shrink-0 px-3 py-2 text-xs font-bold text-muted-foreground uppercase">Task</div>
+            <div className="flex-1 flex relative">
+              {months.map((m, i) => (
+                <div key={i} className="flex-1 px-2 py-2 text-xs font-bold text-muted-foreground border-l border-border/30 text-center">{m.label}</div>
+              ))}
+            </div>
+          </div>
+          <div className="relative">
+            <div className="absolute top-0 bottom-0 border-l-2 border-primary/40 z-10" style={{ left: `calc(250px + ((100% - 250px) * ${todayOffset / totalDays}))` }} />
+            {tasksWithDates.map(task => {
+              const dueDate = new Date(task.due!);
+              const createdDate = new Date(task.createdAt);
+              const rawStart = Math.ceil((createdDate.getTime() - ganttStart.getTime()) / (1000 * 60 * 60 * 24));
+              const rawEnd = Math.ceil((dueDate.getTime() - ganttStart.getTime()) / (1000 * 60 * 60 * 24));
+              if (rawEnd < 0 || rawStart > totalDays) return null;
+              const startDay = Math.max(0, rawStart);
+              const endDay = Math.min(totalDays, rawEnd);
+              if (endDay <= startDay) return null;
+              const barLeft = (startDay / totalDays) * 100;
+              const barWidth = Math.max(2, ((endDay - startDay) / totalDays) * 100);
+              const isOverdue = dueDate < now && task.status !== "done";
+              const isDone = task.status === "done";
+              const statusObj = STATUSES.find(s => s.id === task.status);
+
+              return (
+                <div key={task.id} role="button" tabIndex={0} onClick={() => openTask(task)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openTask(task); } }} className="flex items-center hover:bg-white/5 cursor-pointer group border-b border-border/10 focus:outline-none focus:bg-white/5" style={{ height: "36px" }}>
+                  <div className="w-[250px] shrink-0 px-3 flex items-center gap-2 truncate">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${statusObj?.dot || "bg-gray-400"}`} />
+                    <span className={`text-xs font-medium truncate ${isDone ? "line-through text-muted-foreground" : ""}`}>{task.title}</span>
+                  </div>
+                  <div className="flex-1 relative h-full">
+                    {months.map((m, i) => <div key={i} className="absolute top-0 bottom-0 border-l border-border/10" style={{ left: `${(m.offset / totalDays) * 100}%` }} />)}
+                    <div
+                      className={`absolute top-[8px] h-[20px] rounded-full text-[10px] font-medium flex items-center px-2 truncate transition-all ${
+                        isDone ? "bg-emerald-500/30 text-emerald-300" : isOverdue ? "bg-rose-500/30 text-rose-300" : "bg-primary/30 text-primary"
+                      }`}
+                      style={{ left: `${barLeft}%`, width: `${barWidth}%`, minWidth: "20px" }}
+                    >
+                      {barWidth > 8 && <span className="truncate">{task.title}</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {tasksWithDates.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground text-sm">No tasks with due dates to display on the Gantt chart</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ─── Kanban View ───
   const renderKanban = () => (
     <div className="flex gap-6 overflow-x-auto pb-8 h-full items-start px-2">
@@ -585,6 +662,7 @@ export default function Tasks() {
               { key: "calendar", icon: Calendar, label: "Calendar" },
               { key: "gallery", icon: Image, label: "Gallery" },
               { key: "roadmap", icon: Map, label: "Roadmap" },
+              { key: "gantt", icon: GanttChart, label: "Gantt" },
               { key: "triage", icon: Inbox, label: "Triage" },
             ] as const).map(v => (
               <button key={v.key} onClick={() => setViewMode(v.key)}
@@ -655,7 +733,7 @@ export default function Tasks() {
       <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
-        ) : viewMode === "kanban" ? renderKanban() : viewMode === "list" ? renderList() : viewMode === "calendar" ? renderCalendar() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : renderTriage()}
+        ) : viewMode === "kanban" ? renderKanban() : viewMode === "list" ? renderList() : viewMode === "calendar" ? renderCalendar() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : viewMode === "gantt" ? renderGantt() : renderTriage()}
       </div>
 
       {renderBulkBar()}
@@ -743,6 +821,49 @@ export default function Tasks() {
               </div>
             </div>
             <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
+                <ListChecks className="w-3.5 h-3.5" /> Subtasks
+              </label>
+              <div className="space-y-1.5">
+                {(formData.subtasks || []).map((st: { title: string; done: boolean }, idx: number) => (
+                  <div key={idx} className="flex items-center gap-2 group">
+                    <button aria-label={st.done ? `Mark "${st.title}" incomplete` : `Mark "${st.title}" complete`} onClick={() => {
+                      const subs = [...(formData.subtasks || [])];
+                      subs[idx] = { ...subs[idx], done: !subs[idx].done };
+                      setFormData({ ...formData, subtasks: subs });
+                    }}>
+                      {st.done ? <CheckSquare className="w-4 h-4 text-emerald-400" /> : <Square className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                    <span className={`text-sm flex-1 ${st.done ? "line-through text-muted-foreground" : ""}`}>{st.title}</span>
+                    <button aria-label={`Remove subtask "${st.title}"`} onClick={() => {
+                      const subs = (formData.subtasks || []).filter((_: any, i: number) => i !== idx);
+                      setFormData({ ...formData, subtasks: subs });
+                    }} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                {(formData.subtasks || []).length > 0 && (
+                  <div className="text-[10px] text-muted-foreground">
+                    {(formData.subtasks || []).filter((s: any) => s.done).length}/{(formData.subtasks || []).length} complete
+                  </div>
+                )}
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    placeholder="Add subtask..."
+                    className="!py-1 !text-xs"
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
+                        const subs = [...(formData.subtasks || []), { title: (e.target as HTMLInputElement).value.trim(), done: false }];
+                        setFormData({ ...formData, subtasks: subs });
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div>
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Notes</label>
               <Textarea value={formData.notes || ""} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Add context, links, or details here..." />
             </div>
@@ -773,6 +894,13 @@ export default function Tasks() {
               ) : (
                 comments.map((c: any) => {
                   const author = members.find(m => m.id === c.authorId);
+                  const reactions = commentReactions[c.id] || {};
+                  const addReaction = (emoji: string) => {
+                    const updated = { ...commentReactions, [c.id]: { ...reactions, [emoji]: (reactions[emoji] || 0) + 1 } };
+                    setCommentReactions(updated);
+                    localStorage.setItem("projectos-comment-reactions", JSON.stringify(updated));
+                    setShowEmojiPicker(null);
+                  };
                   return (
                     <div key={c.id} className="flex gap-3">
                       <Avatar name={author?.name || "User"} color={author?.color || "#6366f1"} />
@@ -782,6 +910,25 @@ export default function Tasks() {
                           <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}</span>
                         </div>
                         <p className="text-sm text-foreground/80 whitespace-pre-wrap">{c.content}</p>
+                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                          {Object.entries(reactions).filter(([, v]) => v > 0).map(([emoji, count]) => (
+                            <button key={emoji} onClick={() => addReaction(emoji)} className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded-full text-xs hover:bg-primary/20 transition-colors">
+                              {emoji} <span className="font-mono text-[10px]">{count as number}</span>
+                            </button>
+                          ))}
+                          <div className="relative">
+                            <button aria-label="Add reaction" aria-expanded={showEmojiPicker === c.id} onClick={() => setShowEmojiPicker(showEmojiPicker === c.id ? null : c.id)} className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors">
+                              <Smile className="w-3.5 h-3.5" />
+                            </button>
+                            {showEmojiPicker === c.id && (
+                              <div role="menu" className="absolute bottom-full left-0 mb-1 bg-card border border-border rounded-lg shadow-xl p-1.5 flex gap-1 z-50">
+                                {REACTION_EMOJIS.map(e => (
+                                  <button key={e} role="menuitem" aria-label={`React with ${e}`} onClick={() => addReaction(e)} className="text-sm hover:bg-white/10 rounded p-1 transition-colors">{e}</button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
