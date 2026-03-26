@@ -60,6 +60,11 @@ Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Moti
 -   **Timeline Support:** Tasks have start date + due date range for timeline/Gantt views.
 -   **Sub-Items:** Full nested child tasks via parentTaskId (not just checklist subtasks).
 -   **Project Descriptions:** Projects have editable description fields.
+-   **Chart View (Monday):** 12th task view mode with donut chart (by status), horizontal bars (by priority), and vertical bar chart (by assignee).
+-   **Project Brief (Asana):** 13th task view mode showing project overview, completion stats, team members, key dates, and recent activity.
+-   **Mind Maps (ClickUp):** Visual mind mapping with draggable nodes, parent-child connections, collapse/expand, color coding, zoom/pan. Multiple maps with localStorage persistence.
+-   **Notepad (ClickUp):** Personal scratch pad with multiple color-coded notes, search, pin, formatting toolbar (bold/italic/list/checklist/heading/divider), word count. localStorage persistence.
+-   **Enhanced Portfolio:** Cards/Table toggle view; summary stats row (Projects, Total Tasks, Completed, Overdue, Avg Health); status indicators (On Track/At Risk/Off Track); table view with columns for status, health, tasks, progress, budget.
 
 **Backend:**
 An Express 5 API server handles REST endpoints with Zod for validation and Drizzle ORM for PostgreSQL. API codegen uses Orval for React Query hooks and Zod schemas.

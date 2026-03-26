@@ -22,7 +22,7 @@ import KanbanView from "@/components/views/KanbanView";
 import CalendarView from "@/components/views/CalendarView";
 import MapView from "@/components/views/MapView";
 import WorkloadBoardView from "@/components/views/WorkloadBoardView";
-import { MapPin, Users as UsersIcon, Layers } from "lucide-react";
+import { MapPin, Users as UsersIcon, Layers, BarChart3, FileText, PieChart } from "lucide-react";
 
 const STATUSES = [
   { id: "backlog", label: "Backlog", icon: Clock, color: "text-slate-400", border: "border-slate-400", dot: "bg-slate-400" },
@@ -52,7 +52,7 @@ export default function Tasks() {
   const { data: projects = [] } = useProjects();
   const { data: members = [] } = useMembers();
 
-  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage" | "gantt" | "timeline" | "map" | "workload">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage" | "gantt" | "timeline" | "map" | "workload" | "chart" | "brief">("kanban");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [aiInput, setAiInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -661,6 +661,227 @@ export default function Tasks() {
     );
   };
 
+  // ─── Chart View (Monday-style) ───
+  const renderChart = () => {
+    const statusData = STATUSES.map(s => ({ label: s.label, count: tasks.filter(t => t.status === s.id).length, color: s.dot.replace("bg-", "") }));
+    const priorityData = [
+      { label: "Critical", count: tasks.filter(t => t.priority === "critical").length, color: "#ef4444" },
+      { label: "High", count: tasks.filter(t => t.priority === "high").length, color: "#f59e0b" },
+      { label: "Medium", count: tasks.filter(t => t.priority === "medium").length, color: "#3b82f6" },
+      { label: "Low", count: tasks.filter(t => t.priority === "low").length, color: "#94a3b8" },
+    ];
+    const assigneeData = members.map(m => ({
+      label: m.name.split(" ")[0],
+      count: tasks.filter(t => (t.assigneeIds as number[])?.includes(m.id)).length,
+      color: m.color,
+    })).filter(d => d.count > 0).sort((a, b) => b.count - a.count);
+    const maxPriority = Math.max(...priorityData.map(d => d.count), 1);
+    const maxAssignee = Math.max(...assigneeData.map(d => d.count), 1);
+    const total = tasks.length || 1;
+    const STATUS_COLORS: Record<string, string> = { "bg-slate-400": "#94a3b8", "bg-blue-400": "#60a5fa", "bg-primary": "#6366f1", "bg-amber-400": "#fbbf24", "bg-emerald-400": "#34d399", "bg-rose-400": "#fb7185" };
+
+    return (
+      <div className="p-6 space-y-8 pb-16 overflow-y-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Card className="p-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-6 flex items-center gap-2">
+              <PieChart className="w-4 h-4 text-primary" /> Tasks by Status
+            </h3>
+            <div className="flex items-center gap-8">
+              <div className="relative w-40 h-40 shrink-0">
+                <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                  {(() => {
+                    let offset = 0;
+                    return statusData.map((d, i) => {
+                      const pct = (d.count / total) * 100;
+                      const el = <circle key={i} cx="18" cy="18" r="14" fill="none" strokeWidth="4"
+                        stroke={STATUS_COLORS[d.color] || "#6366f1"} strokeDasharray={`${pct} ${100 - pct}`} strokeDashoffset={-offset} />;
+                      offset += pct;
+                      return el;
+                    });
+                  })()}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-2xl font-bold">{tasks.length}</span>
+                  <span className="text-[10px] text-muted-foreground">tasks</span>
+                </div>
+              </div>
+              <div className="space-y-2 flex-1">
+                {statusData.map((d, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STATUS_COLORS[d.color] || "#6366f1" }} />
+                    <span className="text-sm flex-1">{d.label}</span>
+                    <span className="text-sm font-mono font-bold">{d.count}</span>
+                    <span className="text-xs text-muted-foreground w-10 text-right">{Math.round((d.count / total) * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-6 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-primary" /> Tasks by Priority
+            </h3>
+            <div className="space-y-4">
+              {priorityData.map((d, i) => (
+                <div key={i}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-sm font-medium">{d.label}</span>
+                    <span className="text-sm font-mono font-bold">{d.count}</span>
+                  </div>
+                  <div className="h-6 bg-secondary/50 rounded-lg overflow-hidden">
+                    <div className="h-full rounded-lg transition-all duration-500 flex items-center px-2"
+                      style={{ width: `${Math.max(5, (d.count / maxPriority) * 100)}%`, backgroundColor: d.color }}>
+                      {d.count > 0 && <span className="text-[10px] font-bold text-white">{d.count}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="p-6 lg:col-span-2">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-6 flex items-center gap-2">
+              <UsersIcon className="w-4 h-4 text-primary" /> Tasks by Assignee
+            </h3>
+            <div className="flex items-end gap-4 h-48">
+              {assigneeData.map((d, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                  <span className="text-xs font-mono font-bold">{d.count}</span>
+                  <div className="w-full rounded-t-lg transition-all duration-500"
+                    style={{ height: `${(d.count / maxAssignee) * 140}px`, backgroundColor: d.color, minHeight: 8 }} />
+                  <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[60px]">{d.label}</span>
+                </div>
+              ))}
+              {assigneeData.length === 0 && (
+                <div className="w-full text-center text-muted-foreground text-sm py-12">No task assignments yet</div>
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Project Brief View (Asana-style) ───
+  const renderBrief = () => {
+    const project = filterProjectId ? projects.find(p => p.id === filterProjectId) : projects[0];
+    const pTasks = project ? tasks.filter(t => t.projectId === project.id) : tasks;
+    const doneCount = pTasks.filter(t => t.status === "done").length;
+    const inProgressCount = pTasks.filter(t => t.status === "inprogress").length;
+    const blockedCount = pTasks.filter(t => t.status === "blocked").length;
+    const overdueTasks = pTasks.filter(t => t.status !== "done" && t.due && new Date(t.due) < new Date());
+    const upcomingTasks = pTasks.filter(t => t.due && new Date(t.due) > new Date()).sort((a, b) => new Date(a.due!).getTime() - new Date(b.due!).getTime()).slice(0, 5);
+    const teamIds = [...new Set(pTasks.flatMap(t => (t.assigneeIds as number[]) || []))];
+    const teamMembers = members.filter(m => teamIds.includes(m.id));
+    const completionPct = pTasks.length > 0 ? Math.round((doneCount / pTasks.length) * 100) : 0;
+
+    return (
+      <div className="p-6 max-w-4xl mx-auto space-y-8 pb-16 overflow-y-auto">
+        <div className="flex items-start gap-4">
+          {project && <span className="text-4xl">{project.icon}</span>}
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold">{project?.name || "All Projects"}</h2>
+            <p className="text-muted-foreground mt-1">{(project as any)?.description || `Overview of ${pTasks.length} tasks across the project.`}</p>
+            {project && (
+              <div className="flex items-center gap-4 mt-3">
+                <Badge color={project.health >= 80 ? "green" : project.health >= 60 ? "yellow" : "red"}>
+                  Health: {project.health}%
+                </Badge>
+                <Badge color="indigo">{project.phase}</Badge>
+                <span className="text-xs text-muted-foreground">{project.client}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4 text-center">
+            <div className="text-3xl font-bold text-primary">{completionPct}%</div>
+            <div className="text-xs text-muted-foreground mt-1 font-medium">Complete</div>
+            <div className="h-1.5 bg-secondary rounded-full mt-2 overflow-hidden">
+              <div className="h-full bg-primary rounded-full" style={{ width: `${completionPct}%` }} />
+            </div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-3xl font-bold text-emerald-400">{doneCount}</div>
+            <div className="text-xs text-muted-foreground mt-1 font-medium">Completed</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-3xl font-bold text-amber-400">{inProgressCount}</div>
+            <div className="text-xs text-muted-foreground mt-1 font-medium">In Progress</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className={`text-3xl font-bold ${blockedCount > 0 ? "text-rose-400" : "text-muted-foreground"}`}>{blockedCount}</div>
+            <div className="text-xs text-muted-foreground mt-1 font-medium">Blocked</div>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="p-5">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Team Members</h3>
+            <div className="space-y-3">
+              {teamMembers.length === 0 && <p className="text-sm text-muted-foreground">No team members assigned yet.</p>}
+              {teamMembers.map(m => {
+                const memberTasks = pTasks.filter(t => (t.assigneeIds as number[])?.includes(m.id));
+                const memberDone = memberTasks.filter(t => t.status === "done").length;
+                return (
+                  <div key={m.id} className="flex items-center gap-3">
+                    <Avatar name={m.name} color={m.color} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{m.name}</div>
+                      <div className="text-xs text-muted-foreground">{m.role} · {memberDone}/{memberTasks.length} done</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Key Dates</h3>
+            <div className="space-y-3">
+              {overdueTasks.length > 0 && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+                  <div className="text-xs font-bold text-rose-400 mb-1">⚠️ {overdueTasks.length} Overdue Tasks</div>
+                  {overdueTasks.slice(0, 3).map(t => (
+                    <div key={t.id} className="text-xs text-rose-300 truncate cursor-pointer hover:underline" onClick={() => openTask(t)}>
+                      {t.title} — {format(new Date(t.due!), "MMM d")}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {upcomingTasks.map(t => (
+                <div key={t.id} className="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-lg p-2 -mx-2" onClick={() => openTask(t)}>
+                  <div className="text-xs font-mono text-muted-foreground w-16 shrink-0">{format(new Date(t.due!), "MMM d")}</div>
+                  <div className="text-sm truncate flex-1">{t.title}</div>
+                  <Badge color={t.priority === "critical" ? "red" : t.priority === "high" ? "yellow" : "gray"}>{t.priority}</Badge>
+                </div>
+              ))}
+              {upcomingTasks.length === 0 && overdueTasks.length === 0 && (
+                <p className="text-sm text-muted-foreground">No upcoming deadlines.</p>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        <Card className="p-5">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Recent Activity</h3>
+          <div className="space-y-3">
+            {pTasks.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()).slice(0, 8).map(t => (
+              <div key={t.id} className="flex items-center gap-3 text-sm cursor-pointer hover:bg-white/5 rounded-lg p-2 -mx-2" onClick={() => openTask(t)}>
+                <div className={`w-2 h-2 rounded-full ${STATUSES.find(s => s.id === t.status)?.dot || "bg-gray-400"}`} />
+                <span className="truncate flex-1">{t.title}</span>
+                <span className="text-xs text-muted-foreground shrink-0">{formatDistanceToNow(new Date(t.updatedAt || t.createdAt), { addSuffix: true })}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
   // ─── Kanban View ───
   const renderKanban = () => (
     <div className="flex gap-6 overflow-x-auto pb-8 h-full items-start px-2">
@@ -804,6 +1025,8 @@ export default function Tasks() {
               { key: "roadmap", icon: Map, label: "Roadmap" },
               { key: "gantt", icon: GanttChart, label: "Gantt" },
               { key: "triage", icon: Inbox, label: "Triage" },
+              { key: "chart", icon: BarChart3, label: "Chart" },
+              { key: "brief", icon: FileText, label: "Brief" },
             ] as const).map(v => (
               <button key={v.key} onClick={() => setViewMode(v.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${viewMode === v.key ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
@@ -894,7 +1117,7 @@ export default function Tasks() {
           <MapView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
         ) : viewMode === "workload" ? (
           <WorkloadBoardView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
-        ) : viewMode === "list" ? renderList() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : viewMode === "gantt" ? renderGantt() : renderTriage()}
+        ) : viewMode === "list" ? renderList() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : viewMode === "gantt" ? renderGantt() : viewMode === "chart" ? renderChart() : viewMode === "brief" ? renderBrief() : renderTriage()}
       </div>
 
       {renderBulkBar()}

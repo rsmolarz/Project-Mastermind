@@ -37,6 +37,8 @@ import Guests from "@/pages/Guests";
 import Whiteboard from "@/pages/Whiteboard";
 import Integrations from "@/pages/Integrations";
 import SharedView from "@/pages/SharedView";
+import MindMaps from "@/pages/MindMaps";
+import Notepad from "@/pages/Notepad";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -83,6 +85,8 @@ function Router() {
         <Route path="/guests" component={Guests} />
         <Route path="/whiteboard" component={Whiteboard} />
         <Route path="/integrations" component={Integrations} />
+        <Route path="/mind-maps" component={MindMaps} />
+        <Route path="/notepad" component={Notepad} />
         <Route path="/shared/:token" component={SharedView} />
         <Route component={NotFound} />
       </Switch>
