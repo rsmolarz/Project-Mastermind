@@ -8,6 +8,7 @@ export const membersTable = pgTable("members", {
   initials: text("initials").notNull(),
   color: text("color").notNull().default("#6366f1"),
   role: text("role").notNull(),
+  permissionRole: text("permission_role").notNull().default("member"),
   rate: real("rate").notNull().default(100),
   capacity: integer("capacity").notNull().default(40),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

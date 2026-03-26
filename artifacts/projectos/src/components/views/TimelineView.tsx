@@ -18,6 +18,7 @@ type Props = {
   projects: any[];
   members: any[];
   onTaskClick: (task: any) => void;
+  dependencies?: { id: number; taskId: number; dependsOnId: number }[];
 };
 
 export default function TimelineView({ tasks, projects, members, onTaskClick }: Props) {

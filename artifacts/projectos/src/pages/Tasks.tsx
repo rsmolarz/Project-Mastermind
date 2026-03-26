@@ -151,6 +151,42 @@ export default function Tasks() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-links", formData?.id] }),
   });
 
+  const { data: taskDeps = { blocking: [], blockedBy: [] } } = useQuery({
+    queryKey: ["task-deps", formData?.id],
+    queryFn: () => apiFetch(`/tasks/${formData.id}/dependencies`),
+    enabled: !!formData?.id && !isNewTask,
+  });
+
+  const createDep = useMutation({
+    mutationFn: (data: { taskId: number; dependsOnId: number }) =>
+      apiFetch("/task-dependencies", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-deps", formData?.id] }),
+  });
+
+  const deleteDep = useMutation({
+    mutationFn: (id: number) => apiFetch(`/task-dependencies/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-deps", formData?.id] }),
+  });
+
+  const { data: customFields = [] } = useQuery({
+    queryKey: ["custom-fields"],
+    queryFn: () => apiFetch("/custom-fields"),
+  });
+
+  const { data: customFieldValues = [] } = useQuery({
+    queryKey: ["custom-field-values", formData?.id],
+    queryFn: () => apiFetch(`/custom-field-values?entityType=task&entityId=${formData.id}`),
+    enabled: !!formData?.id && !isNewTask,
+  });
+
+  const saveFieldValue = useMutation({
+    mutationFn: (data: { fieldId: number; entityId: number; value: string }) =>
+      apiFetch("/custom-field-values", { method: "POST", body: JSON.stringify({ ...data, entityType: "task" }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["custom-field-values", formData?.id] }),
+  });
+
+  const [showDepPicker, setShowDepPicker] = useState<"blocks" | "blockedBy" | null>(null);
+  const [depSearch, setDepSearch] = useState("");
   const [showLinkPicker, setShowLinkPicker] = useState(false);
   const [linkSearch, setLinkSearch] = useState("");
   const [groupBy, setGroupBy] = useState<"status" | "priority" | "assignee" | "group" | "none">("status");
@@ -1077,10 +1113,118 @@ export default function Tasks() {
               </div>
             )}
 
+            {!isNewTask && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
+                  <AlertOctagon className="w-3.5 h-3.5" /> Dependencies
+                </label>
+                <div className="space-y-1.5">
+                  {(taskDeps.blockedBy || []).length > 0 && (
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold mb-1">Blocked By</div>
+                  )}
+                  {(taskDeps.blockedBy || []).map((d: any) => (
+                    <div key={d.id} className="flex items-center gap-2 group bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                      <AlertOctagon className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <span className="text-sm truncate flex-1">{d.task?.title || `Task #${d.taskId}`}</span>
+                      <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-secondary rounded">{d.task?.status}</span>
+                      <button aria-label="Remove dependency" onClick={() => deleteDep.mutate(d.id)} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {(taskDeps.blocking || []).length > 0 && (
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold mb-1 mt-2">Blocks</div>
+                  )}
+                  {(taskDeps.blocking || []).map((d: any) => (
+                    <div key={d.id} className="flex items-center gap-2 group bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                      <ArrowRight className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span className="text-sm truncate flex-1">{d.task?.title || `Task #${d.dependsOnId}`}</span>
+                      <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-secondary rounded">{d.task?.status}</span>
+                      <button aria-label="Remove dependency" onClick={() => deleteDep.mutate(d.id)} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {!showDepPicker ? (
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowDepPicker("blockedBy")} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-lg hover:border-rose-400/40 flex-1">
+                        <AlertOctagon className="w-3.5 h-3.5" /> Add blocker
+                      </button>
+                      <button onClick={() => setShowDepPicker("blocks")} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-lg hover:border-amber-400/40 flex-1">
+                        <ArrowRight className="w-3.5 h-3.5" /> Add blocking
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="border border-border rounded-lg p-2 space-y-1.5">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase">{showDepPicker === "blockedBy" ? "Select task that blocks this one" : "Select task this one blocks"}</div>
+                      <Input placeholder="Search tasks..." value={depSearch} onChange={e => setDepSearch(e.target.value)} className="!py-1 !text-xs" />
+                      <div className="max-h-32 overflow-y-auto space-y-0.5">
+                        {allTasks
+                          .filter(t => t.id !== formData.id && t.title.toLowerCase().includes(depSearch.toLowerCase()))
+                          .slice(0, 8)
+                          .map(t => (
+                            <button key={t.id} onClick={() => {
+                              if (showDepPicker === "blockedBy") createDep.mutate({ taskId: t.id, dependsOnId: formData.id });
+                              else createDep.mutate({ taskId: formData.id, dependsOnId: t.id });
+                              setShowDepPicker(null); setDepSearch("");
+                            }} className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-white/5 truncate">{t.title}</button>
+                          ))}
+                      </div>
+                      <button onClick={() => { setShowDepPicker(null); setDepSearch(""); }} className="text-[10px] text-muted-foreground hover:text-foreground">Cancel</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!isNewTask && customFields.length > 0 && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
+                  <Table className="w-3.5 h-3.5" /> Custom Fields
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {customFields.map((field: any) => {
+                    const val = customFieldValues.find((v: any) => v.fieldId === field.id);
+                    const currentValue = val?.value || "";
+                    return (
+                      <div key={field.id}>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">{field.name}</label>
+                        {field.type === "select" ? (
+                          <select value={currentValue} onChange={e => saveFieldValue.mutate({ fieldId: field.id, entityId: formData.id, value: e.target.value })}
+                            className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+                            <option value="">-- Select --</option>
+                            {(field.options || []).map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        ) : field.type === "checkbox" ? (
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={currentValue === "true"} onChange={e => saveFieldValue.mutate({ fieldId: field.id, entityId: formData.id, value: e.target.checked ? "true" : "false" })}
+                              className="w-4 h-4 rounded border-border" />
+                            <span className="text-sm">{currentValue === "true" ? "Yes" : "No"}</span>
+                          </label>
+                        ) : field.type === "rating" ? (
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(r => (
+                              <button key={r} onClick={() => saveFieldValue.mutate({ fieldId: field.id, entityId: formData.id, value: String(r) })}
+                                className={`text-lg ${parseInt(currentValue) >= r ? "text-amber-400" : "text-muted-foreground/30"}`}>★</button>
+                            ))}
+                          </div>
+                        ) : (
+                          <Input type={field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "url" ? "url" : field.type === "email" ? "email" : "text"}
+                            defaultValue={currentValue} key={`${field.id}-${currentValue}`}
+                            onBlur={e => { if (e.target.value !== currentValue) saveFieldValue.mutate({ fieldId: field.id, entityId: formData.id, value: e.target.value }); }}
+                            placeholder={`Enter ${field.name.toLowerCase()}...`} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mt-8">
               {!isNewTask && (
                 <div className="flex items-center gap-2">
-                  <button onClick={() => { deleteTask.mutate({ id: formData.id }); setIsModalOpen(false); }} className="text-sm text-rose-400 hover:text-rose-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-rose-500/10">
+                  <button onClick={() => { deleteTask.mutate({ id: formData.id }); setIsModalOpen(false); }} className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-red-500/10">
                     <Trash2 className="w-4 h-4" /> Delete
                   </button>
                   <button onClick={() => duplicateTask.mutate(formData.id)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/5">

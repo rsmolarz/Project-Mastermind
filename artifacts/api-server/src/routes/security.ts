@@ -62,6 +62,21 @@ async function requireAuthIfConfigured(req: Request, res: Response, next: NextFu
   next();
 }
 
+export function requireRole(...roles: string[]) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const memberId = (req as any).memberId || 1;
+    const { db: database, membersTable: mt } = await import("@workspace/db");
+    const { eq: eqOp } = await import("drizzle-orm");
+    const [member] = await database.select().from(mt).where(eqOp(mt.id, memberId));
+    const role = member?.permissionRole || "member";
+    if (!roles.includes(role)) {
+      res.status(403).json({ error: "Insufficient permissions", requiredRole: roles });
+      return;
+    }
+    next();
+  };
+}
+
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   if (
     req.path.startsWith("/security/") ||

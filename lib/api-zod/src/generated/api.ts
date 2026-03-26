@@ -92,6 +92,7 @@ export const ListMembersResponseItem = zod.object({
   initials: zod.string(),
   color: zod.string(),
   role: zod.string(),
+  permissionRole: zod.string().optional(),
   rate: zod.number(),
   capacity: zod.number(),
   createdAt: zod.date(),
@@ -106,6 +107,7 @@ export const CreateMemberBody = zod.object({
   initials: zod.string(),
   color: zod.string(),
   role: zod.string(),
+  permissionRole: zod.string().optional(),
   rate: zod.number(),
   capacity: zod.number(),
 });
@@ -122,6 +124,7 @@ export const UpdateMemberBody = zod.object({
   initials: zod.string().optional(),
   color: zod.string().optional(),
   role: zod.string().optional(),
+  permissionRole: zod.string().optional(),
   rate: zod.number().optional(),
   capacity: zod.number().optional(),
 });
@@ -132,6 +135,7 @@ export const UpdateMemberResponse = zod.object({
   initials: zod.string(),
   color: zod.string(),
   role: zod.string(),
+  permissionRole: zod.string().optional(),
   rate: zod.number(),
   capacity: zod.number(),
   createdAt: zod.date(),

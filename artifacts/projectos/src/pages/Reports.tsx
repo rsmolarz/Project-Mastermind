@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, TrendingUp, Clock, AlertTriangle, CheckCircle2, Users, Download, PieChart, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { BarChart3, TrendingUp, Clock, AlertTriangle, CheckCircle2, Users, Download, PieChart, ArrowUpRight, ArrowDownRight, Zap, Target } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -10,7 +10,7 @@ export default function Reports() {
     queryFn: () => fetch(`${API}/api/reports/overview`, { credentials: "include" }).then(r => r.json()),
   });
 
-  const [activeTab, setActiveTab] = useState<"overview" | "projects" | "team" | "trends">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "projects" | "team" | "trends" | "burndown" | "velocity">("overview");
 
   const handleExport = async () => {
     const res = await fetch(`${API}/api/reports/export?format=csv`, { credentials: "include" });
@@ -28,11 +28,38 @@ export default function Reports() {
   const priorityColors: Record<string, string> = { critical: "#ef4444", high: "#f97316", medium: "#eab308", low: "#22c55e" };
   const statusColors: Record<string, string> = { todo: "#6b7280", in_progress: "#3b82f6", review: "#a855f7", done: "#22c55e", blocked: "#ef4444" };
 
+  const burndownData = useMemo(() => {
+    if (!completionTrend || completionTrend.length === 0) return [];
+    let remaining = summary?.total || 0;
+    const idealStart = remaining;
+    const days = completionTrend.length;
+    return completionTrend.map((d: any, i: number) => {
+      remaining = remaining - (d.completed || 0) + (d.created || 0);
+      return { date: d.date?.slice(5) || `D${i}`, actual: Math.max(0, remaining), ideal: Math.max(0, Math.round(idealStart - (idealStart / days) * (i + 1))) };
+    });
+  }, [completionTrend, summary]);
+
+  const velocityData = useMemo(() => {
+    if (!completionTrend || completionTrend.length < 7) return [];
+    const weeks: { week: string; completed: number; created: number }[] = [];
+    for (let i = 0; i < completionTrend.length; i += 7) {
+      const slice = completionTrend.slice(i, i + 7);
+      weeks.push({
+        week: `W${weeks.length + 1}`,
+        completed: slice.reduce((s: number, d: any) => s + (d.completed || 0), 0),
+        created: slice.reduce((s: number, d: any) => s + (d.created || 0), 0),
+      });
+    }
+    return weeks;
+  }, [completionTrend]);
+
   const tabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "projects", label: "Projects", icon: PieChart },
     { id: "team", label: "Team", icon: Users },
     { id: "trends", label: "Trends", icon: TrendingUp },
+    { id: "burndown", label: "Burndown", icon: Target },
+    { id: "velocity", label: "Velocity", icon: Zap },
   ] as const;
 
   return (
@@ -200,6 +227,171 @@ export default function Reports() {
           <div className="flex gap-6 mt-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-blue-500/60" /> Created</span>
             <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-emerald-500/60" /> Completed</span>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "burndown" && (
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h3 className="font-semibold mb-2">Burndown Chart</h3>
+          <p className="text-xs text-muted-foreground mb-4">Tracks remaining work vs ideal progress over the last 30 days</p>
+          {burndownData.length > 0 ? (
+            <div>
+              <svg viewBox={`0 0 ${burndownData.length * 30 + 60} 220`} className="w-full h-64">
+                <line x1="40" y1="10" x2="40" y2="190" stroke="currentColor" strokeOpacity="0.15" />
+                <line x1="40" y1="190" x2={burndownData.length * 30 + 50} y2="190" stroke="currentColor" strokeOpacity="0.15" />
+                {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                  const maxVal = Math.max(...burndownData.map(d => Math.max(d.actual, d.ideal)), 1);
+                  const y = 190 - pct * 180;
+                  return <g key={i}><line x1="40" y1={y} x2={burndownData.length * 30 + 50} y2={y} stroke="currentColor" strokeOpacity="0.07" /><text x="35" y={y + 4} textAnchor="end" fill="currentColor" fillOpacity="0.4" fontSize="9">{Math.round(maxVal * pct)}</text></g>;
+                })}
+                {(() => {
+                  const maxVal = Math.max(...burndownData.map(d => Math.max(d.actual, d.ideal)), 1);
+                  const idealPath = burndownData.map((d, i) => `${i === 0 ? "M" : "L"} ${50 + i * 30} ${190 - (d.ideal / maxVal) * 180}`).join(" ");
+                  const actualPath = burndownData.map((d, i) => `${i === 0 ? "M" : "L"} ${50 + i * 30} ${190 - (d.actual / maxVal) * 180}`).join(" ");
+                  return <>
+                    <path d={idealPath} fill="none" stroke="#6366f1" strokeWidth="2" strokeDasharray="6 3" strokeOpacity="0.6" />
+                    <path d={actualPath} fill="none" stroke="#22c55e" strokeWidth="2.5" />
+                    {burndownData.map((d, i) => <circle key={i} cx={50 + i * 30} cy={190 - (d.actual / maxVal) * 180} r="3" fill="#22c55e" />)}
+                  </>;
+                })()}
+                {burndownData.filter((_, i) => i % Math.ceil(burndownData.length / 10) === 0 || i === burndownData.length - 1).map((d, idx) => {
+                  const i = burndownData.indexOf(d);
+                  return <text key={idx} x={50 + i * 30} y="205" textAnchor="middle" fill="currentColor" fillOpacity="0.4" fontSize="8">{d.date}</text>;
+                })}
+              </svg>
+              <div className="flex gap-6 mt-2 text-xs text-muted-foreground justify-center">
+                <span className="flex items-center gap-1.5"><div className="w-5 h-0.5 bg-indigo-500 rounded" style={{ borderTop: "2px dashed #6366f1" }} /> Ideal</span>
+                <span className="flex items-center gap-1.5"><div className="w-5 h-0.5 bg-emerald-500 rounded" /> Actual</span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">Not enough data for burndown chart</div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "velocity" && (
+        <div className="space-y-6">
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h3 className="font-semibold mb-2">Weekly Velocity</h3>
+            <p className="text-xs text-muted-foreground mb-4">Tasks completed vs created per week</p>
+            {velocityData.length > 0 ? (
+              <div>
+                <div className="flex items-end gap-3 h-48">
+                  {velocityData.map((w, i) => {
+                    const maxVal = Math.max(...velocityData.map(v => Math.max(v.completed, v.created)), 1);
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                        <div className="flex gap-1 items-end w-full justify-center" style={{ height: "160px" }}>
+                          <div className="w-5 bg-emerald-500/70 rounded-t transition-all" style={{ height: `${(w.completed / maxVal) * 100}%`, minHeight: w.completed > 0 ? "4px" : "0" }} title={`Completed: ${w.completed}`} />
+                          <div className="w-5 bg-blue-500/70 rounded-t transition-all" style={{ height: `${(w.created / maxVal) * 100}%`, minHeight: w.created > 0 ? "4px" : "0" }} title={`Created: ${w.created}`} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground font-mono">{w.week}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-6 mt-4 text-xs text-muted-foreground justify-center">
+                  <span className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-500/70" /> Completed</span>
+                  <span className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-500/70" /> Created</span>
+                </div>
+                <div className="grid grid-cols-3 gap-4 mt-6">
+                  <div className="bg-secondary/50 rounded-lg p-4 text-center">
+                    <div className="text-xl font-bold text-emerald-400">{velocityData.length > 0 ? Math.round(velocityData.reduce((s, w) => s + w.completed, 0) / velocityData.length) : 0}</div>
+                    <div className="text-[10px] text-muted-foreground">Avg Completed/Week</div>
+                  </div>
+                  <div className="bg-secondary/50 rounded-lg p-4 text-center">
+                    <div className="text-xl font-bold text-blue-400">{velocityData.length > 0 ? Math.round(velocityData.reduce((s, w) => s + w.created, 0) / velocityData.length) : 0}</div>
+                    <div className="text-[10px] text-muted-foreground">Avg Created/Week</div>
+                  </div>
+                  <div className="bg-secondary/50 rounded-lg p-4 text-center">
+                    <div className={`text-xl font-bold ${velocityData.length > 0 && velocityData.reduce((s, w) => s + w.completed, 0) >= velocityData.reduce((s, w) => s + w.created, 0) ? "text-emerald-400" : "text-amber-400"}`}>
+                      {velocityData.length > 0 ? `${Math.round((velocityData.reduce((s, w) => s + w.completed, 0) / Math.max(velocityData.reduce((s, w) => s + w.created, 0), 1)) * 100)}%` : "0%"}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">Throughput Ratio</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">Not enough data for velocity chart (need at least 7 days)</div>
+            )}
+          </div>
+
+          {/* Distribution Pie Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h3 className="font-semibold mb-4">Status Distribution</h3>
+              <div className="flex items-center gap-6">
+                <svg viewBox="0 0 120 120" className="w-32 h-32">
+                  {(() => {
+                    const entries = Object.entries(byStatus).filter(([, v]) => (v as number) > 0);
+                    const total = entries.reduce((s, [, v]) => s + (v as number), 0);
+                    let cumAngle = 0;
+                    return entries.map(([key, val], i) => {
+                      const pct = (val as number) / total;
+                      const startAngle = cumAngle;
+                      cumAngle += pct * 360;
+                      const endAngle = cumAngle;
+                      const largeArc = pct > 0.5 ? 1 : 0;
+                      const r = 50;
+                      const cx = 60, cy = 60;
+                      const x1 = cx + r * Math.cos((startAngle - 90) * Math.PI / 180);
+                      const y1 = cy + r * Math.sin((startAngle - 90) * Math.PI / 180);
+                      const x2 = cx + r * Math.cos((endAngle - 90) * Math.PI / 180);
+                      const y2 = cy + r * Math.sin((endAngle - 90) * Math.PI / 180);
+                      if (entries.length === 1) return <circle key={key} cx={cx} cy={cy} r={r} fill={statusColors[key] || "#6b7280"} />;
+                      return <path key={key} d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`} fill={statusColors[key] || "#6b7280"} stroke="var(--card)" strokeWidth="1" />;
+                    });
+                  })()}
+                </svg>
+                <div className="space-y-1.5">
+                  {Object.entries(byStatus).filter(([, v]) => (v as number) > 0).map(([key, val]) => (
+                    <div key={key} className="flex items-center gap-2 text-xs">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: statusColors[key] || "#6b7280" }} />
+                      <span className="capitalize">{key.replace("_", " ")}</span>
+                      <span className="text-muted-foreground font-mono ml-auto">{val as number}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h3 className="font-semibold mb-4">Priority Distribution</h3>
+              <div className="flex items-center gap-6">
+                <svg viewBox="0 0 120 120" className="w-32 h-32">
+                  {(() => {
+                    const entries = Object.entries(byPriority).filter(([, v]) => (v as number) > 0);
+                    const total = entries.reduce((s, [, v]) => s + (v as number), 0);
+                    let cumAngle = 0;
+                    return entries.map(([key, val]) => {
+                      const pct = (val as number) / total;
+                      const startAngle = cumAngle;
+                      cumAngle += pct * 360;
+                      const endAngle = cumAngle;
+                      const largeArc = pct > 0.5 ? 1 : 0;
+                      const r = 50;
+                      const cx = 60, cy = 60;
+                      const x1 = cx + r * Math.cos((startAngle - 90) * Math.PI / 180);
+                      const y1 = cy + r * Math.sin((startAngle - 90) * Math.PI / 180);
+                      const x2 = cx + r * Math.cos((endAngle - 90) * Math.PI / 180);
+                      const y2 = cy + r * Math.sin((endAngle - 90) * Math.PI / 180);
+                      if (entries.length === 1) return <circle key={key} cx={cx} cy={cy} r={r} fill={priorityColors[key] || "#6b7280"} />;
+                      return <path key={key} d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`} fill={priorityColors[key] || "#6b7280"} stroke="var(--card)" strokeWidth="1" />;
+                    });
+                  })()}
+                </svg>
+                <div className="space-y-1.5">
+                  {Object.entries(byPriority).filter(([, v]) => (v as number) > 0).map(([key, val]) => (
+                    <div key={key} className="flex items-center gap-2 text-xs">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: priorityColors[key] || "#6b7280" }} />
+                      <span className="capitalize">{key}</span>
+                      <span className="text-muted-foreground font-mono ml-auto">{val as number}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

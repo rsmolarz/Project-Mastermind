@@ -22,7 +22,7 @@ const API = `${import.meta.env.VITE_API_URL || ""}/api`;
 
 import { SecurityManagement } from "@/components/AuthGate";
 
-type AdminTab = "overview" | "ai-features" | "templates" | "custom-fields" | "expenses" | "features" | "api-email" | "security" | "system";
+type AdminTab = "overview" | "ai-features" | "templates" | "custom-fields" | "expenses" | "features" | "api-email" | "security" | "system" | "roles";
 
 const AI_FEATURES = [
   { key: "risk_prediction", title: "Risk Prediction", icon: AlertTriangle, color: "#ef4444", desc: "Flag at-risk tasks, overdue items, and blocked work before they escalate" },
@@ -201,6 +201,7 @@ export default function Admin() {
     { key: "custom-fields", label: "Custom Fields", icon: Tag },
     { key: "expenses", label: "Expense Tracking", icon: Receipt },
     { key: "api-email", label: "API & Email", icon: Globe },
+    { key: "roles", label: "Permission Roles", icon: Users },
     { key: "security", label: "Security", icon: ShieldCheck },
     { key: "system", label: "System Config", icon: Settings },
   ];
@@ -243,6 +244,7 @@ export default function Admin() {
             {tab === "custom-fields" && <CustomFieldsTab fields={customFields} setFields={setCustomFields} show={showNewField} setShow={setShowNewField} />}
             {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} show={showNewExpense} setShow={setShowNewExpense} />}
             {tab === "api-email" && <ApiEmailTab />}
+            {tab === "roles" && <RolesTab />}
             {tab === "security" && <SecurityManagement />}
             {tab === "system" && <SystemTab />}
 
@@ -2208,6 +2210,143 @@ function SystemTab() {
             </motion.div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function RolesTab() {
+  const [rolesData, setRolesData] = useState<{ roles: string[]; members: { id: number; name: string; permissionRole: string }[] } | null>(null);
+  const [saving, setSaving] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${API}/members/roles`, { credentials: "include" })
+      .then(r => { if (!r.ok) throw new Error(`Failed to load roles (${r.status})`); return r.json(); })
+      .then(setRolesData)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const updateRole = async (memberId: number, role: string) => {
+    setSaving(memberId);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/members/${memberId}/role`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ permissionRole: role }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to update role (${res.status})`);
+      }
+      setRolesData(prev => prev ? { ...prev, members: prev.members.map(m => m.id === memberId ? { ...m, permissionRole: role } : m) } : prev);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const roleColors: Record<string, string> = { admin: "text-rose-400 bg-rose-500/15 border-rose-500/30", member: "text-blue-400 bg-blue-500/15 border-blue-500/30", viewer: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30" };
+  const roleDescs: Record<string, string> = { admin: "Full access: manage members, settings, delete data", member: "Standard access: create/edit tasks, projects, time entries", viewer: "Read-only: view tasks and projects, no edit access" };
+
+  if (loading) return <div className="flex items-center justify-center py-20 text-muted-foreground"><RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading roles...</div>;
+
+  return (
+    <div className="space-y-6">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-center gap-2 text-red-400 text-sm">
+          <ShieldAlert className="w-4 h-4 shrink-0" />
+          {error}
+          <button onClick={() => setError(null)} className="ml-auto text-red-400/60 hover:text-red-400"><X className="w-4 h-4" /></button>
+        </div>
+      )}
+      <div className="grid grid-cols-3 gap-4">
+        {["admin", "member", "viewer"].map(role => (
+          <div key={role} className={`border rounded-xl p-5 ${roleColors[role]}`}>
+            <div className="flex items-center gap-2 mb-2">
+              {role === "admin" && <Shield className="w-5 h-5" />}
+              {role === "member" && <Users className="w-5 h-5" />}
+              {role === "viewer" && <Eye className="w-5 h-5" />}
+              <h3 className="font-bold capitalize text-lg">{role}</h3>
+            </div>
+            <p className="text-xs opacity-80">{roleDescs[role]}</p>
+            <div className="mt-3 text-2xl font-bold">{rolesData?.members.filter(m => m.permissionRole === role).length || 0}</div>
+            <div className="text-[10px] uppercase tracking-wider opacity-60">members</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-border bg-secondary/20">
+          <h3 className="font-semibold">Team Members</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Assign permission roles to control access levels</p>
+        </div>
+        <div className="divide-y divide-border">
+          {rolesData?.members.map(m => (
+            <div key={m.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors">
+              <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
+                {m.name.charAt(0)}
+              </div>
+              <div className="flex-1">
+                <div className="font-medium text-sm">{m.name}</div>
+                <div className="text-[10px] text-muted-foreground">Member #{m.id}</div>
+              </div>
+              <select value={m.permissionRole} onChange={e => updateRole(m.id, e.target.value)}
+                disabled={saving === m.id}
+                className="px-3 py-2 bg-background border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none capitalize">
+                <option value="admin">Admin</option>
+                <option value="member">Member</option>
+                <option value="viewer">Viewer</option>
+              </select>
+              {saving === m.id && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />}
+              <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase border ${roleColors[m.permissionRole]}`}>{m.permissionRole}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h3 className="font-semibold mb-3">Permission Matrix</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-2 px-3 text-muted-foreground font-medium">Action</th>
+                <th className="text-center py-2 px-3 text-rose-400 font-bold">Admin</th>
+                <th className="text-center py-2 px-3 text-blue-400 font-bold">Member</th>
+                <th className="text-center py-2 px-3 text-emerald-400 font-bold">Viewer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { action: "View tasks & projects", admin: true, member: true, viewer: true },
+                { action: "Create/edit tasks", admin: true, member: true, viewer: false },
+                { action: "Delete tasks", admin: true, member: true, viewer: false },
+                { action: "Create projects", admin: true, member: true, viewer: false },
+                { action: "Manage sprints", admin: true, member: true, viewer: false },
+                { action: "Log time entries", admin: true, member: true, viewer: false },
+                { action: "Upload attachments", admin: true, member: true, viewer: false },
+                { action: "Manage automations", admin: true, member: false, viewer: false },
+                { action: "Manage members/roles", admin: true, member: false, viewer: false },
+                { action: "System configuration", admin: true, member: false, viewer: false },
+                { action: "Delete projects", admin: true, member: false, viewer: false },
+                { action: "Export data", admin: true, member: true, viewer: false },
+              ].map((row, i) => (
+                <tr key={i} className="border-b border-border/30 hover:bg-white/[0.02]">
+                  <td className="py-2.5 px-3 text-sm">{row.action}</td>
+                  <td className="text-center">{row.admin ? <Check className="w-4 h-4 text-emerald-400 mx-auto" /> : <X className="w-4 h-4 text-rose-400/30 mx-auto" />}</td>
+                  <td className="text-center">{row.member ? <Check className="w-4 h-4 text-emerald-400 mx-auto" /> : <X className="w-4 h-4 text-rose-400/30 mx-auto" />}</td>
+                  <td className="text-center">{row.viewer ? <Check className="w-4 h-4 text-emerald-400 mx-auto" /> : <X className="w-4 h-4 text-rose-400/30 mx-auto" />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
