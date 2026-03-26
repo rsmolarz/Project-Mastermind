@@ -19,6 +19,8 @@ export const tasksTable = pgTable("tasks", {
   notes: text("notes").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
   recurrence: jsonb("recurrence").$type<{ type: string; interval: number; endDate?: string } | null>(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

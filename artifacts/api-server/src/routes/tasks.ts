@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNull } from "drizzle-orm";
 import { db, tasksTable, activityLogTable } from "@workspace/db";
 import { runAutomations } from "./automations";
 import {
@@ -20,7 +20,11 @@ const router: IRouter = Router();
 
 router.get("/tasks", async (req, res): Promise<void> => {
   const query = ListTasksQueryParams.safeParse(req.query);
-  const conditions = [];
+  const conditions = [isNull(tasksTable.deletedAt)];
+  const includeArchived = req.query.includeArchived === "true";
+  if (!includeArchived) {
+    conditions.push(isNull(tasksTable.archivedAt));
+  }
   if (query.success && query.data.projectId) {
     conditions.push(eq(tasksTable.projectId, query.data.projectId));
   }
@@ -35,7 +39,7 @@ router.get("/tasks", async (req, res): Promise<void> => {
   }
 
   const tasks = await db.select().from(tasksTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(tasksTable.sortOrder, tasksTable.createdAt);
   res.json(ListTasksResponse.parse(tasks));
 });

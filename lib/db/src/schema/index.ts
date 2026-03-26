@@ -29,3 +29,6 @@ export * from "./favorites";
 export * from "./project-templates";
 export * from "./tags";
 export * from "./webhooks";
+export * from "./task-attachments";
+export * from "./automation-runs";
+export * from "./task-links";
