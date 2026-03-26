@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
-import { db, automationsTable, tasksTable, notificationsTable } from "@workspace/db";
+import { db, automationsTable, tasksTable, notificationsTable, automationRunsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -106,15 +106,22 @@ export async function runAutomations(trigger: string, context: Record<string, an
     }
     if (!conditionsMet) continue;
 
-    for (const action of auto.actions as { type: string; params: Record<string, any> }[]) {
+    const startTime = Date.now();
+    let actionsExecuted = 0;
+    let runError: string | null = null;
+    const actions = auto.actions as { type: string; params: Record<string, any> }[];
+
+    for (const action of actions) {
       try {
         if (action.type === "change_status" && context.taskId) {
           await db.update(tasksTable).set({ status: action.params.status })
             .where(eq(tasksTable.id, context.taskId));
+          actionsExecuted++;
         }
         if (action.type === "change_priority" && context.taskId) {
           await db.update(tasksTable).set({ priority: action.params.priority })
             .where(eq(tasksTable.id, context.taskId));
+          actionsExecuted++;
         }
         if (action.type === "assign" && context.taskId) {
           const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, context.taskId));
@@ -122,6 +129,7 @@ export async function runAutomations(trigger: string, context: Record<string, an
             const ids = [...(task.assigneeIds || []), action.params.memberId];
             await db.update(tasksTable).set({ assigneeIds: [...new Set(ids)] })
               .where(eq(tasksTable.id, context.taskId));
+            actionsExecuted++;
           }
         }
         if (action.type === "notify") {
@@ -131,11 +139,26 @@ export async function runAutomations(trigger: string, context: Record<string, an
             title: action.params.title || `Automation: ${auto.name}`,
             message: action.params.message || "An automation was triggered",
           });
+          actionsExecuted++;
         }
-      } catch (e) {
+      } catch (e: any) {
+        runError = e.message || String(e);
         console.error(`Automation ${auto.id} action failed:`, e);
       }
     }
+
+    const duration = Date.now() - startTime;
+
+    await db.insert(automationRunsTable).values({
+      automationId: auto.id,
+      trigger,
+      context,
+      actionsExecuted,
+      actionsTotal: actions.length,
+      success: !runError,
+      error: runError,
+      duration,
+    });
 
     await db.update(automationsTable).set({
       runCount: auto.runCount + 1,

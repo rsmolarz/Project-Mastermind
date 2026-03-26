@@ -13,6 +13,13 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = new Set([
+  ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
+  ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+  ".txt", ".csv", ".json", ".md", ".zip", ".tar", ".gz",
+  ".mp4", ".mov", ".mp3", ".wav",
+]);
+const BLOCKED_EXTENSIONS = new Set([".exe", ".bat", ".sh", ".cmd", ".ps1", ".msi", ".dll", ".so", ".dylib"]);
 
 router.get("/tasks/:taskId/attachments", async (req, res): Promise<void> => {
   const taskId = parseInt(req.params.taskId);
@@ -42,7 +49,11 @@ router.post("/tasks/:taskId/attachments", async (req, res): Promise<void> => {
       res.status(413).json({ error: "File too large (max 10MB)" });
       return;
     }
-    const ext = path.extname(filename);
+    const ext = path.extname(filename).toLowerCase();
+    if (BLOCKED_EXTENSIONS.has(ext)) {
+      res.status(400).json({ error: `File type ${ext} is not allowed` });
+      return;
+    }
     const storedName = `${crypto.randomUUID()}${ext}`;
     const filePath = path.join(UPLOAD_DIR, storedName);
     fs.writeFileSync(filePath, buffer);

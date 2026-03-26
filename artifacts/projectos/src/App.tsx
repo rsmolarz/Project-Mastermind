@@ -30,6 +30,7 @@ import Tags from "@/pages/Tags";
 import ProjectTemplates from "@/pages/ProjectTemplates";
 import MyDay from "@/pages/MyDay";
 import ActivityFeed from "@/pages/ActivityFeed";
+import Trash from "@/pages/Trash";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -70,6 +71,7 @@ function Router() {
         <Route path="/templates" component={ProjectTemplates} />
         <Route path="/my-day" component={MyDay} />
         <Route path="/activity" component={ActivityFeed} />
+        <Route path="/trash" component={Trash} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

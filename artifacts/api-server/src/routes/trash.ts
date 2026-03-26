@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, isNotNull, desc, and, lt } from "drizzle-orm";
+import { eq, isNotNull, isNull, desc, and, lt } from "drizzle-orm";
 import { db, tasksTable, projectsTable } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -15,11 +15,11 @@ router.get("/trash", async (req, res): Promise<void> => {
       .orderBy(desc(projectsTable.deletedAt))
       .limit(50),
     db.select().from(tasksTable)
-      .where(and(isNotNull(tasksTable.archivedAt), eq(tasksTable.deletedAt, null as any)))
+      .where(and(isNotNull(tasksTable.archivedAt), isNull(tasksTable.deletedAt)))
       .orderBy(desc(tasksTable.archivedAt))
       .limit(100),
     db.select().from(projectsTable)
-      .where(and(isNotNull(projectsTable.archivedAt), eq(projectsTable.deletedAt, null as any)))
+      .where(and(isNotNull(projectsTable.archivedAt), isNull(projectsTable.deletedAt)))
       .orderBy(desc(projectsTable.archivedAt))
       .limit(50),
   ]);

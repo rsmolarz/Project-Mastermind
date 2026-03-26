@@ -158,7 +158,17 @@ router.delete("/tasks/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [task] = await db.delete(tasksTable).where(eq(tasksTable.id, params.data.id)).returning();
+  const permanent = req.query.permanent === "true";
+  if (permanent) {
+    const [task] = await db.delete(tasksTable).where(eq(tasksTable.id, params.data.id)).returning();
+    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
+    res.sendStatus(204);
+    return;
+  }
+  const [task] = await db.update(tasksTable)
+    .set({ deletedAt: new Date() })
+    .where(eq(tasksTable.id, params.data.id))
+    .returning();
   if (!task) {
     res.status(404).json({ error: "Task not found" });
     return;
@@ -171,6 +181,41 @@ router.delete("/tasks/:id", async (req, res): Promise<void> => {
   });
 
   res.sendStatus(204);
+});
+
+router.post("/tasks/:id/duplicate", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const [original] = await db.select().from(tasksTable).where(eq(tasksTable.id, id));
+  if (!original) {
+    res.status(404).json({ error: "Task not found" });
+    return;
+  }
+  const maxOrder = await db.select({ maxOrder: tasksTable.sortOrder }).from(tasksTable).orderBy(desc(tasksTable.sortOrder)).limit(1);
+  const nextOrder = (maxOrder[0]?.maxOrder ?? 0) + 1;
+  const [copy] = await db.insert(tasksTable).values({
+    title: `${original.title} (copy)`,
+    type: original.type,
+    status: "todo",
+    priority: original.priority,
+    projectId: original.projectId,
+    sprintId: original.sprintId,
+    assigneeIds: original.assigneeIds,
+    points: original.points,
+    due: original.due,
+    tags: original.tags,
+    subtasks: (original.subtasks as any[])?.map((s: any) => ({ ...s, done: false })) || [],
+    notes: original.notes,
+    sortOrder: nextOrder,
+    recurrence: original.recurrence,
+  }).returning();
+
+  await db.insert(activityLogTable).values({
+    entityType: "task", entityId: copy.id, action: "task_duplicated",
+    details: { title: copy.title, originalId: original.id },
+    actorId: 1,
+  });
+
+  res.status(201).json(copy);
 });
 
 router.post("/tasks/bulk", async (req, res): Promise<void> => {

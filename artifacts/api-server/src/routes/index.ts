@@ -41,6 +41,10 @@ import projectTemplatesRouter from "./project-templates";
 import tagsRouter from "./tags";
 import outgoingWebhooksRouter from "./outgoing-webhooks";
 import reportsRouter from "./reports";
+import taskAttachmentsRouter from "./task-attachments";
+import automationRunsRouter from "./automation-runs";
+import taskLinksRouter from "./task-links";
+import trashRouter from "./trash";
 
 const router: IRouter = Router();
 
@@ -86,5 +90,9 @@ router.use(projectTemplatesRouter);
 router.use(tagsRouter);
 router.use(outgoingWebhooksRouter);
 router.use(reportsRouter);
+router.use(taskAttachmentsRouter);
+router.use(automationRunsRouter);
+router.use(taskLinksRouter);
+router.use(trashRouter);
 
 export default router;

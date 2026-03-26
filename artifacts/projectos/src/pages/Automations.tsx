@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Zap, Plus, Play, Pause, Trash2, Settings2, Clock, Hash, ChevronRight } from "lucide-react";
+import { Zap, Plus, Play, Pause, Trash2, Settings2, Clock, Hash, ChevronRight, History, CheckCircle2, XCircle, ChevronDown } from "lucide-react";
 
 const API = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 async function apiFetch(path: string, opts?: RequestInit) {
@@ -29,10 +29,13 @@ const actionLabels: Record<string, string> = {
 export default function Automations() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [form, setForm] = useState({ name: "", trigger: "task_created", projectId: "", actions: [{ type: "notify", params: { title: "", message: "" } }] });
 
   const { data: automations = [] } = useQuery({ queryKey: ["automations"], queryFn: () => apiFetch("/automations") });
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => apiFetch("/projects") });
+  const { data: runs = [] } = useQuery({ queryKey: ["automation-runs"], queryFn: () => apiFetch("/automation-runs"), enabled: showHistory });
+  const { data: runStats } = useQuery({ queryKey: ["automation-runs-stats"], queryFn: () => apiFetch("/automation-runs/stats") });
 
   const create = useMutation({
     mutationFn: (data: any) => apiFetch("/automations", { method: "POST", body: JSON.stringify(data) }),
@@ -126,6 +129,22 @@ export default function Automations() {
           </div>
         )}
 
+        {runStats && (
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label: "Total Runs", value: runStats.total, color: "text-violet-400" },
+              { label: "Successful", value: runStats.successful, color: "text-emerald-400" },
+              { label: "Failed", value: runStats.failed, color: "text-rose-400" },
+              { label: "Avg Duration", value: `${runStats.avgDuration}ms`, color: "text-blue-400" },
+            ].map(s => (
+              <div key={s.label} className="bg-card border border-border rounded-xl p-4 text-center">
+                <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-3">
           {automations.length === 0 && !showCreate && (
             <div className="bg-card border border-border rounded-2xl p-12 text-center text-muted-foreground">
@@ -172,6 +191,53 @@ export default function Automations() {
               </div>
             );
           })}
+        </div>
+
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <button onClick={() => setShowHistory(!showHistory)} className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors">
+            <div className="flex items-center gap-3">
+              <History className="w-5 h-5 text-violet-400" />
+              <span className="font-semibold">Run History</span>
+              {runStats && <span className="text-xs text-muted-foreground">({runStats.total} total runs)</span>}
+            </div>
+            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showHistory ? "rotate-180" : ""}`} />
+          </button>
+          {showHistory && (
+            <div className="border-t border-border">
+              {runs.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-sm">No automation runs recorded yet</div>
+              ) : (
+                <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
+                  {runs.map((run: any) => {
+                    const auto = automations.find((a: any) => a.id === run.automationId);
+                    return (
+                      <div key={run.id} className="flex items-center justify-between px-5 py-3 hover:bg-white/5">
+                        <div className="flex items-center gap-3">
+                          {run.success ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                          )}
+                          <div>
+                            <span className="text-sm font-medium">{auto?.name || `Automation #${run.automationId}`}</span>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                              <span>{triggerLabels[run.trigger] || run.trigger}</span>
+                              <span>·</span>
+                              <span>{run.actionsExecuted}/{run.actionsTotal} actions</span>
+                              {run.duration != null && <><span>·</span><span>{run.duration}ms</span></>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(run.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

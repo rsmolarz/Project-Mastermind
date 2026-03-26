@@ -5,12 +5,14 @@ import { useMembers } from "@/hooks/use-members";
 import { useTaskComments, useCreateTaskComment } from "@/hooks/use-task-comments";
 import { useActivityLog } from "@/hooks/use-activity";
 import { useBulkTaskAction } from "@/hooks/use-bulk-tasks";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { Card, Badge, Avatar, Button, Modal, Input, Textarea } from "@/components/ui/shared";
 import {
   Plus, CheckCircle2, Clock, PlayCircle, Eye, AlertOctagon, MoreHorizontal, Sparkles,
   LayoutGrid, List, ChevronDown, ChevronRight, Calendar, Trash2, ArrowRight,
   Filter, Save, Bookmark, X, MessageSquare, Activity, Send, Repeat,
-  Square, CheckSquare, Table, Image, Map, Inbox, GanttChart, Smile, ListChecks
+  Square, CheckSquare, Table, Image, Map, Inbox, GanttChart, Smile, ListChecks,
+  Copy, Archive, Link2, Paperclip, Upload
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from "date-fns";
 import { useSearch } from "wouter";
@@ -74,9 +76,77 @@ export default function Tasks() {
   const deleteTask = useDeleteTaskMutation();
   const bulkAction = useBulkTaskAction();
 
+  const queryClient = useQueryClient();
   const { data: comments = [] } = useTaskComments(formData?.id || null);
   const createComment = useCreateTaskComment();
   const { data: activityLogs = [] } = useActivityLog("task", formData?.id);
+
+  const API = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
+  const apiFetch = (path: string, opts?: RequestInit) =>
+    fetch(`${API}${path}`, { ...opts, credentials: "include", headers: { "Content-Type": "application/json", ...opts?.headers } }).then(r => r.json());
+
+  const { data: taskAttachments = [] } = useQuery({
+    queryKey: ["task-attachments", formData?.id],
+    queryFn: () => apiFetch(`/tasks/${formData.id}/attachments`),
+    enabled: !!formData?.id && !isNewTask,
+  });
+
+  const { data: taskLinks = [] } = useQuery({
+    queryKey: ["task-links", formData?.id],
+    queryFn: () => apiFetch(`/tasks/${formData.id}/links`),
+    enabled: !!formData?.id && !isNewTask,
+  });
+
+  const duplicateTask = useMutation({
+    mutationFn: (id: number) => apiFetch(`/tasks/${id}/duplicate`, { method: "POST" }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setFormData(data);
+      setIsNewTask(false);
+    },
+  });
+
+  const archiveTask = useMutation({
+    mutationFn: (id: number) => apiFetch(`/tasks/${id}/archive`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setIsModalOpen(false);
+    },
+  });
+
+  const uploadAttachment = useMutation({
+    mutationFn: async ({ taskId, file }: { taskId: number; file: File }) => {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.readAsDataURL(file);
+      });
+      return apiFetch(`/tasks/${taskId}/attachments`, {
+        method: "POST",
+        body: JSON.stringify({ filename: file.name, mimeType: file.type, data: base64 }),
+      });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-attachments", formData?.id] }),
+  });
+
+  const deleteAttachment = useMutation({
+    mutationFn: (id: number) => apiFetch(`/task-attachments/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-attachments", formData?.id] }),
+  });
+
+  const createTaskLink = useMutation({
+    mutationFn: (data: { sourceTaskId: number; targetTaskId: number; linkType: string }) =>
+      apiFetch("/task-links", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-links", formData?.id] }),
+  });
+
+  const deleteTaskLink = useMutation({
+    mutationFn: (id: number) => apiFetch(`/task-links/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-links", formData?.id] }),
+  });
+
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [linkSearch, setLinkSearch] = useState("");
 
   const tasks = useMemo(() => {
     let filtered = allTasks;
@@ -867,11 +937,91 @@ export default function Tasks() {
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Notes</label>
               <Textarea value={formData.notes || ""} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Add context, links, or details here..." />
             </div>
+
+            {!isNewTask && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
+                  <Paperclip className="w-3.5 h-3.5" /> Attachments
+                </label>
+                <div className="space-y-1.5">
+                  {taskAttachments.map((a: any) => (
+                    <div key={a.id} className="flex items-center gap-2 group bg-secondary/30 rounded-lg px-3 py-2">
+                      <Paperclip className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm truncate flex-1">{a.originalName}</span>
+                      <span className="text-[10px] text-muted-foreground">{(a.size / 1024).toFixed(0)}KB</span>
+                      <button aria-label={`Remove ${a.originalName}`} onClick={() => deleteAttachment.mutate(a.id)} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 border border-dashed border-border rounded-lg hover:border-primary/40">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload file (max 10MB)</span>
+                    <input type="file" className="hidden" onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file && formData.id) {
+                        uploadAttachment.mutate({ taskId: formData.id, file });
+                      }
+                      e.target.value = "";
+                    }} />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {!isNewTask && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
+                  <Link2 className="w-3.5 h-3.5" /> Linked Tasks
+                </label>
+                <div className="space-y-1.5">
+                  {taskLinks.map((link: any) => (
+                    <div key={link.id} className="flex items-center gap-2 group bg-secondary/30 rounded-lg px-3 py-2">
+                      <Link2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      <span className="text-sm truncate flex-1">{link.linkedTask?.title || `Task #${link.targetTaskId}`}</span>
+                      <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-secondary rounded">{link.linkType}</span>
+                      <button aria-label="Remove link" onClick={() => deleteTaskLink.mutate(link.id)} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {!showLinkPicker ? (
+                    <button onClick={() => setShowLinkPicker(true)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-lg hover:border-primary/40 w-full">
+                      <Plus className="w-3.5 h-3.5" /> Link another task
+                    </button>
+                  ) : (
+                    <div className="border border-border rounded-lg p-2 space-y-1.5">
+                      <Input placeholder="Search tasks to link..." value={linkSearch} onChange={e => setLinkSearch(e.target.value)} className="!py-1 !text-xs" />
+                      <div className="max-h-32 overflow-y-auto space-y-0.5">
+                        {allTasks
+                          .filter(t => t.id !== formData.id && t.title.toLowerCase().includes(linkSearch.toLowerCase()) && !taskLinks.some((l: any) => l.linkedTask?.id === t.id))
+                          .slice(0, 8)
+                          .map(t => (
+                            <button key={t.id} onClick={() => { createTaskLink.mutate({ sourceTaskId: formData.id, targetTaskId: t.id, linkType: "related" }); setShowLinkPicker(false); setLinkSearch(""); }}
+                              className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-white/5 truncate"
+                            >{t.title}</button>
+                          ))}
+                      </div>
+                      <button onClick={() => { setShowLinkPicker(false); setLinkSearch(""); }} className="text-[10px] text-muted-foreground hover:text-foreground">Cancel</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mt-8">
               {!isNewTask && (
-                <button onClick={() => { deleteTask.mutate({ id: formData.id }); setIsModalOpen(false); }} className="text-sm text-rose-400 hover:text-rose-300 flex items-center gap-1">
-                  <Trash2 className="w-4 h-4" /> Delete
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { deleteTask.mutate({ id: formData.id }); setIsModalOpen(false); }} className="text-sm text-rose-400 hover:text-rose-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-rose-500/10">
+                    <Trash2 className="w-4 h-4" /> Delete
+                  </button>
+                  <button onClick={() => duplicateTask.mutate(formData.id)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/5">
+                    <Copy className="w-4 h-4" /> Duplicate
+                  </button>
+                  <button onClick={() => archiveTask.mutate(formData.id)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/5">
+                    <Archive className="w-4 h-4" /> Archive
+                  </button>
+                </div>
               )}
               <div className="flex gap-3 ml-auto">
                 <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
