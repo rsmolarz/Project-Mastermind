@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
   Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen, Calendar,
   Users, Zap, FileInput, Flag, ShieldCheck, BarChart3, Sun, Activity, Tag, LayoutTemplate, Star, Trash2, Settings, UserPlus,
-  Pencil, Puzzle, Brain, StickyNote, Bell
+  Pencil, Puzzle, Brain, StickyNote, Bell, RefreshCw, X
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -21,22 +22,76 @@ export function Sidebar({
   const { data: projects = [] } = useProjects();
   const { data: members = [] } = useMembers();
   const { data: tasks = [] } = useTasks();
+  const [favorites, setFavorites] = useState<{ label: string; path: string; icon: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-favorites") || "[]"); } catch { return []; }
+  });
+
+  const removeFavorite = (path: string) => {
+    const next = favorites.filter(f => f.path !== path);
+    setFavorites(next);
+    localStorage.setItem("projectos-favorites", JSON.stringify(next));
+  };
+
+  const ALL_PAGES = [
+    { label: "Dashboard", path: "/", icon: "🏠" }, { label: "My Day", path: "/my-day", icon: "☀️" },
+    { label: "Tasks", path: "/tasks", icon: "✅" }, { label: "Docs & Wiki", path: "/documents", icon: "📄" },
+    { label: "Time & Billing", path: "/time", icon: "⏰" }, { label: "Sprints", path: "/sprints", icon: "🔄" },
+    { label: "Cycles", path: "/cycles", icon: "🔁" }, { label: "Messaging", path: "/messaging", icon: "💬" },
+    { label: "Email Hub", path: "/email", icon: "📧" }, { label: "Calendar", path: "/calendar", icon: "📅" },
+    { label: "Milestones", path: "/milestones", icon: "🏁" }, { label: "Forms", path: "/forms", icon: "📋" },
+    { label: "Whiteboard", path: "/whiteboard", icon: "🎨" }, { label: "Mind Maps", path: "/mind-maps", icon: "🧠" },
+    { label: "Notepad", path: "/notepad", icon: "📝" }, { label: "Reminders", path: "/reminders", icon: "🔔" },
+    { label: "Portfolio", path: "/portfolio", icon: "📊" }, { label: "Goals & OKRs", path: "/goals", icon: "🎯" },
+    { label: "Workload", path: "/workload", icon: "👥" }, { label: "Reports", path: "/reports", icon: "📈" },
+    { label: "Activity Feed", path: "/activity", icon: "📡" }, { label: "Project Updates", path: "/project-updates", icon: "📢" },
+    { label: "Standups", path: "/standups", icon: "🧍" }, { label: "Announcements", path: "/announcements", icon: "📣" },
+    { label: "Automations", path: "/automations", icon: "⚡" }, { label: "Approvals", path: "/approvals", icon: "✔️" },
+    { label: "Tags", path: "/tags", icon: "🏷️" }, { label: "Templates", path: "/templates", icon: "📑" },
+    { label: "Integrations", path: "/integrations", icon: "🔌" }, { label: "Super Admin", path: "/admin", icon: "🛡️" },
+    { label: "Settings", path: "/settings", icon: "⚙️" }, { label: "Guest Access", path: "/guests", icon: "👤" },
+    { label: "Trash & Archive", path: "/trash", icon: "🗑️" },
+  ];
+
+  const toggleFavorite = (path: string) => {
+    const existing = favorites.find(f => f.path === path);
+    let next: typeof favorites;
+    if (existing) {
+      next = favorites.filter(f => f.path !== path);
+    } else {
+      const page = ALL_PAGES.find(p => p.path === path);
+      if (!page) return;
+      next = [...favorites, page];
+    }
+    setFavorites(next);
+    localStorage.setItem("projectos-favorites", JSON.stringify(next));
+  };
+
+  const isFavorited = (path: string) => favorites.some(f => f.path === path);
 
   const overdue = tasks.filter(t => t.status !== "done" && t.due && new Date(t.due) < new Date());
 
   const NavItem = ({ item }: { item: any }) => {
     const Icon = item.icon;
     const isActive = location === item.path && !item.query;
+    const canFav = !item.query && ALL_PAGES.some(p => p.path === item.path);
     return (
-      <Link href={item.query ? `${item.path}?${item.query}` : item.path} className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group ${isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'}`}>
-        <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : item.alert ? 'text-rose-400' : 'text-muted-foreground group-hover:text-foreground'}`} />
-        <span className="font-medium text-sm flex-1">{item.label}</span>
-        {item.badge != null && item.badge > 0 && (
-          <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full ${item.alert ? 'bg-rose-500/20 text-rose-400' : 'bg-secondary text-muted-foreground'}`}>
-            {item.badge}
-          </span>
+      <div className="relative group/nav">
+        <Link href={item.query ? `${item.path}?${item.query}` : item.path} className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group ${isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'}`}>
+          <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : item.alert ? 'text-rose-400' : 'text-muted-foreground group-hover:text-foreground'}`} />
+          <span className="font-medium text-sm flex-1">{item.label}</span>
+          {item.badge != null && item.badge > 0 && (
+            <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full ${item.alert ? 'bg-rose-500/20 text-rose-400' : 'bg-secondary text-muted-foreground'}`}>
+              {item.badge}
+            </span>
+          )}
+        </Link>
+        {canFav && (
+          <button onClick={(e) => { e.stopPropagation(); toggleFavorite(item.path); }}
+            className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md transition-all ${isFavorited(item.path) ? 'text-amber-400 opacity-100' : 'opacity-20 hover:opacity-100 text-muted-foreground hover:text-amber-400'}`}>
+            <Star className={`w-3 h-3 ${isFavorited(item.path) ? 'fill-amber-400' : ''}`} />
+          </button>
         )}
-      </Link>
+      </div>
     );
   };
 
@@ -61,6 +116,28 @@ export function Sidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-6">
+
+        {favorites.length > 0 && (
+          <div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+              <Star className="w-3 h-3 text-amber-400 fill-amber-400" /> Favorites
+            </div>
+            <div className="space-y-0.5">
+              {favorites.map(fav => (
+                <div key={fav.path} className="relative group/fav">
+                  <Link href={fav.path} className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 ${location === fav.path ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'}`}>
+                    <span className="text-sm">{fav.icon}</span>
+                    <span className="font-medium text-sm flex-1">{fav.label}</span>
+                  </Link>
+                  <button onClick={() => removeFavorite(fav.path)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/fav:opacity-100 text-muted-foreground hover:text-rose-400 transition-all">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         <div>
           <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Workspace</div>
@@ -100,6 +177,7 @@ export function Sidebar({
             <NavItem item={{ icon: FileText, label: "Docs & Wiki", path: "/documents" }} />
             <NavItem item={{ icon: Clock, label: "Time & Billing", path: "/time" }} />
             <NavItem item={{ icon: Repeat, label: "Sprints", path: "/sprints" }} />
+            <NavItem item={{ icon: RefreshCw, label: "Cycles", path: "/cycles" }} />
             <NavItem item={{ icon: MessageSquare, label: "Messaging", path: "/messaging" }} />
             <NavItem item={{ icon: Mail, label: "Email Hub", path: "/email" }} />
             <NavItem item={{ icon: Calendar, label: "Calendar", path: "/calendar" }} />

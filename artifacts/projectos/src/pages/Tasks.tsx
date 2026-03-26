@@ -60,7 +60,13 @@ export default function Tasks() {
   const { data: projects = [] } = useProjects();
   const { data: members = [] } = useMembers();
 
-  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage" | "gantt" | "timeline" | "map" | "workload" | "chart" | "brief" | "files">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage" | "gantt" | "timeline" | "map" | "workload" | "chart" | "brief" | "files" | "embed">("kanban");
+  const [embedUrl, setEmbedUrl] = useState("");
+  const [embedUrlInput, setEmbedUrlInput] = useState("");
+  const [taskTemplates, setTaskTemplates] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-task-templates") || "[]"); } catch { return []; }
+  });
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [aiInput, setAiInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -891,6 +897,97 @@ export default function Tasks() {
   };
 
   // ─── Files View (Monday-style) ───
+  const getSlaIndicator = (task: any) => {
+    if (!task.due || task.status === "done") return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const due = new Date(task.due); due.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return { label: "Overdue", color: "bg-rose-500/20 text-rose-400", dot: "bg-rose-400" };
+    if (diffDays === 0) return { label: "Due today", color: "bg-amber-500/20 text-amber-400", dot: "bg-amber-400" };
+    if (diffDays <= 7) return { label: "Due this week", color: "bg-blue-500/20 text-blue-400", dot: "bg-blue-400" };
+    return null;
+  };
+
+  const isValidUrl = (str: string) => { try { const u = new URL(str); return u.protocol === "https:" || u.protocol === "http:"; } catch { return false; } };
+
+  const renderEmbed = () => (
+    <div className="h-full flex flex-col p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <input value={embedUrlInput} onChange={e => setEmbedUrlInput(e.target.value)}
+          placeholder="Paste a URL to embed (Figma, Google Docs, Miro, Loom, YouTube...)"
+          className={`flex-1 bg-background border rounded-xl px-4 py-2.5 text-sm ${embedUrlInput && !isValidUrl(embedUrlInput) ? "border-rose-500" : "border-border"}`}
+          onKeyDown={e => { if (e.key === "Enter" && isValidUrl(embedUrlInput)) { setEmbedUrl(embedUrlInput); } }} />
+        <button onClick={() => { if (isValidUrl(embedUrlInput)) setEmbedUrl(embedUrlInput); }}
+          disabled={!embedUrlInput || !isValidUrl(embedUrlInput)}
+          className="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-medium disabled:opacity-50">Embed</button>
+      </div>
+      {embedUrlInput && !isValidUrl(embedUrlInput) && <p className="text-xs text-rose-400 -mt-2 mb-2">Please enter a valid URL (https://...)</p>}
+      {embedUrl ? (
+        <div className="flex-1 border border-border rounded-xl overflow-hidden bg-white">
+          <iframe src={embedUrl} className="w-full h-full border-0" title="Embedded content"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" />
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="text-center">
+            <Link2 className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p className="text-lg font-medium">Embed external content</p>
+            <p className="text-sm mt-1">Paste a URL above to embed Figma designs, Google Docs, Miro boards, videos, and more.</p>
+            <div className="flex flex-wrap gap-2 mt-4 justify-center">
+              {["Figma", "Google Docs", "Miro", "Loom", "YouTube", "Notion"].map(s => (
+                <span key={s} className="text-[10px] px-2 py-1 bg-secondary rounded-full">{s}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const saveAsTemplate = () => {
+    if (!formData?.title) return;
+    const template = {
+      id: Date.now(),
+      name: formData.title,
+      type: formData.type || "task",
+      priority: formData.priority || "medium",
+      status: formData.status || "todo",
+      projectId: formData.projectId,
+      notes: formData.notes || "",
+      subtasks: formData.subtasks || [],
+      estimatedHours: formData.estimatedHours,
+      points: formData.points,
+    };
+    const next = [...taskTemplates, template];
+    setTaskTemplates(next);
+    localStorage.setItem("projectos-task-templates", JSON.stringify(next));
+  };
+
+  const applyTemplate = (template: any) => {
+    setFormData({
+      title: template.name,
+      type: template.type,
+      priority: template.priority,
+      status: template.status,
+      projectId: template.projectId,
+      notes: template.notes,
+      subtasks: template.subtasks || [],
+      estimatedHours: template.estimatedHours,
+      points: template.points,
+      assigneeIds: [],
+    });
+    setModalTab("details");
+    setIsNewTask(true);
+    setIsModalOpen(true);
+    setShowTemplateMenu(false);
+  };
+
+  const deleteTemplate = (id: number) => {
+    const next = taskTemplates.filter(t => t.id !== id);
+    setTaskTemplates(next);
+    localStorage.setItem("projectos-task-templates", JSON.stringify(next));
+  };
+
   const renderFiles = () => {
     const allAttachments: { taskId: number; taskTitle: string; filename: string; originalName: string; mimeType: string; size: number; url: string; createdAt: string }[] = [];
     tasks.forEach(task => {
@@ -1033,7 +1130,10 @@ export default function Tasks() {
                     {task.assigneeIds?.slice(0, 2).map((id: number) => { const m = members.find(m => m.id === id); return m ? <Avatar key={id} name={m.name} color={m.color} /> : null; })}
                   </div>
                   <Badge color={pr.color}>{pr.icon} {task.priority}</Badge>
-                  <div className={`text-xs font-mono ${isOverdue ? "text-rose-400 font-bold" : "text-muted-foreground"}`}>{task.due ? format(new Date(task.due), "MMM d") : "-"}</div>
+                  <div className="flex items-center gap-1">
+                    <span className={`text-xs font-mono ${isOverdue ? "text-rose-400 font-bold" : "text-muted-foreground"}`}>{task.due ? format(new Date(task.due), "MMM d") : "-"}</span>
+                    {(() => { const sla = getSlaIndicator(task); return sla ? <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${sla.color}`}>{sla.label}</span> : null; })()}
+                  </div>
                   <div className="text-xs font-mono text-muted-foreground">{task.points}</div>
                   <div />
                 </div>
@@ -1100,6 +1200,7 @@ export default function Tasks() {
               { key: "chart", icon: BarChart3, label: "Chart" },
               { key: "brief", icon: FileText, label: "Brief" },
               { key: "files", icon: Paperclip, label: "Files" },
+              { key: "embed", icon: Link2, label: "Embed" },
             ] as const).map(v => (
               <button key={v.key} onClick={() => setViewMode(v.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${viewMode === v.key ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
@@ -1128,7 +1229,30 @@ export default function Tasks() {
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none"><Sparkles className="w-4 h-4 text-primary" /></div>
             <Input value={aiInput} onChange={e => setAiInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAiCreate()} placeholder="AI: 'fix auth bug critical due friday'" className="pl-10" />
           </div>
-          <Button onClick={openNewTask}><Plus className="w-4 h-4" /> New</Button>
+          <div className="relative">
+            <Button onClick={openNewTask}><Plus className="w-4 h-4" /> New</Button>
+            {taskTemplates.length > 0 && (
+              <button onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                className="absolute -right-1 -top-1 w-4 h-4 bg-violet-500 text-white rounded-full text-[8px] font-bold flex items-center justify-center">
+                {taskTemplates.length}
+              </button>
+            )}
+            {showTemplateMenu && (
+              <div className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 p-2">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1 mb-1">Task Templates</div>
+                {taskTemplates.map(t => (
+                  <div key={t.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer group">
+                    <button onClick={() => applyTemplate(t)} className="flex-1 text-left text-sm font-medium truncate">
+                      {TASK_TYPES.find(tt => tt.id === t.type)?.icon || "📋"} {t.name}
+                    </button>
+                    <button onClick={() => deleteTemplate(t.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-400 p-0.5">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1190,7 +1314,7 @@ export default function Tasks() {
           <MapView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
         ) : viewMode === "workload" ? (
           <WorkloadBoardView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
-        ) : viewMode === "list" ? renderList() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : viewMode === "gantt" ? renderGantt() : viewMode === "chart" ? renderChart() : viewMode === "brief" ? renderBrief() : viewMode === "files" ? renderFiles() : renderTriage()}
+        ) : viewMode === "list" ? renderList() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : viewMode === "gantt" ? renderGantt() : viewMode === "chart" ? renderChart() : viewMode === "brief" ? renderBrief() : viewMode === "files" ? renderFiles() : viewMode === "embed" ? renderEmbed() : renderTriage()}
       </div>
 
       {renderBulkBar()}
@@ -1652,7 +1776,11 @@ export default function Tasks() {
                   </button>
                 </div>
               )}
-              <div className="flex gap-3 ml-auto">
+              <div className="flex items-center gap-3 ml-auto">
+                <button onClick={saveAsTemplate} className="text-xs text-muted-foreground hover:text-violet-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-violet-500/10 transition-colors"
+                  title="Save current task configuration as a reusable template">
+                  <Save className="w-3.5 h-3.5" /> Save Template
+                </button>
                 <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
                 <Button onClick={saveTask} isLoading={createTask.isPending || updateTask.isPending}>
                   {isNewTask ? "Create Task" : "Save Changes"}

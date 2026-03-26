@@ -1,15 +1,17 @@
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useSprints } from "@/hooks/use-sprints";
 import { useTasks } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
 import { Card, Badge, ProgressBar } from "@/components/ui/shared";
-import { TrendingDown, BarChart3, Zap, Target, Calendar } from "lucide-react";
+import { TrendingDown, BarChart3, Zap, Target, Calendar, ChevronRight, ChevronDown, ArrowRight, Package } from "lucide-react";
 import { format, differenceInDays, addDays, isAfter, isBefore, startOfDay } from "date-fns";
 
 export default function Sprints() {
   const { data: sprints = [] } = useSprints();
   const { data: tasks = [] } = useTasks();
   const { data: projects = [] } = useProjects();
+  const [showPlanning, setShowPlanning] = useState(false);
+  const [planningCollapsed, setPlanningCollapsed] = useState<Record<string, boolean>>({});
 
   const activeSprint = sprints.find(s => s.status === "active") || sprints[0];
 
@@ -198,6 +200,94 @@ export default function Sprints() {
           </div>
         </Card>
       </div>
+
+      <Card className="p-6 mb-8">
+        <button onClick={() => setShowPlanning(!showPlanning)} className="flex items-center gap-2 mb-4 w-full">
+          {showPlanning ? <ChevronDown className="w-5 h-5 text-primary" /> : <ChevronRight className="w-5 h-5 text-primary" />}
+          <Package className="w-5 h-5 text-primary" />
+          <h2 className="font-display font-bold text-lg">Sprint Planning Board</h2>
+          <Badge color="indigo" className="ml-2">Jira-style</Badge>
+        </button>
+
+        {showPlanning && activeSprint && (() => {
+          const backlogTasks = tasks.filter(t => !t.sprintId && t.status !== "done");
+          const inSprint = tasks.filter(t => t.sprintId === activeSprint.id);
+          const sprintPoints = inSprint.reduce((s, t) => s + (t.points || 0), 0);
+          const backlogByProject: Record<string, any[]> = {};
+          backlogTasks.forEach(t => {
+            const proj = projects.find(p => p.id === t.projectId);
+            const key = proj?.name || "Unassigned";
+            if (!backlogByProject[key]) backlogByProject[key] = [];
+            backlogByProject[key].push(t);
+          });
+
+          return (
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+                  <span className="text-xs font-bold uppercase tracking-wider">Backlog</span>
+                  <span className="text-xs bg-secondary px-2 py-0.5 rounded-full">{backlogTasks.length} items</span>
+                </div>
+                <div className="border border-border rounded-xl max-h-80 overflow-y-auto">
+                  {Object.entries(backlogByProject).map(([projName, projTasks]) => (
+                    <div key={projName}>
+                      <button onClick={() => setPlanningCollapsed({ ...planningCollapsed, [projName]: !planningCollapsed[projName] })}
+                        className="flex items-center gap-2 w-full px-3 py-2 bg-secondary/30 text-xs font-bold text-muted-foreground border-b border-border">
+                        {planningCollapsed[projName] ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        {projName} ({projTasks.length})
+                      </button>
+                      {!planningCollapsed[projName] && projTasks.map(task => (
+                        <div key={task.id} className="flex items-center gap-2 px-3 py-2 border-b border-border/30 hover:bg-white/5 text-sm">
+                          <div className={`w-2 h-2 rounded-full ${task.priority === "critical" ? "bg-rose-400" : task.priority === "high" ? "bg-amber-400" : task.priority === "medium" ? "bg-blue-400" : "bg-gray-400"}`} />
+                          <span className="flex-1 truncate">{task.title}</span>
+                          <span className="text-[10px] text-muted-foreground">{task.points || 0}pt</span>
+                          <ArrowRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  {backlogTasks.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-sm">Backlog is empty</div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+                  <span className="text-xs font-bold uppercase tracking-wider">{activeSprint.name}</span>
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{inSprint.length} items · {sprintPoints}pts</span>
+                </div>
+                <div className="border border-primary/20 rounded-xl max-h-80 overflow-y-auto bg-primary/5">
+                  {["todo", "inprogress", "review", "done"].map(status => {
+                    const statusTasks = inSprint.filter(t => t.status === status);
+                    if (statusTasks.length === 0) return null;
+                    return (
+                      <div key={status}>
+                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-secondary/30 border-b border-border">
+                          {status.replace("inprogress", "in progress")} ({statusTasks.length})
+                        </div>
+                        {statusTasks.map(task => (
+                          <div key={task.id} className="flex items-center gap-2 px-3 py-2 border-b border-border/30 text-sm">
+                            <div className={`w-2 h-2 rounded-full ${status === "done" ? "bg-emerald-400" : status === "inprogress" ? "bg-blue-400" : status === "review" ? "bg-amber-400" : "bg-slate-400"}`} />
+                            <span className={`flex-1 truncate ${status === "done" ? "line-through text-muted-foreground" : ""}`}>{task.title}</span>
+                            <span className="text-[10px] text-muted-foreground">{task.points || 0}pt</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  {inSprint.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-sm">No tasks in sprint yet</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {showPlanning && !activeSprint && (
+          <div className="text-center py-8 text-muted-foreground text-sm">No active sprint found. Create a sprint to use the planning board.</div>
+        )}
+      </Card>
 
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-6">

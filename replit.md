@@ -21,7 +21,7 @@ ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and T
 **Frontend:**
 Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Motion for animations, Lucide React for icons, and `react-markdown` for document rendering. Key UI features include:
 -   **Dashboard:** AI Briefing, statistics, needs attention, budgets, documents, sprints, goals.
--   **Tasks:** 14 views (Board/Kanban, List, Table, Timeline/Gantt, Calendar, Map, Workload, Gallery, Roadmap, Gantt, Triage, Chart, Brief, Files) with custom task types (Task/Bug/Feature/Story/Improvement), time estimates (hours), AI natural language creation, drag-and-drop, filtering, bulk actions, recurring tasks, subtasks, comment reactions, file attachments, task linking, duplication, location tagging, soft-delete, custom fields (text/number/select/checkbox/rating/date/url/email with auto-save), and dependency management (blocking/blocked-by with search picker). Enhanced Kanban has swimlanes (project/priority), WIP limits, card age indicators. Timeline has day/week/month zoom with startDate support. Calendar has month/week views with multi-day event spans. Map uses Leaflet/OpenStreetMap with location presets. Workload shows capacity bars and timeline per member.
+-   **Tasks:** 15 views (Board/Kanban, List, Table, Timeline/Gantt, Calendar, Map, Workload, Gallery, Roadmap, Gantt, Triage, Chart, Brief, Files, Embed) with custom task types (Task/Bug/Feature/Story/Improvement), time estimates (hours), AI natural language creation, drag-and-drop, filtering, bulk actions, recurring tasks, subtasks, comment reactions, file attachments, task linking, duplication, location tagging, soft-delete, custom fields (text/number/select/checkbox/rating/date/url/email with auto-save), and dependency management (blocking/blocked-by with search picker). Enhanced Kanban has swimlanes (project/priority), WIP limits, card age indicators. Timeline has day/week/month zoom with startDate support. Calendar has month/week views with multi-day event spans. Map uses Leaflet/OpenStreetMap with location presets. Workload shows capacity bars and timeline per member.
 -   **Sprints:** Burndown and velocity charts.
 -   **Time Tracking:** Live timer and detailed entry management.
 -   **Goals & OKRs:** Progress tracking with AI Health Check.
@@ -67,6 +67,12 @@ Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Moti
 -   **Reminders (ClickUp):** Personal reminders with star/priority/filter/quick-add, overdue detection, and localStorage persistence.
 -   **Documents:** Wiki with AI assistant, markdown editing, and document template picker (8 templates: Blank, Meeting Notes, Project Brief, Technical Spec, Sprint Retro, RFC/Proposal, Onboarding Guide, Weekly Status).
 -   **Enhanced Portfolio:** Cards/Table toggle view; summary stats row (Projects, Total Tasks, Completed, Overdue, Avg Health); status indicators (On Track/At Risk/Off Track); table view with columns for status, health, tasks, progress, budget.
+-   **Favorites Sidebar (ClickUp/Linear):** Star/favorite any page for quick-access "Favorites" section at top of sidebar. localStorage persisted.
+-   **Task Templates (ClickUp):** Save task configurations as reusable templates from task modal. Apply templates when creating new tasks.
+-   **Embed View (ClickUp):** 15th task view mode for embedding external URLs (Figma, Google Docs, Miro, YouTube, etc.) via iframe.
+-   **Sprint Planning Board (Jira):** Collapsible backlog-to-sprint planning view on Sprints page with project-grouped backlog and status-grouped sprint tasks.
+-   **SLA/Due Date Indicators (Jira):** Visual urgency badges on task list items — Overdue (red), Due today (amber), Due this week (blue).
+-   **Cycles (Linear):** Time-boxed work cycles page with auto-scheduling, cooldown periods, cycle history, and progress tracking. localStorage persisted.
 
 **Backend:**
 An Express 5 API server handles REST endpoints with Zod for validation and Drizzle ORM for PostgreSQL. API codegen uses Orval for React Query hooks and Zod schemas.
