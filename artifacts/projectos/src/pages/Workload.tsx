@@ -1,9 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
-import { Users, TrendingUp, AlertTriangle, Zap, BarChart3, Target } from "lucide-react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Users, TrendingUp, AlertTriangle, Zap, BarChart3, Settings, Save, X } from "lucide-react";
 
 const API = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
-async function apiFetch(path: string) {
-  const res = await fetch(`${API}${path}`, { credentials: "include" });
+async function apiFetch(path: string, opts?: RequestInit) {
+  const res = await fetch(`${API}${path}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(opts?.headers || {}) },
+    ...opts,
+  });
   if (!res.ok) throw new Error("Failed");
   return res.json();
 }
@@ -16,7 +21,28 @@ const loadColors: Record<string, { text: string; bg: string; label: string }> = 
 };
 
 export default function Workload() {
+  const queryClient = useQueryClient();
   const { data } = useQuery({ queryKey: ["workload"], queryFn: () => apiFetch("/workload") });
+  const { data: members = [] } = useQuery({ queryKey: ["members"], queryFn: () => apiFetch("/members") });
+  const [showCapacity, setShowCapacity] = useState(false);
+  const [capacityEdits, setCapacityEdits] = useState<Record<number, { hoursPerDay: number; capacity: number }>>({});
+
+  const updateCapacity = useMutation({
+    mutationFn: ({ id, ...body }: { id: number; hoursPerDay: number; capacity: number }) =>
+      apiFetch(`/members/${id}/capacity`, { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workload"] });
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+    },
+  });
+
+  const saveAllCapacity = () => {
+    Object.entries(capacityEdits).forEach(([id, vals]) => {
+      updateCapacity.mutate({ id: parseInt(id), ...vals });
+    });
+    setCapacityEdits({});
+    setShowCapacity(false);
+  };
 
   const workload = data?.workload || [];
   const summary = data?.summary || {};
@@ -24,12 +50,70 @@ export default function Workload() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-display font-bold bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-            Workload Management
-          </h1>
-          <p className="text-muted-foreground mt-1">Visual capacity planning across your team</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-display font-bold bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
+              Workload Management
+            </h1>
+            <p className="text-muted-foreground mt-1">Visual capacity planning across your team</p>
+          </div>
+          <button onClick={() => {
+            const edits: Record<number, { hoursPerDay: number; capacity: number }> = {};
+            members.forEach((m: any) => { edits[m.id] = { hoursPerDay: m.hoursPerDay || 8, capacity: m.capacity || 40 }; });
+            setCapacityEdits(edits);
+            setShowCapacity(!showCapacity);
+          }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-card border border-border hover:border-primary/30 transition-colors">
+            <Settings className="w-4 h-4" /> Capacity Settings
+          </button>
         </div>
+
+        {showCapacity && (
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Team Capacity Settings</h3>
+              <div className="flex items-center gap-2">
+                <button onClick={saveAllCapacity} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Save className="w-3.5 h-3.5" /> Save All
+                </button>
+                <button onClick={() => setShowCapacity(false)} className="p-1.5 text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {members.map((m: any) => {
+                const edit = capacityEdits[m.id] || { hoursPerDay: m.hoursPerDay || 8, capacity: m.capacity || 40 };
+                return (
+                  <div key={m.id} className="border border-border rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: m.color || "#6366f1" }}>
+                        {(m.name || "?").split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">{m.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{m.role || "Team Member"}</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Hours/Day</label>
+                        <input type="number" min={1} max={24} step={0.5} value={edit.hoursPerDay}
+                          onChange={e => setCapacityEdits(prev => ({ ...prev, [m.id]: { ...edit, hoursPerDay: parseFloat(e.target.value) || 8 } }))}
+                          className="w-full px-3 py-2 bg-background/50 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Weekly Cap (h)</label>
+                        <input type="number" min={1} max={168} step={1} value={edit.capacity}
+                          onChange={e => setCapacityEdits(prev => ({ ...prev, [m.id]: { ...edit, capacity: parseInt(e.target.value) || 40 } }))}
+                          className="w-full px-3 py-2 bg-background/50 border border-border rounded-lg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-5 gap-4">
           {[

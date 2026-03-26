@@ -73,4 +73,36 @@ router.patch("/members/:id/role", requireRole("admin"), async (req, res): Promis
   res.json({ id: member.id, name: member.name, permissionRole: member.permissionRole });
 });
 
+router.patch("/members/:id/capacity", requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const { hoursPerDay, capacity } = req.body;
+  const updates: Record<string, any> = {};
+  if (hoursPerDay !== undefined) {
+    const hpd = Number(hoursPerDay);
+    if (isNaN(hpd) || hpd < 0.5 || hpd > 24) {
+      res.status(400).json({ error: "hoursPerDay must be between 0.5 and 24" });
+      return;
+    }
+    updates.hoursPerDay = hpd;
+  }
+  if (capacity !== undefined) {
+    const cap = Number(capacity);
+    if (isNaN(cap) || cap < 1 || cap > 168) {
+      res.status(400).json({ error: "capacity must be between 1 and 168" });
+      return;
+    }
+    updates.capacity = cap;
+  }
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "hoursPerDay or capacity required" });
+    return;
+  }
+  const [member] = await db.update(membersTable).set(updates).where(eq(membersTable.id, id)).returning();
+  if (!member) {
+    res.status(404).json({ error: "Member not found" });
+    return;
+  }
+  res.json(member);
+});
+
 export default router;

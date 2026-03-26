@@ -95,6 +95,7 @@ export const ListMembersResponseItem = zod.object({
   permissionRole: zod.string().optional(),
   rate: zod.number(),
   capacity: zod.number(),
+  hoursPerDay: zod.number().optional(),
   createdAt: zod.date(),
 });
 export const ListMembersResponse = zod.array(ListMembersResponseItem);

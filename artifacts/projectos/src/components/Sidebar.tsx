@@ -2,7 +2,8 @@ import { Link, useLocation } from "wouter";
 import { 
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
   Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen, Calendar,
-  Users, Zap, FileInput, Flag, ShieldCheck, BarChart3, Sun, Activity, Tag, LayoutTemplate, Star, Trash2, Settings, UserPlus
+  Users, Zap, FileInput, Flag, ShieldCheck, BarChart3, Sun, Activity, Tag, LayoutTemplate, Star, Trash2, Settings, UserPlus,
+  Pencil, Puzzle
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -104,6 +105,7 @@ export function Sidebar({
             <NavItem item={{ icon: Calendar, label: "Calendar", path: "/calendar" }} />
             <NavItem item={{ icon: Flag, label: "Milestones", path: "/milestones" }} />
             <NavItem item={{ icon: FileInput, label: "Forms", path: "/forms" }} />
+            <NavItem item={{ icon: Pencil, label: "Whiteboard", path: "/whiteboard" }} />
           </div>
         </div>
 
@@ -128,6 +130,7 @@ export function Sidebar({
             <NavItem item={{ icon: ShieldCheck, label: "Approvals", path: "/approvals" }} />
             <NavItem item={{ icon: Tag, label: "Tags", path: "/tags" }} />
             <NavItem item={{ icon: LayoutTemplate, label: "Templates", path: "/templates" }} />
+            <NavItem item={{ icon: Puzzle, label: "Integrations", path: "/integrations" }} />
           </div>
         </div>
 

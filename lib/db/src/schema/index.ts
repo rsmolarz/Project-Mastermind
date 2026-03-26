@@ -35,3 +35,5 @@ export * from "./task-links";
 export * from "./user-preferences";
 export * from "./guests";
 export * from "./dashboard-widgets";
+export * from "./task-projects";
+export * from "./shared-views";

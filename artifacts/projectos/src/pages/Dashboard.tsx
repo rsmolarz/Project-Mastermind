@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDashboardStats } from "@/hooks/use-dashboard";
 import { useTasks } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
@@ -7,9 +7,22 @@ import { useDocuments } from "@/hooks/use-documents";
 import { useGoals } from "@/hooks/use-goals";
 import { useAiChatMutation } from "@/hooks/use-ai";
 import { Card, ProgressBar, Badge, Button, RingChart } from "@/components/ui/shared";
-import { CheckSquare, Clock, Target, AlertTriangle, Sparkles, ArrowRight, RefreshCw, FileText } from "lucide-react";
+import { CheckSquare, Clock, Target, AlertTriangle, Sparkles, ArrowRight, RefreshCw, FileText, Settings, Eye, EyeOff, GripVertical, X } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
+
+type WidgetKey = "stats" | "attention" | "budgets" | "docs" | "sprints" | "goals";
+const WIDGET_LABELS: Record<WidgetKey, string> = {
+  stats: "Quick Stats",
+  attention: "Needs Attention",
+  budgets: "Budgets",
+  docs: "Recent Docs",
+  sprints: "Active Sprints",
+  goals: "Goals",
+};
+const DEFAULT_ORDER: WidgetKey[] = ["stats", "attention", "budgets", "docs", "sprints", "goals"];
+const STORAGE_KEY = "dashboard-widget-config";
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
@@ -21,6 +34,25 @@ export default function Dashboard() {
   const aiChat = useAiChatMutation();
   const [briefing, setBriefing] = useState("");
   const [briefingLoading, setBriefingLoading] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
+
+  const [widgetConfig, setWidgetConfig] = useState<{ order: WidgetKey[]; hidden: WidgetKey[] }>(() => {
+    try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : { order: DEFAULT_ORDER, hidden: [] }; }
+    catch { return { order: DEFAULT_ORDER, hidden: [] }; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(widgetConfig));
+  }, [widgetConfig]);
+
+  const toggleWidget = (key: WidgetKey) => {
+    setWidgetConfig(prev => ({
+      ...prev,
+      hidden: prev.hidden.includes(key) ? prev.hidden.filter(k => k !== key) : [...prev.hidden, key],
+    }));
+  };
+
+  const isVisible = (key: WidgetKey) => !widgetConfig.hidden.includes(key);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -99,7 +131,37 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="flex items-center justify-end">
+        <button onClick={() => setShowConfig(!showConfig)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors border border-transparent hover:border-border">
+          <Settings className="w-3.5 h-3.5" /> Customize Widgets
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {showConfig && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl p-5 mb-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-sm">Dashboard Widgets</h3>
+                <button onClick={() => setShowConfig(false)} className="p-1 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                {DEFAULT_ORDER.map(key => (
+                  <button key={key} onClick={() => toggleWidget(key)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${isVisible(key) ? "bg-primary/10 text-primary border-primary/30" : "text-muted-foreground border-border hover:border-primary/20"}`}>
+                    {isVisible(key) ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    {WIDGET_LABELS[key]}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-3">Click to show/hide widgets. Your preferences are saved automatically.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {isVisible("stats") && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "In Progress Tasks", value: stats?.inProgressTasks || 0, icon: CheckSquare, color: "text-blue-500", bg: "bg-blue-500/10" },
           { label: "Overdue Items", value: stats?.overdueTasks || overdue.length, icon: AlertTriangle, color: "text-rose-500", bg: "bg-rose-500/10" },
@@ -116,11 +178,11 @@ export default function Dashboard() {
             <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</div>
           </Card>
         ))}
-      </div>
+      </div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        <div className="lg:col-span-2 space-y-4">
+        {isVisible("attention") && <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-display font-bold flex items-center gap-2">
               Needs Attention
@@ -155,9 +217,9 @@ export default function Dashboard() {
               </div>
             )}
           </Card>
-        </div>
+        </div>}
 
-        <div className="space-y-4">
+        {isVisible("budgets") && <div className="space-y-4">
           <h2 className="text-xl font-display font-bold">Budgets</h2>
           <Card className="p-5 space-y-6">
             {(stats?.projectBudgets || []).map((pb: any) => {
@@ -186,11 +248,11 @@ export default function Dashboard() {
               </div>
             ))}
           </Card>
-        </div>
+        </div>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="p-5 space-y-4">
+        {isVisible("docs") && <Card className="p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold flex items-center gap-2">
               <FileText className="w-5 h-5 text-primary" /> Recent Docs
@@ -213,9 +275,9 @@ export default function Dashboard() {
               <div className="text-sm text-muted-foreground text-center py-4">No documents yet</div>
             )}
           </div>
-        </Card>
+        </Card>}
 
-        <Card className="p-5 space-y-4">
+        {isVisible("sprints") && <Card className="p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold flex items-center gap-2">Active Sprints</h2>
             <Link href="/tasks" className="text-xs text-primary hover:underline">View all</Link>
@@ -254,9 +316,9 @@ export default function Dashboard() {
               <div className="text-sm text-muted-foreground text-center py-4">No sprints yet</div>
             )}
           </div>
-        </Card>
+        </Card>}
 
-        <Card className="p-5 space-y-4">
+        {isVisible("goals") && <Card className="p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold flex items-center gap-2">
               <Target className="w-5 h-5 text-emerald-400" /> Goals
@@ -282,7 +344,7 @@ export default function Dashboard() {
               <div className="text-sm text-muted-foreground text-center py-4">No goals yet</div>
             )}
           </div>
-        </Card>
+        </Card>}
       </div>
     </div>
   );

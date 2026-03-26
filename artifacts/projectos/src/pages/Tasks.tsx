@@ -22,7 +22,7 @@ import KanbanView from "@/components/views/KanbanView";
 import CalendarView from "@/components/views/CalendarView";
 import MapView from "@/components/views/MapView";
 import WorkloadBoardView from "@/components/views/WorkloadBoardView";
-import { MapPin, Users as UsersIcon } from "lucide-react";
+import { MapPin, Users as UsersIcon, Layers } from "lucide-react";
 
 const STATUSES = [
   { id: "backlog", label: "Backlog", icon: Clock, color: "text-slate-400", border: "border-slate-400", dot: "bg-slate-400" },
@@ -166,6 +166,23 @@ export default function Tasks() {
   const deleteDep = useMutation({
     mutationFn: (id: number) => apiFetch(`/task-dependencies/${id}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-deps", formData?.id] }),
+  });
+
+  const { data: taskProjects = [] } = useQuery({
+    queryKey: ["task-projects", formData?.id],
+    queryFn: () => apiFetch(`/tasks/${formData.id}/projects`),
+    enabled: !!formData?.id && !isNewTask,
+  });
+
+  const addTaskProject = useMutation({
+    mutationFn: (data: { taskId: number; projectId: number }) =>
+      apiFetch("/task-projects", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-projects", formData?.id] }),
+  });
+
+  const removeTaskProject = useMutation({
+    mutationFn: (id: number) => apiFetch(`/task-projects/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-projects", formData?.id] }),
   });
 
   const { data: customFields = [] } = useQuery({
@@ -1173,6 +1190,37 @@ export default function Tasks() {
                       <button onClick={() => { setShowDepPicker(null); setDepSearch(""); }} className="text-[10px] text-muted-foreground hover:text-foreground">Cancel</button>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {!isNewTask && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5" /> Multi-Project (Multi-Homing)
+                </label>
+                <div className="space-y-1.5">
+                  {(taskProjects || []).map((tp: any) => (
+                    <div key={tp.id} className="flex items-center gap-2 group bg-violet-500/10 border border-violet-500/20 rounded-lg px-3 py-2">
+                      <Layers className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                      <span className="text-sm truncate flex-1">{projects.find((p: any) => p.id === tp.projectId)?.name || `Project #${tp.projectId}`}</span>
+                      <button aria-label="Remove from project" onClick={() => removeTaskProject.mutate(tp.id)} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <select
+                    className="w-full px-3 py-2 bg-background/50 border border-dashed border-border rounded-lg text-sm text-muted-foreground hover:border-violet-400/40 focus:border-primary outline-none"
+                    value=""
+                    onChange={e => {
+                      const pid = parseInt(e.target.value, 10);
+                      if (pid && formData.id) addTaskProject.mutate({ taskId: formData.id, projectId: pid });
+                    }}>
+                    <option value="">+ Add to another project...</option>
+                    {projects
+                      .filter((p: any) => p.id !== formData.projectId && !(taskProjects || []).some((tp: any) => tp.projectId === p.id))
+                      .map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
                 </div>
               </div>
             )}

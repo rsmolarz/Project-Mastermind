@@ -47,7 +47,12 @@ Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Moti
 -   **Settings (`/settings`):** User preferences — email digest frequency, 8 notification toggles, display settings (default view, timezone, language).
 -   **Guest Access (`/guests`):** Invite external collaborators with per-project access control (view_only, comment, edit).
 -   **CSV Import/Export:** Import tasks from CSV, export tasks to CSV.
--   **Dashboard Widgets API:** Customizable widget system with position, size, visibility per widget.
+-   **Dashboard Widget Configurability:** Customize Widgets button opens a toggle panel to show/hide dashboard widgets (Quick Stats, Needs Attention, Budgets, Recent Docs, Active Sprints, Goals). Preferences persist in localStorage.
+-   **Multi-Project Tasks (Multi-Homing):** Tasks can belong to multiple projects via `task_projects` junction table. Task modal includes a multi-project picker to add/remove project associations.
+-   **Workload Capacity Settings:** Per-member `hoursPerDay` and weekly `capacity` settings editable from the Workload page via a Capacity Settings panel. Admin-only endpoint with range validation.
+-   **Whiteboard:** Full canvas-based drawing tool with rect/circle/line/arrow/draw/text/sticky tools, undo/redo, color picker, zoom/pan, PNG export.
+-   **Integrations Marketplace:** Directory of 24+ integrations (Slack, GitHub, Figma, Zapier, etc.) with category filters, search, and install toggles.
+-   **Board/View Sharing:** Shareable public links for board views via `shared_views` table with token-based access.
 -   **Board Grouping:** Group-by dropdown (status, priority, assignee, section) with collapsible sections.
 -   **Timeline Support:** Tasks have start date + due date range for timeline/Gantt views.
 -   **Sub-Items:** Full nested child tasks via parentTaskId (not just checklist subtasks).

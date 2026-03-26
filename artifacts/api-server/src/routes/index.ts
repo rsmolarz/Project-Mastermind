@@ -50,6 +50,8 @@ import guestsRouter from "./guests";
 import dashboardWidgetsRouter from "./dashboard-widgets";
 import searchRouter from "./search";
 import importExportRouter from "./import-export";
+import taskProjectsRouter from "./task-projects";
+import sharedViewsRouter from "./shared-views";
 
 const router: IRouter = Router();
 
@@ -104,5 +106,7 @@ router.use(guestsRouter);
 router.use(dashboardWidgetsRouter);
 router.use(searchRouter);
 router.use(importExportRouter);
+router.use(taskProjectsRouter);
+router.use(sharedViewsRouter);
 
 export default router;

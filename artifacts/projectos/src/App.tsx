@@ -34,6 +34,9 @@ import Trash from "@/pages/Trash";
 import SearchPage from "@/pages/Search";
 import Settings from "@/pages/Settings";
 import Guests from "@/pages/Guests";
+import Whiteboard from "@/pages/Whiteboard";
+import Integrations from "@/pages/Integrations";
+import SharedView from "@/pages/SharedView";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -78,6 +81,9 @@ function Router() {
         <Route path="/search" component={SearchPage} />
         <Route path="/settings" component={Settings} />
         <Route path="/guests" component={Guests} />
+        <Route path="/whiteboard" component={Whiteboard} />
+        <Route path="/integrations" component={Integrations} />
+        <Route path="/shared/:token" component={SharedView} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

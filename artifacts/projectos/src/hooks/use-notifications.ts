@@ -1,8 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
 const API = `${import.meta.env.BASE_URL}api`;
 
 export function useNotifications(userId = 1) {
+  const qc = useQueryClient();
+  const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}${import.meta.env.BASE_URL}ws/notifications`;
+    try {
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      ws.onmessage = () => {
+        qc.invalidateQueries({ queryKey: ["notifications"] });
+      };
+      ws.onerror = () => {};
+      ws.onclose = () => {};
+    } catch {}
+    return () => { wsRef.current?.close(); };
+  }, [qc]);
+
   return useQuery({
     queryKey: ["notifications", userId],
     queryFn: async () => {
@@ -33,6 +52,17 @@ export function useMarkAllNotificationsRead() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
       });
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
+export function useDeleteNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`${API}/notifications/${id}`, { method: "DELETE" });
       return res.json();
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),

@@ -11,6 +11,7 @@ export const membersTable = pgTable("members", {
   permissionRole: text("permission_role").notNull().default("member"),
   rate: real("rate").notNull().default(100),
   capacity: integer("capacity").notNull().default(40),
+  hoursPerDay: real("hours_per_day").notNull().default(8),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
