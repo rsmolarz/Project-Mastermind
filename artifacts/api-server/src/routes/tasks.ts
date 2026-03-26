@@ -155,6 +155,61 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
     runAutomations("task_status_changed", { taskId: task.id, projectId: task.projectId, status: task.status, previousStatus: parsed.data.status }).catch(console.error);
     if (task.status === "done") {
       runAutomations("task_completed", { taskId: task.id, projectId: task.projectId }).catch(console.error);
+      const rec = task.recurrence as { type: string; interval: number; endDate?: string } | null;
+      if (rec && rec.type) {
+        (async () => {
+          try {
+            const now = new Date();
+            if (rec.endDate && new Date(rec.endDate) <= now) return;
+            const interval = Math.max(1, rec.interval || 1);
+            const baseDate = task.due ? new Date(task.due) : now;
+            const nextDue = new Date(baseDate);
+            if (rec.type === "monthly") {
+              nextDue.setMonth(nextDue.getMonth() + interval);
+            } else {
+              const days = rec.type === "daily" ? 1 : rec.type === "weekly" ? 7 : rec.type === "biweekly" ? 14 : 7;
+              nextDue.setDate(nextDue.getDate() + days * interval);
+            }
+            if (rec.endDate && nextDue > new Date(rec.endDate)) return;
+            let nextStart: Date | null = null;
+            if (task.startDate && task.due) {
+              const durationMs = new Date(task.due).getTime() - new Date(task.startDate).getTime();
+              nextStart = new Date(nextDue.getTime() - durationMs);
+            }
+            const maxOrder = await db.select({ maxOrder: tasksTable.sortOrder }).from(tasksTable).orderBy(desc(tasksTable.sortOrder)).limit(1);
+            const nextOrder = (maxOrder[0]?.maxOrder ?? 0) + 1;
+            const [newTask] = await db.insert(tasksTable).values({
+              title: task.title,
+              type: task.type,
+              status: "todo",
+              priority: task.priority,
+              projectId: task.projectId,
+              sprintId: task.sprintId,
+              assigneeIds: task.assigneeIds,
+              points: task.points,
+              due: nextDue,
+              startDate: nextStart,
+              parentTaskId: task.parentTaskId,
+              groupName: task.groupName,
+              location: task.location,
+              locationLat: task.locationLat,
+              locationLng: task.locationLng,
+              tags: task.tags,
+              subtasks: (task.subtasks as any[])?.map((s: any) => ({ ...s, done: false })) || [],
+              notes: task.notes,
+              sortOrder: nextOrder,
+              recurrence: task.recurrence,
+            }).returning();
+            await db.insert(activityLogTable).values({
+              entityType: "task", entityId: newTask.id, action: "task_created",
+              details: { title: newTask.title, recurringFrom: task.id },
+              actorId: 1,
+            });
+          } catch (err) {
+            console.error("Failed to spawn recurring task:", err);
+          }
+        })();
+      }
     }
   }
   if (updateData.assigneeIds !== undefined) {
