@@ -22,7 +22,7 @@ import KanbanView from "@/components/views/KanbanView";
 import CalendarView from "@/components/views/CalendarView";
 import MapView from "@/components/views/MapView";
 import WorkloadBoardView from "@/components/views/WorkloadBoardView";
-import { MapPin, Users as UsersIcon, Layers, BarChart3, FileText, PieChart } from "lucide-react";
+import { MapPin, Users as UsersIcon, Layers, BarChart3, FileText, PieChart, Bug, Lightbulb, BookOpen, Wrench, ClockIcon, File, ImageIcon } from "lucide-react";
 
 const STATUSES = [
   { id: "backlog", label: "Backlog", icon: Clock, color: "text-slate-400", border: "border-slate-400", dot: "bg-slate-400" },
@@ -40,6 +40,14 @@ const PRIORITY_MAP: Record<string, { color: string; icon: string }> = {
   low: { color: "gray", icon: "⚪" },
 };
 
+const TASK_TYPES = [
+  { id: "task", label: "Task", icon: "📋", color: "text-blue-400" },
+  { id: "bug", label: "Bug", icon: "🐛", color: "text-rose-400" },
+  { id: "feature", label: "Feature", icon: "✨", color: "text-emerald-400" },
+  { id: "story", label: "Story", icon: "📖", color: "text-violet-400" },
+  { id: "improvement", label: "Improvement", icon: "🔧", color: "text-amber-400" },
+];
+
 type SavedFilter = { name: string; projectId?: number; status?: string; priority?: string };
 
 export default function Tasks() {
@@ -52,7 +60,7 @@ export default function Tasks() {
   const { data: projects = [] } = useProjects();
   const { data: members = [] } = useMembers();
 
-  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage" | "gantt" | "timeline" | "map" | "workload" | "chart" | "brief">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage" | "gantt" | "timeline" | "map" | "workload" | "chart" | "brief" | "files">("kanban");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [aiInput, setAiInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -882,6 +890,70 @@ export default function Tasks() {
     );
   };
 
+  // ─── Files View (Monday-style) ───
+  const renderFiles = () => {
+    const allAttachments: { taskId: number; taskTitle: string; filename: string; originalName: string; mimeType: string; size: number; url: string; createdAt: string }[] = [];
+    tasks.forEach(task => {
+      const cached = queryClient.getQueryData<any[]>(["/tasks", task.id, "attachments"]);
+      if (cached) {
+        cached.forEach((att: any) => allAttachments.push({ ...att, taskId: task.id, taskTitle: task.title }));
+      }
+    });
+
+    const getFileIcon = (mime: string) => {
+      if (mime.startsWith("image/")) return "🖼️";
+      if (mime.includes("pdf")) return "📄";
+      if (mime.includes("spreadsheet") || mime.includes("csv") || mime.includes("excel")) return "📊";
+      if (mime.includes("document") || mime.includes("word")) return "📝";
+      if (mime.includes("presentation") || mime.includes("powerpoint")) return "📽️";
+      if (mime.startsWith("video/")) return "🎬";
+      if (mime.startsWith("audio/")) return "🎵";
+      if (mime.includes("zip") || mime.includes("archive")) return "📦";
+      return "📎";
+    };
+
+    const formatSize = (bytes: number) => {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    return (
+      <div className="p-6 pb-16 overflow-y-auto">
+        {allAttachments.length === 0 ? (
+          <div className="text-center py-20 text-muted-foreground">
+            <Paperclip className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p className="text-lg font-medium">No files yet</p>
+            <p className="text-sm mt-1">Upload attachments to tasks to see them here. Files are loaded as you open tasks.</p>
+          </div>
+        ) : (
+          <>
+            <div className="text-sm text-muted-foreground mb-4">{allAttachments.length} file{allAttachments.length !== 1 ? "s" : ""} across tasks</div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {allAttachments.map((att, i) => (
+                <Card key={`${att.taskId}-${i}`} className="p-4 hover:border-primary/50 transition-colors cursor-pointer group"
+                  onClick={() => { const task = tasks.find(t => t.id === att.taskId); if (task) openTask(task); }}>
+                  <div className="w-full h-24 bg-secondary/50 rounded-lg flex items-center justify-center mb-3 text-3xl overflow-hidden">
+                    {att.mimeType.startsWith("image/") ? (
+                      <img src={att.url} alt={att.originalName} className="w-full h-full object-cover rounded-lg" />
+                    ) : (
+                      getFileIcon(att.mimeType)
+                    )}
+                  </div>
+                  <div className="text-sm font-medium truncate">{att.originalName}</div>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="text-[10px] text-muted-foreground">{formatSize(att.size)}</span>
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{att.taskTitle}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   // ─── Kanban View ───
   const renderKanban = () => (
     <div className="flex gap-6 overflow-x-auto pb-8 h-full items-start px-2">
@@ -1027,6 +1099,7 @@ export default function Tasks() {
               { key: "triage", icon: Inbox, label: "Triage" },
               { key: "chart", icon: BarChart3, label: "Chart" },
               { key: "brief", icon: FileText, label: "Brief" },
+              { key: "files", icon: Paperclip, label: "Files" },
             ] as const).map(v => (
               <button key={v.key} onClick={() => setViewMode(v.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${viewMode === v.key ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
@@ -1117,7 +1190,7 @@ export default function Tasks() {
           <MapView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
         ) : viewMode === "workload" ? (
           <WorkloadBoardView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
-        ) : viewMode === "list" ? renderList() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : viewMode === "gantt" ? renderGantt() : viewMode === "chart" ? renderChart() : viewMode === "brief" ? renderBrief() : renderTriage()}
+        ) : viewMode === "list" ? renderList() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : viewMode === "gantt" ? renderGantt() : viewMode === "chart" ? renderChart() : viewMode === "brief" ? renderBrief() : viewMode === "files" ? renderFiles() : renderTriage()}
       </div>
 
       {renderBulkBar()}
@@ -1185,6 +1258,17 @@ export default function Tasks() {
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Location</label>
                 <Input value={formData.location || ""} onChange={e => setFormData({ ...formData, location: e.target.value })} placeholder="e.g. New York, Remote, HQ" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Type</label>
+                <select value={formData.type || "task"} onChange={e => setFormData({ ...formData, type: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-background/50 border border-border rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+                  {TASK_TYPES.map(t => <option key={t.id} value={t.id}>{t.icon} {t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Time Estimate (hrs)</label>
+                <Input type="number" min="0" step="0.5" value={formData.estimatedHours || ""} onChange={e => setFormData({ ...formData, estimatedHours: e.target.value ? parseFloat(e.target.value) : null })} placeholder="e.g. 4" />
               </div>
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Recurrence</label>

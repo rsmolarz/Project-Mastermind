@@ -3,7 +3,7 @@ import {
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
   Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen, Calendar,
   Users, Zap, FileInput, Flag, ShieldCheck, BarChart3, Sun, Activity, Tag, LayoutTemplate, Star, Trash2, Settings, UserPlus,
-  Pencil, Puzzle, Brain, StickyNote
+  Pencil, Puzzle, Brain, StickyNote, Bell
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -108,6 +108,7 @@ export function Sidebar({
             <NavItem item={{ icon: Pencil, label: "Whiteboard", path: "/whiteboard" }} />
             <NavItem item={{ icon: Brain, label: "Mind Maps", path: "/mind-maps" }} />
             <NavItem item={{ icon: StickyNote, label: "Notepad", path: "/notepad" }} />
+            <NavItem item={{ icon: Bell, label: "Reminders", path: "/reminders" }} />
           </div>
         </div>
 

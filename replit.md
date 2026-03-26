@@ -21,14 +21,14 @@ ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and T
 **Frontend:**
 Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Motion for animations, Lucide React for icons, and `react-markdown` for document rendering. Key UI features include:
 -   **Dashboard:** AI Briefing, statistics, needs attention, budgets, documents, sprints, goals.
--   **Tasks:** 11 views (Board/Kanban, List, Table, Timeline/Gantt, Calendar, Map, Workload, Gallery, Roadmap, Gantt, Triage) with AI natural language creation, drag-and-drop, filtering, bulk actions, recurring tasks, subtasks, comment reactions, file attachments, task linking, duplication, location tagging, soft-delete, custom fields (text/number/select/checkbox/rating/date/url/email with auto-save), and dependency management (blocking/blocked-by with search picker). Enhanced Kanban has swimlanes (project/priority), WIP limits, card age indicators. Timeline has day/week/month zoom with startDate support. Calendar has month/week views with multi-day event spans. Map uses Leaflet/OpenStreetMap with location presets. Workload shows capacity bars and timeline per member.
+-   **Tasks:** 14 views (Board/Kanban, List, Table, Timeline/Gantt, Calendar, Map, Workload, Gallery, Roadmap, Gantt, Triage, Chart, Brief, Files) with custom task types (Task/Bug/Feature/Story/Improvement), time estimates (hours), AI natural language creation, drag-and-drop, filtering, bulk actions, recurring tasks, subtasks, comment reactions, file attachments, task linking, duplication, location tagging, soft-delete, custom fields (text/number/select/checkbox/rating/date/url/email with auto-save), and dependency management (blocking/blocked-by with search picker). Enhanced Kanban has swimlanes (project/priority), WIP limits, card age indicators. Timeline has day/week/month zoom with startDate support. Calendar has month/week views with multi-day event spans. Map uses Leaflet/OpenStreetMap with location presets. Workload shows capacity bars and timeline per member.
 -   **Sprints:** Burndown and velocity charts.
 -   **Time Tracking:** Live timer and detailed entry management.
 -   **Goals & OKRs:** Progress tracking with AI Health Check.
 -   **Communication:** Announcements, Standups (AI-generated), Notification Center, and Messaging Center (Twilio integration for SMS, voice, email via SMS).
 -   **Email Hub:** 5-tab system for email management including inbox, project-specific composition, routing rules, reminder scheduling, and AI-driven category/project recommendations.
 -   **Workload Management:** Visual capacity planning for team utilization.
--   **Automations:** Rule engine ("When X happens, do Y") with triggers, actions, and run history.
+-   **Automations:** Rule engine ("When X happens, do Y") with triggers, actions, run history, and pre-built automation recipe marketplace (6 templates with pre-configured params).
 -   **Intake Forms:** Public form builder creating tasks with custom fields.
 -   **Milestones:** Project checkpoints with status and tracking.
 -   **Approvals:** Task approval workflows.
@@ -64,6 +64,8 @@ Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Moti
 -   **Project Brief (Asana):** 13th task view mode showing project overview, completion stats, team members, key dates, and recent activity.
 -   **Mind Maps (ClickUp):** Visual mind mapping with draggable nodes, parent-child connections, collapse/expand, color coding, zoom/pan. Multiple maps with localStorage persistence.
 -   **Notepad (ClickUp):** Personal scratch pad with multiple color-coded notes, search, pin, formatting toolbar (bold/italic/list/checklist/heading/divider), word count. localStorage persistence.
+-   **Reminders (ClickUp):** Personal reminders with star/priority/filter/quick-add, overdue detection, and localStorage persistence.
+-   **Documents:** Wiki with AI assistant, markdown editing, and document template picker (8 templates: Blank, Meeting Notes, Project Brief, Technical Spec, Sprint Retro, RFC/Proposal, Onboarding Guide, Weekly Status).
 -   **Enhanced Portfolio:** Cards/Table toggle view; summary stats row (Projects, Total Tasks, Completed, Overdue, Avg Health); status indicators (On Track/At Risk/Off Track); table view with columns for status, health, tasks, progress, budget.
 
 **Backend:**

@@ -3,7 +3,7 @@ import { useDocuments, useCreateDocumentMutation, useUpdateDocumentMutation } fr
 import { useAiChatMutation } from "@/hooks/use-ai";
 import { useMembers } from "@/hooks/use-members";
 import { Card, Button, Badge, Input, Textarea } from "@/components/ui/shared";
-import { FileText, Plus, Edit2, Save, Sparkles, Pin, RefreshCw, Users, Wifi } from "lucide-react";
+import { FileText, Plus, Edit2, Save, Sparkles, Pin, RefreshCw, Users, Wifi, LayoutTemplate, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { format } from "date-fns";
 
@@ -18,6 +18,18 @@ export default function Documents() {
 
   const [activeDocId, setActiveDocId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const DOC_TEMPLATES = [
+    { name: "Blank Document", icon: "📄", content: "# New Document\n\nStart typing here...", tags: ["draft"] },
+    { name: "Meeting Notes", icon: "📝", content: "# Meeting Notes\n\n**Date:** \n**Attendees:** \n**Agenda:**\n\n## Discussion\n\n- \n\n## Action Items\n\n- [ ] \n\n## Next Steps\n\n", tags: ["meetings"] },
+    { name: "Project Brief", icon: "📋", content: "# Project Brief\n\n## Overview\n\n\n## Goals & Objectives\n\n1. \n\n## Scope\n\n### In Scope\n- \n\n### Out of Scope\n- \n\n## Timeline\n\n| Phase | Start | End |\n|-------|-------|-----|\n| | | |\n\n## Team\n\n| Role | Name |\n|------|------|\n| | |\n\n## Success Metrics\n\n- \n", tags: ["project"] },
+    { name: "Technical Spec", icon: "⚙️", content: "# Technical Specification\n\n## Summary\n\n\n## Background\n\n\n## Requirements\n\n### Functional\n- \n\n### Non-Functional\n- \n\n## Architecture\n\n\n## API Design\n\n```\nGET /api/...\n```\n\n## Data Model\n\n\n## Testing Plan\n\n- \n\n## Rollout Plan\n\n1. \n", tags: ["engineering"] },
+    { name: "Sprint Retro", icon: "🔄", content: "# Sprint Retrospective\n\n**Sprint:** \n**Date:** \n\n## What Went Well 🎉\n\n- \n\n## What Could Improve 🔧\n\n- \n\n## Action Items 📋\n\n- [ ] \n\n## Team Shoutouts ⭐\n\n- \n", tags: ["sprints"] },
+    { name: "RFC / Proposal", icon: "💡", content: "# RFC: [Title]\n\n**Author:** \n**Status:** Draft\n**Created:** \n\n## Problem Statement\n\n\n## Proposed Solution\n\n\n## Alternatives Considered\n\n1. \n\n## Implementation Plan\n\n### Phase 1\n- \n\n### Phase 2\n- \n\n## Open Questions\n\n- \n", tags: ["rfc"] },
+    { name: "Onboarding Guide", icon: "🚀", content: "# Onboarding Guide\n\n## Welcome!\n\n\n## Getting Started\n\n### Day 1\n- [ ] Set up accounts\n- [ ] Meet the team\n\n### Week 1\n- [ ] Complete training\n- [ ] Shadow a teammate\n\n## Key Resources\n\n- \n\n## FAQs\n\n**Q:** \n**A:** \n", tags: ["onboarding"] },
+    { name: "Weekly Status", icon: "📊", content: "# Weekly Status Update\n\n**Week of:** \n**Author:** \n\n## Summary\n\n\n## Completed This Week\n\n- \n\n## In Progress\n\n- \n\n## Blocked\n\n- \n\n## Next Week\n\n- \n\n## Risks & Concerns\n\n- \n", tags: ["status"] },
+  ];
   const [editContent, setEditContent] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
@@ -49,20 +61,22 @@ export default function Documents() {
 
   const activeDoc = docs.find(d => d.id === activeDocId);
 
-  const handleCreate = () => {
+  const handleCreate = (template?: typeof DOC_TEMPLATES[0]) => {
+    const tmpl = template || DOC_TEMPLATES[0];
     createDoc.mutate({
       data: {
-        title: "Untitled Document",
-        icon: "📄",
-        content: "# New Document\n\nStart typing here...",
+        title: tmpl.name === "Blank Document" ? "Untitled Document" : tmpl.name,
+        icon: tmpl.icon,
+        content: tmpl.content,
         authorId: 1,
-        tags: ["draft"]
+        tags: tmpl.tags
       }
     }, {
       onSuccess: (newDoc) => {
         setActiveDocId(newDoc.id);
         setEditContent(newDoc.content);
         setIsEditing(true);
+        setShowTemplates(false);
       }
     });
   };
@@ -120,10 +134,45 @@ export default function Documents() {
           <h2 className="font-display font-bold flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" /> Wiki
           </h2>
-          <Button size="icon" variant="ghost" onClick={handleCreate} isLoading={createDoc.isPending}>
-            <Plus className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button size="icon" variant="ghost" onClick={() => setShowTemplates(true)} title="New from template">
+              <LayoutTemplate className="w-4 h-4" />
+            </Button>
+            <Button size="icon" variant="ghost" onClick={() => handleCreate()} isLoading={createDoc.isPending} title="New blank document">
+              <Plus className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
+        {showTemplates && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center" onClick={() => setShowTemplates(false)}>
+            <div className="bg-card border border-border rounded-2xl w-[600px] max-h-[80vh] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="p-5 border-b border-border flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold flex items-center gap-2"><LayoutTemplate className="w-5 h-5 text-primary" /> Document Templates</h3>
+                  <p className="text-xs text-muted-foreground mt-1">Choose a template to get started quickly</p>
+                </div>
+                <button onClick={() => setShowTemplates(false)} className="p-1 rounded-lg hover:bg-white/10"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="p-4 overflow-y-auto max-h-[60vh] grid grid-cols-2 gap-3">
+                {DOC_TEMPLATES.map((tmpl, i) => (
+                  <button key={i} onClick={() => handleCreate(tmpl)}
+                    className="text-left p-4 bg-background border border-border rounded-xl hover:border-primary/40 hover:bg-primary/5 transition-all group">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">{tmpl.icon}</span>
+                      <span className="font-bold text-sm group-hover:text-primary transition-colors">{tmpl.name}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                      {tmpl.content.split("\n").filter(l => l.startsWith("##")).slice(0, 3).map(l => l.replace(/^#+\s*/, "")).join(" · ") || "Start from scratch"}
+                    </p>
+                    <div className="flex gap-1 mt-2">
+                      {tmpl.tags.map(t => <span key={t} className="text-[9px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">{t}</span>)}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto p-3 space-y-1">
           {isLoading ? (
             <div className="text-center text-muted-foreground p-4 text-sm">Loading...</div>

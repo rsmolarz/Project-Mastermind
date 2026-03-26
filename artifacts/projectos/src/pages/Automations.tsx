@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Zap, Plus, Play, Pause, Trash2, Settings2, Clock, Hash, ChevronRight, History, CheckCircle2, XCircle, ChevronDown } from "lucide-react";
+import { Zap, Plus, Play, Pause, Trash2, Settings2, Clock, Hash, ChevronRight, History, CheckCircle2, XCircle, ChevronDown, Sparkles, BookOpen } from "lucide-react";
 
 const API = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 async function apiFetch(path: string, opts?: RequestInit) {
@@ -142,6 +142,40 @@ export default function Automations() {
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">{s.label}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {!showCreate && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="w-4 h-4 text-violet-400" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Automation Recipes</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[
+                { name: "Auto-close done tasks", trigger: "task_completed", action: "change_status", params: { status: "done" }, desc: "When a task is completed, move it to Done status", icon: "✅", color: "border-emerald-500/30" },
+                { name: "Notify on overdue", trigger: "task_overdue", action: "notify", params: { title: "Task Overdue", message: "A task has passed its due date" }, desc: "Send a notification when any task becomes overdue", icon: "⏰", color: "border-rose-500/30" },
+                { name: "Alert on new tasks", trigger: "task_created", action: "notify", params: { title: "New Task Created", message: "A new task was added to the project" }, desc: "Get notified whenever a new task is created", icon: "📬", color: "border-blue-500/30" },
+                { name: "Escalate blocked items", trigger: "task_status_changed", action: "change_status", params: { status: "review" }, desc: "Move blocked tasks to review for escalation", icon: "🚨", color: "border-amber-500/30" },
+                { name: "Move new bugs to backlog", trigger: "task_created", action: "change_status", params: { status: "backlog" }, desc: "Automatically triage new bug reports to backlog", icon: "🐛", color: "border-violet-500/30" },
+                { name: "Sprint completion alert", trigger: "sprint_completed", action: "notify", params: { title: "Sprint Complete", message: "The sprint has been completed" }, desc: "Notify the team when a sprint is finished", icon: "🏁", color: "border-indigo-500/30" },
+              ].map((recipe, i) => (
+                <button key={i} onClick={() => {
+                  setForm({ name: recipe.name, trigger: recipe.trigger, projectId: "", actions: [{ type: recipe.action, params: recipe.params }] });
+                  setShowCreate(true);
+                }}
+                  className={`text-left bg-card border ${recipe.color} rounded-xl p-4 hover:bg-white/5 transition-colors group`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">{recipe.icon}</span>
+                    <span className="text-sm font-bold group-hover:text-primary transition-colors">{recipe.name}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{recipe.desc}</p>
+                  <div className="flex items-center gap-1 mt-2 text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Sparkles className="w-3 h-3" /> Use this recipe
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
