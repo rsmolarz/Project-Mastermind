@@ -17,6 +17,12 @@ import {
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from "date-fns";
 import { useSearch } from "wouter";
 import { formatDistanceToNow } from "date-fns";
+import TimelineView from "@/components/views/TimelineView";
+import KanbanView from "@/components/views/KanbanView";
+import CalendarView from "@/components/views/CalendarView";
+import MapView from "@/components/views/MapView";
+import WorkloadBoardView from "@/components/views/WorkloadBoardView";
+import { MapPin, Users as UsersIcon } from "lucide-react";
 
 const STATUSES = [
   { id: "backlog", label: "Backlog", icon: Clock, color: "text-slate-400", border: "border-slate-400", dot: "bg-slate-400" },
@@ -46,7 +52,7 @@ export default function Tasks() {
   const { data: projects = [] } = useProjects();
   const { data: members = [] } = useMembers();
 
-  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage" | "gantt">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "list" | "calendar" | "table" | "gallery" | "roadmap" | "triage" | "gantt" | "timeline" | "map" | "workload">("kanban");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [aiInput, setAiInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -735,7 +741,10 @@ export default function Tasks() {
               { key: "kanban", icon: LayoutGrid, label: "Board" },
               { key: "list", icon: List, label: "List" },
               { key: "table", icon: Table, label: "Table" },
+              { key: "timeline", icon: GanttChart, label: "Timeline" },
               { key: "calendar", icon: Calendar, label: "Calendar" },
+              { key: "map", icon: MapPin, label: "Map" },
+              { key: "workload", icon: UsersIcon, label: "Workload" },
               { key: "gallery", icon: Image, label: "Gallery" },
               { key: "roadmap", icon: Map, label: "Roadmap" },
               { key: "gantt", icon: GanttChart, label: "Gantt" },
@@ -820,7 +829,17 @@ export default function Tasks() {
       <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
-        ) : viewMode === "kanban" ? renderKanban() : viewMode === "list" ? renderList() : viewMode === "calendar" ? renderCalendar() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : viewMode === "gantt" ? renderGantt() : renderTriage()}
+        ) : viewMode === "kanban" ? (
+          <KanbanView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} onNewTask={openNewTask} onDragStart={handleDragStart} onDrop={handleDrop} onDragOver={handleDragOver} />
+        ) : viewMode === "timeline" ? (
+          <TimelineView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
+        ) : viewMode === "calendar" ? (
+          <CalendarView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
+        ) : viewMode === "map" ? (
+          <MapView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
+        ) : viewMode === "workload" ? (
+          <WorkloadBoardView tasks={tasks} projects={projects} members={members} onTaskClick={openTask} />
+        ) : viewMode === "list" ? renderList() : viewMode === "table" ? renderTable() : viewMode === "gallery" ? renderGallery() : viewMode === "roadmap" ? renderRoadmap() : viewMode === "gantt" ? renderGantt() : renderTriage()}
       </div>
 
       {renderBulkBar()}
@@ -884,6 +903,10 @@ export default function Tasks() {
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Group</label>
                 <Input value={formData.groupName || "Default"} onChange={e => setFormData({ ...formData, groupName: e.target.value })} placeholder="Section name" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Location</label>
+                <Input value={formData.location || ""} onChange={e => setFormData({ ...formData, location: e.target.value })} placeholder="e.g. New York, Remote, HQ" />
               </div>
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Recurrence</label>

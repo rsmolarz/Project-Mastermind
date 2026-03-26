@@ -64,11 +64,17 @@ router.post("/tasks", async (req, res): Promise<void> => {
     assigneeIds: parsed.data.assigneeIds ?? [],
     points: parsed.data.points ?? 3,
     due: parsed.data.due ? new Date(parsed.data.due) : null,
+    startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null,
+    parentTaskId: parsed.data.parentTaskId ?? null,
+    groupName: parsed.data.groupName ?? "Default",
+    location: parsed.data.location ?? null,
+    locationLat: parsed.data.locationLat ?? null,
+    locationLng: parsed.data.locationLng ?? null,
     tags: parsed.data.tags ?? [],
     subtasks: parsed.data.subtasks ?? [],
     notes: parsed.data.notes ?? "",
     sortOrder: nextOrder,
-    recurrence: (req.body as any).recurrence || null,
+    recurrence: parsed.data.recurrence || null,
   }).returning();
 
   await db.insert(activityLogTable).values({
@@ -125,7 +131,13 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
   if (parsed.data.subtasks !== undefined) updateData.subtasks = parsed.data.subtasks;
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
   if (parsed.data.sortOrder !== undefined) updateData.sortOrder = parsed.data.sortOrder;
-  if ((req.body as any).recurrence !== undefined) updateData.recurrence = (req.body as any).recurrence;
+  if (parsed.data.startDate !== undefined) updateData.startDate = parsed.data.startDate ? new Date(parsed.data.startDate) : null;
+  if (parsed.data.parentTaskId !== undefined) updateData.parentTaskId = parsed.data.parentTaskId;
+  if (parsed.data.groupName !== undefined) updateData.groupName = parsed.data.groupName;
+  if (parsed.data.location !== undefined) updateData.location = parsed.data.location || null;
+  if (parsed.data.locationLat !== undefined) updateData.locationLat = parsed.data.locationLat;
+  if (parsed.data.locationLng !== undefined) updateData.locationLng = parsed.data.locationLng;
+  if (parsed.data.recurrence !== undefined) updateData.recurrence = parsed.data.recurrence;
 
   const [task] = await db.update(tasksTable).set(updateData).where(eq(tasksTable.id, params.data.id)).returning();
   if (!task) {

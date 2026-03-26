@@ -174,6 +174,14 @@ export const ListTasksResponseItem = zod.object({
   ),
   notes: zod.string(),
   sortOrder: zod.number(),
+  startDate: zod.date().nullish(),
+  parentTaskId: zod.number().nullish(),
+  groupName: zod.string().nullish(),
+  location: zod.string().nullish(),
+  locationLat: zod.string().nullish(),
+  locationLng: zod.string().nullish(),
+  recurrence: zod.any().nullish(),
+  archivedAt: zod.date().nullish(),
   createdAt: zod.date(),
 });
 export const ListTasksResponse = zod.array(ListTasksResponseItem);
@@ -208,6 +216,13 @@ export const CreateTaskBody = zod.object({
     )
     .optional(),
   notes: zod.string().optional(),
+  startDate: zod.date().nullish(),
+  parentTaskId: zod.number().nullish(),
+  groupName: zod.string().optional(),
+  location: zod.string().nullish(),
+  locationLat: zod.string().nullish(),
+  locationLng: zod.string().nullish(),
+  recurrence: zod.any().nullish(),
 });
 
 /**
@@ -244,6 +259,14 @@ export const GetTaskResponse = zod.object({
   ),
   notes: zod.string(),
   sortOrder: zod.number(),
+  startDate: zod.date().nullish(),
+  parentTaskId: zod.number().nullish(),
+  groupName: zod.string().nullish(),
+  location: zod.string().nullish(),
+  locationLat: zod.string().nullish(),
+  locationLng: zod.string().nullish(),
+  recurrence: zod.any().nullish(),
+  archivedAt: zod.date().nullish(),
   createdAt: zod.date(),
 });
 
@@ -277,6 +300,13 @@ export const UpdateTaskBody = zod.object({
     .optional(),
   notes: zod.string().optional(),
   sortOrder: zod.number().optional(),
+  startDate: zod.date().nullish(),
+  parentTaskId: zod.number().nullish(),
+  groupName: zod.string().optional(),
+  location: zod.string().nullish(),
+  locationLat: zod.string().nullish(),
+  locationLng: zod.string().nullish(),
+  recurrence: zod.any().nullish(),
 });
 
 export const UpdateTaskResponse = zod.object({
@@ -306,6 +336,14 @@ export const UpdateTaskResponse = zod.object({
   ),
   notes: zod.string(),
   sortOrder: zod.number(),
+  startDate: zod.date().nullish(),
+  parentTaskId: zod.number().nullish(),
+  groupName: zod.string().nullish(),
+  location: zod.string().nullish(),
+  locationLat: zod.string().nullish(),
+  locationLng: zod.string().nullish(),
+  recurrence: zod.any().nullish(),
+  archivedAt: zod.date().nullish(),
   createdAt: zod.date(),
 });
 
