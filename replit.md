@@ -32,11 +32,11 @@ Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Moti
 -   **Intake Forms:** Public form builder creating tasks with custom fields.
 -   **Milestones:** Project checkpoints with status and tracking.
 -   **Approvals:** Task approval workflows.
--   **Project Updates:** Periodic status reports.
+-   **Project Updates:** Periodic status reports with emoji reaction system (8 reactions, localStorage-persisted).
 -   **Reports & Analytics:** 6-tab dashboard (Overview, Projects, Team, Trends, Burndown, Velocity) with KPIs, breakdowns, SVG charts (burndown with ideal vs actual lines, velocity bar charts with throughput stats, pie charts for status/priority distribution), and CSV export.
 -   **Tags & Labels:** Customizable tags with categories and colors.
 -   **Project Templates:** Built-in presets and custom template creation.
--   **My Day:** Personalized daily focus view with tasks.
+-   **My Day:** Personalized daily focus view with 7 collapsible customizable sections (Overdue, Due Today, Recently Assigned, In Progress, Coming Up, Later, Recently Completed) and greeting banner with stats.
 -   **Activity Feed:** Global cross-project activity stream.
 -   **Trash & Archive:** Soft-delete and recovery for tasks/projects.
 -   **Calendar:** Full Google Calendar integration for event sync, creation, editing, and reminders.
@@ -50,7 +50,10 @@ Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Moti
 -   **Dashboard Widget Configurability:** Customize Widgets button opens a toggle panel to show/hide dashboard widgets (Quick Stats, Needs Attention, Budgets, Recent Docs, Active Sprints, Goals). Preferences persist in localStorage.
 -   **Multi-Project Tasks (Multi-Homing):** Tasks can belong to multiple projects via `task_projects` junction table. Task modal includes a multi-project picker to add/remove project associations.
 -   **Workload Capacity Settings:** Per-member `hoursPerDay` and weekly `capacity` settings editable from the Workload page via a Capacity Settings panel. Admin-only endpoint with range validation.
--   **Whiteboard:** Full canvas-based drawing tool with rect/circle/line/arrow/draw/text/sticky tools, undo/redo, color picker, zoom/pan, PNG export.
+-   **Whiteboard:** Full canvas-based drawing tool with rect/circle/line/arrow/draw/text/sticky tools, undo/redo, color picker, zoom/pan, PNG export, and simulated collaborative presence cursors.
+-   **Collaborative Presence:** Documents page shows real-time editing presence avatars in toolbar; Whiteboard shows animated cursors with collaborator names. Both use simulated presence (not real WebSocket multi-cursor).
+-   **Proofing & Annotations:** Task attachment images support click-to-place numbered annotation pins with comments and hover tooltips.
+-   **Workload Heatmap:** Cards/Heatmap toggle on Workload page showing daily utilization per member in a color-coded grid with week navigation and legend.
 -   **Integrations Marketplace:** Directory of 24+ integrations (Slack, GitHub, Figma, Zapier, etc.) with category filters, search, and install toggles.
 -   **Board/View Sharing:** Shareable public links for board views via `shared_views` table with token-based access.
 -   **Board Grouping:** Group-by dropdown (status, priority, assignee, section) with collapsible sections.

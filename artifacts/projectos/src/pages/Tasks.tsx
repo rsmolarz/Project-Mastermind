@@ -206,6 +206,8 @@ export default function Tasks() {
   const [depSearch, setDepSearch] = useState("");
   const [showLinkPicker, setShowLinkPicker] = useState(false);
   const [linkSearch, setLinkSearch] = useState("");
+  const [proofingAttachment, setProofingAttachment] = useState<any>(null);
+  const [annotations, setAnnotations] = useState<Array<{ id: number; attachmentId: number; x: number; y: number; text: string; author: string; createdAt: string }>>([]);
   const [groupBy, setGroupBy] = useState<"status" | "priority" | "assignee" | "group" | "none">("status");
 
   const subItems = useMemo(() => {
@@ -1062,19 +1064,79 @@ export default function Tasks() {
             {!isNewTask && (
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
-                  <Paperclip className="w-3.5 h-3.5" /> Attachments
+                  <Paperclip className="w-3.5 h-3.5" /> Attachments & Proofing
                 </label>
                 <div className="space-y-1.5">
-                  {taskAttachments.map((a: any) => (
-                    <div key={a.id} className="flex items-center gap-2 group bg-secondary/30 rounded-lg px-3 py-2">
-                      <Paperclip className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm truncate flex-1">{a.originalName}</span>
-                      <span className="text-[10px] text-muted-foreground">{(a.size / 1024).toFixed(0)}KB</span>
-                      <button aria-label={`Remove ${a.originalName}`} onClick={() => deleteAttachment.mutate(a.id)} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
+                  {taskAttachments.map((a: any) => {
+                    const isImage = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(a.originalName);
+                    const isPdf = /\.pdf$/i.test(a.originalName);
+                    const isProofable = isImage || isPdf;
+                    return (
+                      <div key={a.id} className="group">
+                        <div className="flex items-center gap-2 bg-secondary/30 rounded-lg px-3 py-2">
+                          <Paperclip className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate flex-1">{a.originalName}</span>
+                          <span className="text-[10px] text-muted-foreground">{(a.size / 1024).toFixed(0)}KB</span>
+                          {isProofable && (
+                            <button onClick={() => setProofingAttachment(proofingAttachment?.id === a.id ? null : a)}
+                              className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-all ${proofingAttachment?.id === a.id ? "bg-primary text-white" : "bg-violet-500/10 text-violet-400 hover:bg-violet-500/20"}`}>
+                              {proofingAttachment?.id === a.id ? "Close" : isImage ? "Annotate" : "Review"}
+                            </button>
+                          )}
+                          <button aria-label={`Remove ${a.originalName}`} onClick={() => deleteAttachment.mutate(a.id)} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                        {proofingAttachment?.id === a.id && isImage && (
+                          <div className="mt-2 border border-violet-500/30 rounded-xl overflow-hidden bg-black/20 relative">
+                            <div className="relative inline-block w-full">
+                              <img src={a.url || `${import.meta.env.BASE_URL}api/tasks/${formData.id}/attachments/${a.id}/file`.replace(/\/\//g, "/")}
+                                alt={a.originalName} className="w-full rounded-lg cursor-crosshair" 
+                                onClick={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+                                  const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+                                  const text = prompt("Add annotation comment:");
+                                  if (text) {
+                                    setAnnotations(prev => [...prev, { id: Date.now(), attachmentId: a.id, x, y, text, author: "You", createdAt: new Date().toISOString() }]);
+                                  }
+                                }} />
+                              {annotations.filter(ann => ann.attachmentId === a.id).map((ann, idx) => (
+                                <div key={ann.id} style={{ left: `${ann.x}%`, top: `${ann.y}%` }}
+                                  className="absolute w-6 h-6 -ml-3 -mt-3 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center shadow-lg cursor-pointer ring-2 ring-white/30 hover:scale-125 transition-transform group/pin"
+                                  title={`${ann.author}: ${ann.text}`}>
+                                  {idx + 1}
+                                  <div className="absolute left-8 top-0 bg-card border border-border rounded-lg px-3 py-2 min-w-[200px] shadow-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none z-50">
+                                    <div className="text-[10px] font-bold text-primary mb-0.5">{ann.author}</div>
+                                    <div className="text-xs text-foreground">{ann.text}</div>
+                                    <div className="text-[9px] text-muted-foreground mt-1">{new Date(ann.createdAt).toLocaleString()}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="p-3 bg-card/50 border-t border-border">
+                              <div className="text-[10px] text-muted-foreground mb-2 flex items-center gap-1">
+                                <Eye className="w-3 h-3" /> Click anywhere on the image to add annotation pins
+                              </div>
+                              {annotations.filter(ann => ann.attachmentId === a.id).length > 0 && (
+                                <div className="space-y-1">
+                                  {annotations.filter(ann => ann.attachmentId === a.id).map((ann, idx) => (
+                                    <div key={ann.id} className="flex items-center gap-2 text-xs">
+                                      <span className="w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
+                                      <span className="flex-1 text-muted-foreground">{ann.text}</span>
+                                      <button onClick={() => setAnnotations(prev => prev.filter(a => a.id !== ann.id))} className="text-muted-foreground hover:text-rose-400">
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2 border border-dashed border-border rounded-lg hover:border-primary/40">
                     <Upload className="w-3.5 h-3.5" />
                     <span>Upload file (max 10MB)</span>

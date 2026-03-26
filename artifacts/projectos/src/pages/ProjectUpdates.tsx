@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, Plus, Trash2, TrendingUp, AlertTriangle, XCircle, CheckCircle2 } from "lucide-react";
+import { BarChart3, Plus, Trash2, TrendingUp, AlertTriangle, XCircle, CheckCircle2, Smile } from "lucide-react";
 
 const API = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 async function apiFetch(path: string, opts?: RequestInit) {
@@ -16,11 +16,24 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
   completed: { label: "Completed", color: "text-blue-400", bg: "bg-blue-400/10", icon: TrendingUp },
 };
 
+const REACTION_EMOJIS = ["👍", "❤️", "🎉", "🚀", "👀", "💯", "🔥", "😊"];
+const REACTIONS_KEY = "project-update-reactions";
+
+function loadReactions(): Record<number, Record<string, string[]>> {
+  try { const s = localStorage.getItem(REACTIONS_KEY); return s ? JSON.parse(s) : {}; }
+  catch { return {}; }
+}
+function saveReactions(r: Record<number, Record<string, string[]>>) {
+  localStorage.setItem(REACTIONS_KEY, JSON.stringify(r));
+}
+
 export default function ProjectUpdates() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [filterProject, setFilterProject] = useState("");
   const [form, setForm] = useState({ projectId: "", authorId: "", status: "on_track", title: "", content: "", highlights: [""], blockers: [""], nextSteps: [""] });
+  const [reactions, setReactions] = useState<Record<number, Record<string, string[]>>>(loadReactions);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<number | null>(null);
 
   const { data: updates = [] } = useQuery({
     queryKey: ["project-updates", filterProject],
@@ -38,6 +51,26 @@ export default function ProjectUpdates() {
     mutationFn: (id: number) => apiFetch(`/project-updates/${id}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-updates"] }),
   });
+
+  const toggleReaction = (updateId: number, emoji: string) => {
+    setReactions(prev => {
+      const updated = { ...prev };
+      if (!updated[updateId]) updated[updateId] = {};
+      if (!updated[updateId][emoji]) updated[updateId][emoji] = [];
+      const idx = updated[updateId][emoji].indexOf("You");
+      if (idx >= 0) {
+        updated[updateId][emoji].splice(idx, 1);
+        if (updated[updateId][emoji].length === 0) delete updated[updateId][emoji];
+      } else {
+        updated[updateId][emoji] = [...updated[updateId][emoji], "You"];
+      }
+      saveReactions(updated);
+      return updated;
+    });
+    setShowEmojiPicker(null);
+  };
+
+  const getReactions = (updateId: number) => reactions[updateId] || {};
 
   const updateList = (field: string, idx: number, value: string) => {
     const list = [...(form as any)[field]];
@@ -142,6 +175,7 @@ export default function ProjectUpdates() {
             const sc = statusConfig[u.status] || statusConfig.on_track;
             const StatusIcon = sc.icon;
             const proj = projects.find((p: any) => p.id === u.projectId);
+            const rxns = getReactions(u.id);
             return (
               <div key={u.id} className="bg-card border border-border rounded-2xl p-6 space-y-3">
                 <div className="flex items-start justify-between">
@@ -181,6 +215,32 @@ export default function ProjectUpdates() {
                       <ul className="space-y-1">{(u.nextSteps as string[]).map((n, i) => <li key={i} className="text-xs text-muted-foreground flex items-start gap-1"><span className="text-blue-400 mt-0.5">&rarr;</span>{n}</li>)}</ul>
                     </div>
                   )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                  {Object.entries(rxns).map(([emoji, users]) => (
+                    <button key={emoji} onClick={() => toggleReaction(u.id, emoji)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all border ${(users as string[]).includes("You") ? "bg-primary/10 border-primary/30 text-primary" : "border-border hover:border-primary/20 text-muted-foreground"}`}>
+                      <span>{emoji}</span>
+                      <span className="font-medium">{(users as string[]).length}</span>
+                    </button>
+                  ))}
+                  <div className="relative">
+                    <button onClick={() => setShowEmojiPicker(showEmojiPicker === u.id ? null : u.id)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full text-xs border border-dashed border-border hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all">
+                      <Smile className="w-3.5 h-3.5" />
+                    </button>
+                    {showEmojiPicker === u.id && (
+                      <div className="absolute bottom-full left-0 mb-1 bg-card border border-border rounded-xl p-2 shadow-xl z-50 flex gap-1">
+                        {REACTION_EMOJIS.map(emoji => (
+                          <button key={emoji} onClick={() => toggleReaction(u.id, emoji)}
+                            className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-base transition-transform hover:scale-125">
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );

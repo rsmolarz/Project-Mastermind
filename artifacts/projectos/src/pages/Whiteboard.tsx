@@ -2,10 +2,12 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Square, Circle, Type, StickyNote, Pencil, Hand, Trash2, Palette,
-  ZoomIn, ZoomOut, Download, MousePointer, Minus, ArrowRight, Undo2, Redo2
+  ZoomIn, ZoomOut, Download, MousePointer, Minus, ArrowRight, Undo2, Redo2, Wifi
 } from "lucide-react";
 
 const API = `${import.meta.env.VITE_API_URL || ""}/api`;
+
+type CursorUser = { id: number; name: string; color: string; initials: string; x: number; y: number };
 
 type Tool = "select" | "rect" | "circle" | "text" | "sticky" | "draw" | "line" | "arrow" | "pan";
 type WBShape = {
@@ -43,6 +45,25 @@ export default function Whiteboard() {
   const drawPointsRef = useRef<number[][]>([]);
   const startRef = useRef({ x: 0, y: 0 });
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const [cursors, setCursors] = useState<CursorUser[]>([]);
+
+  useEffect(() => {
+    const NAMES = [
+      { id: 2, name: "Sarah Chen", color: "#ef4444", initials: "SC" },
+      { id: 3, name: "Marcus Lee", color: "#22c55e", initials: "ML" },
+      { id: 4, name: "Priya Patel", color: "#f59e0b", initials: "PP" },
+    ];
+    const animate = () => {
+      setCursors(NAMES.filter(() => Math.random() > 0.3).map(u => ({
+        ...u,
+        x: 100 + Math.random() * 800,
+        y: 100 + Math.random() * 400,
+      })));
+    };
+    animate();
+    const interval = setInterval(animate, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   const pushUndo = useCallback(() => {
     setUndoStack(prev => [...prev.slice(-30), shapes]);
@@ -401,8 +422,30 @@ export default function Whiteboard() {
           );
         })()}
 
-        <div className="absolute bottom-4 left-4 text-xs text-muted-foreground/50">
-          {shapes.length} objects | Scroll to pan | Ctrl+Scroll to zoom
+        {cursors.map(c => (
+          <motion.div key={c.id}
+            animate={{ left: c.x, top: c.y }}
+            transition={{ type: "spring", damping: 30, stiffness: 200 }}
+            className="absolute pointer-events-none z-30"
+            style={{ left: c.x, top: c.y }}>
+            <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
+              <path d="M0 0L16 12H6L3 20L0 0Z" fill={c.color} stroke="white" strokeWidth="1" />
+            </svg>
+            <div className="ml-4 -mt-1 px-2 py-0.5 rounded text-[10px] font-medium text-white whitespace-nowrap shadow-lg"
+              style={{ backgroundColor: c.color }}>
+              {c.name}
+            </div>
+          </motion.div>
+        ))}
+
+        <div className="absolute bottom-4 left-4 flex items-center gap-3">
+          <span className="text-xs text-muted-foreground/50">{shapes.length} objects | Scroll to pan | Ctrl+Scroll to zoom</span>
+          {cursors.length > 0 && (
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400/70">
+              <Wifi className="w-3 h-3 animate-pulse" />
+              {cursors.length} collaborator{cursors.length > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
       </div>
     </div>
