@@ -41,6 +41,8 @@ import MindMaps from "@/pages/MindMaps";
 import Notepad from "@/pages/Notepad";
 import Reminders from "@/pages/Reminders";
 import Cycles from "@/pages/Cycles";
+import Pulse from "@/pages/Pulse";
+import Everything from "@/pages/Everything";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -91,6 +93,8 @@ function Router() {
         <Route path="/notepad" component={Notepad} />
         <Route path="/reminders" component={Reminders} />
         <Route path="/cycles" component={Cycles} />
+        <Route path="/pulse" component={Pulse} />
+        <Route path="/everything" component={Everything} />
         <Route path="/shared/:token" component={SharedView} />
         <Route component={NotFound} />
       </Switch>

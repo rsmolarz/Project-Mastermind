@@ -73,6 +73,12 @@ Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Moti
 -   **Sprint Planning Board (Jira):** Collapsible backlog-to-sprint planning view on Sprints page with project-grouped backlog and status-grouped sprint tasks.
 -   **SLA/Due Date Indicators (Jira):** Visual urgency badges on task list items — Overdue (red), Due today (amber), Due this week (blue).
 -   **Cycles (Linear):** Time-boxed work cycles page with auto-scheduling, cooldown periods, cycle history, and progress tracking. localStorage persisted.
+-   **Task Checklists (ClickUp):** Per-task checkbox checklists with progress bar, separate from subtasks. localStorage persisted.
+-   **Task Tray (ClickUp):** Floating minimized task bar at bottom of screen for multitasking. Pin tasks to tray from modal, click to reopen.
+-   **Pulse / Who's Online (ClickUp):** Real-time team activity page showing member online status, current activity, and what they're working on.
+-   **Everything View (ClickUp):** Cross-project aggregated task view with group-by (project/status/priority/assignee), filters, and search.
+-   **Time Estimate vs Tracked (ClickUp):** Visual comparison widget in task modal showing estimated hours vs actual tracked time with progress bar and budget indicator.
+-   **Relationship Types (ClickUp):** Extended task linking with 6 relationship types: related, duplicates, blocks, is-blocked-by, parent-of, child-of. Color-coded badges.
 
 **Backend:**
 An Express 5 API server handles REST endpoints with Zod for validation and Drizzle ORM for PostgreSQL. API codegen uses Orval for React Query hooks and Zod schemas.

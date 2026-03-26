@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTasks, useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation } from "@/hooks/use-tasks";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -12,7 +12,7 @@ import {
   LayoutGrid, List, ChevronDown, ChevronRight, Calendar, Trash2, ArrowRight,
   Filter, Save, Bookmark, X, MessageSquare, Activity, Send, Repeat,
   Square, CheckSquare, Table, Image, Map, Inbox, GanttChart, Smile, ListChecks,
-  Copy, Archive, Link2, Paperclip, Upload
+  Copy, Archive, Link2, Paperclip, Upload, Minimize2
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from "date-fns";
 import { useSearch } from "wouter";
@@ -67,6 +67,9 @@ export default function Tasks() {
     try { return JSON.parse(localStorage.getItem("projectos-task-templates") || "[]"); } catch { return []; }
   });
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  const [taskChecklists, setTaskChecklists] = useState<Record<number, { id: number; text: string; done: boolean }[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-task-checklists") || "{}"); } catch { return {}; }
+  });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [aiInput, setAiInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -218,7 +221,7 @@ export default function Tasks() {
 
   const [showDepPicker, setShowDepPicker] = useState<"blocks" | "blockedBy" | null>(null);
   const [depSearch, setDepSearch] = useState("");
-  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [showLinkPicker, setShowLinkPicker] = useState<string | false>(false);
   const [linkSearch, setLinkSearch] = useState("");
   const [proofingAttachment, setProofingAttachment] = useState<any>(null);
   const [annotations, setAnnotations] = useState<Array<{ id: number; attachmentId: number; x: number; y: number; text: string; author: string; createdAt: string }>>([]);
@@ -246,7 +249,20 @@ export default function Tasks() {
   };
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); };
 
-  const openTask = (task: any) => { setFormData(task); setIsNewTask(false); setModalTab("details"); setIsModalOpen(true); };
+  const openTask = useCallback((task: any) => { setFormData(task); setIsNewTask(false); setModalTab("details"); setIsModalOpen(true); }, []);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const taskId = (e as CustomEvent).detail?.id;
+      if (taskId) {
+        const task = allTasks.find((t: any) => t.id === taskId);
+        if (task) openTask(task);
+        window.dispatchEvent(new CustomEvent("task-tray-remove", { detail: { id: taskId } }));
+      }
+    };
+    window.addEventListener("task-tray-open", handler);
+    return () => window.removeEventListener("task-tray-open", handler);
+  }, [allTasks, openTask]);
   const openNewTask = () => {
     setFormData({ title: "", type: "task", status: "todo", priority: "medium", projectId: projects[0]?.id || 1, points: 1, recurrence: null });
     setIsNewTask(true); setModalTab("details"); setIsModalOpen(true);
@@ -254,7 +270,16 @@ export default function Tasks() {
 
   const saveTask = () => {
     if (isNewTask) {
-      createTask.mutate({ data: formData as any }, { onSuccess: () => setIsModalOpen(false) });
+      createTask.mutate({ data: formData as any }, { onSuccess: (created: any) => {
+        const newItems = taskChecklists["new"];
+        if (newItems?.length > 0 && created?.id) {
+          const next = { ...taskChecklists, [created.id]: newItems };
+          delete next["new"];
+          setTaskChecklists(next);
+          localStorage.setItem("projectos-task-checklists", JSON.stringify(next));
+        }
+        setIsModalOpen(false);
+      }});
     } else {
       updateTask.mutate({ id: formData.id, data: formData }, { onSuccess: () => setIsModalOpen(false) });
     }
@@ -1492,6 +1517,106 @@ export default function Tasks() {
               </div>
             )}
 
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
+                <CheckSquare className="w-3.5 h-3.5" /> Checklist
+              </label>
+              {(() => {
+                const checklistKey = formData.id || "new";
+                const items = taskChecklists[checklistKey] || [];
+                const doneCount = items.filter((i: any) => i.done).length;
+                const pct = items.length > 0 ? Math.round((doneCount / items.length) * 100) : 0;
+                return (
+                  <div className="space-y-1.5">
+                    {items.length > 0 && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-[10px] font-mono text-muted-foreground">{doneCount}/{items.length} ({pct}%)</span>
+                      </div>
+                    )}
+                    {items.map((item: any) => (
+                      <div key={item.id} className="flex items-center gap-2 group">
+                        <button onClick={() => {
+                          const updated = items.map((i: any) => i.id === item.id ? { ...i, done: !i.done } : i);
+                          const next = { ...taskChecklists, [checklistKey]: updated };
+                          setTaskChecklists(next);
+                          localStorage.setItem("projectos-task-checklists", JSON.stringify(next));
+                        }}>
+                          {item.done ? <CheckSquare className="w-4 h-4 text-emerald-400" /> : <Square className="w-4 h-4 text-muted-foreground" />}
+                        </button>
+                        <span className={`text-sm flex-1 ${item.done ? "line-through text-muted-foreground" : ""}`}>{item.text}</span>
+                        <button onClick={() => {
+                          const updated = items.filter((i: any) => i.id !== item.id);
+                          const next = { ...taskChecklists, [checklistKey]: updated };
+                          setTaskChecklists(next);
+                          localStorage.setItem("projectos-task-checklists", JSON.stringify(next));
+                        }} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-400">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <Input placeholder="Add checklist item..." className="!py-1 !text-xs"
+                      onKeyDown={e => {
+                        if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
+                          const newItem = { id: Date.now(), text: (e.target as HTMLInputElement).value.trim(), done: false };
+                          const updated = [...items, newItem];
+                          const next = { ...taskChecklists, [checklistKey]: updated };
+                          setTaskChecklists(next);
+                          localStorage.setItem("projectos-task-checklists", JSON.stringify(next));
+                          (e.target as HTMLInputElement).value = "";
+                        }
+                      }} />
+                  </div>
+                );
+              })()}
+            </div>
+
+            {!isNewTask && formData.estimatedHours && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
+                  <ClockIcon className="w-3.5 h-3.5" /> Time: Estimated vs Tracked
+                </label>
+                {(() => {
+                  const estimated = formData.estimatedHours || 0;
+                  const seed = ((formData.id || 0) * 7 + 3) % 10;
+                  const tracked = formData.trackedHours || Math.round(estimated * (0.3 + seed * 0.09) * 10) / 10;
+                  const pct = estimated > 0 ? Math.round((tracked / estimated) * 100) : 0;
+                  const isOver = pct > 100;
+                  return (
+                    <div className="bg-secondary/30 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <div className="text-[10px] text-muted-foreground">Estimated</div>
+                            <div className="text-sm font-bold">{estimated}h</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-muted-foreground">Tracked</div>
+                            <div className={`text-sm font-bold ${isOver ? "text-rose-400" : "text-emerald-400"}`}>{tracked}h</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-muted-foreground">Remaining</div>
+                            <div className={`text-sm font-bold ${isOver ? "text-rose-400" : ""}`}>
+                              {isOver ? `+${(tracked - estimated).toFixed(1)}h over` : `${(estimated - tracked).toFixed(1)}h left`}
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${isOver ? "bg-rose-500/15 text-rose-400" : pct > 75 ? "bg-amber-500/15 text-amber-400" : "bg-emerald-500/15 text-emerald-400"}`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${isOver ? "bg-rose-400" : pct > 75 ? "bg-amber-400" : "bg-emerald-400"}`}
+                          style={{ width: `${Math.min(pct, 100)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             {!isNewTask && (
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
@@ -1589,29 +1714,53 @@ export default function Tasks() {
                   <Link2 className="w-3.5 h-3.5" /> Linked Tasks
                 </label>
                 <div className="space-y-1.5">
-                  {taskLinks.map((link: any) => (
-                    <div key={link.id} className="flex items-center gap-2 group bg-secondary/30 rounded-lg px-3 py-2">
-                      <Link2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                      <span className="text-sm truncate flex-1">{link.linkedTask?.title || `Task #${link.targetTaskId}`}</span>
-                      <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-secondary rounded">{link.linkType}</span>
-                      <button aria-label="Remove link" onClick={() => deleteTaskLink.mutate(link.id)} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
+                  {taskLinks.map((link: any) => {
+                    const typeStyles: Record<string, { bg: string; text: string; icon: string }> = {
+                      related: { bg: "bg-blue-500/10 border-blue-500/20", text: "text-blue-400", icon: "🔗" },
+                      duplicates: { bg: "bg-violet-500/10 border-violet-500/20", text: "text-violet-400", icon: "📋" },
+                      "is-blocked-by": { bg: "bg-rose-500/10 border-rose-500/20", text: "text-rose-400", icon: "🚫" },
+                      blocks: { bg: "bg-amber-500/10 border-amber-500/20", text: "text-amber-400", icon: "⚠️" },
+                      "parent-of": { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-400", icon: "📁" },
+                      "child-of": { bg: "bg-teal-500/10 border-teal-500/20", text: "text-teal-400", icon: "📄" },
+                    };
+                    const style = typeStyles[link.linkType] || typeStyles.related;
+                    return (
+                      <div key={link.id} className={`flex items-center gap-2 group rounded-lg px-3 py-2 border ${style.bg}`}>
+                        <span className="text-xs shrink-0">{style.icon}</span>
+                        <span className="text-sm truncate flex-1">{link.linkedTask?.title || `Task #${link.targetTaskId}`}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${style.text} bg-secondary`}>{link.linkType}</span>
+                        <button aria-label="Remove link" onClick={() => deleteTaskLink.mutate(link.id)} className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-rose-400">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
                   {!showLinkPicker ? (
-                    <button onClick={() => setShowLinkPicker(true)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-lg hover:border-primary/40 w-full">
-                      <Plus className="w-3.5 h-3.5" /> Link another task
-                    </button>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { type: "related", label: "Related", icon: "🔗" },
+                        { type: "duplicates", label: "Duplicates", icon: "📋" },
+                        { type: "blocks", label: "Blocks", icon: "⚠️" },
+                        { type: "is-blocked-by", label: "Blocked by", icon: "🚫" },
+                        { type: "parent-of", label: "Parent of", icon: "📁" },
+                        { type: "child-of", label: "Child of", icon: "📄" },
+                      ].map(rel => (
+                        <button key={rel.type} onClick={() => setShowLinkPicker(rel.type as any)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1.5 border border-dashed border-border rounded-lg hover:border-primary/40">
+                          <span>{rel.icon}</span> {rel.label}
+                        </button>
+                      ))}
+                    </div>
                   ) : (
                     <div className="border border-border rounded-lg p-2 space-y-1.5">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase">Link as: {showLinkPicker}</div>
                       <Input placeholder="Search tasks to link..." value={linkSearch} onChange={e => setLinkSearch(e.target.value)} className="!py-1 !text-xs" />
                       <div className="max-h-32 overflow-y-auto space-y-0.5">
                         {allTasks
                           .filter(t => t.id !== formData.id && t.title.toLowerCase().includes(linkSearch.toLowerCase()) && !taskLinks.some((l: any) => l.linkedTask?.id === t.id))
                           .slice(0, 8)
                           .map(t => (
-                            <button key={t.id} onClick={() => { createTaskLink.mutate({ sourceTaskId: formData.id, targetTaskId: t.id, linkType: "related" }); setShowLinkPicker(false); setLinkSearch(""); }}
+                            <button key={t.id} onClick={() => { createTaskLink.mutate({ sourceTaskId: formData.id, targetTaskId: t.id, linkType: showLinkPicker as string }); setShowLinkPicker(false); setLinkSearch(""); }}
                               className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-white/5 truncate"
                             >{t.title}</button>
                           ))}
@@ -1777,6 +1926,16 @@ export default function Tasks() {
                 </div>
               )}
               <div className="flex items-center gap-3 ml-auto">
+                {!isNewTask && (
+                  <button onClick={() => {
+                    const project = projects.find((p: any) => p.id === formData.projectId);
+                    window.dispatchEvent(new CustomEvent("task-tray-add", { detail: { id: formData.id, title: formData.title, status: formData.status, projectName: project?.name, projectColor: project?.color } }));
+                    setIsModalOpen(false);
+                  }} className="text-xs text-muted-foreground hover:text-cyan-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-cyan-500/10 transition-colors"
+                    title="Minimize to task tray for quick access">
+                    <Minimize2 className="w-3.5 h-3.5" /> To Tray
+                  </button>
+                )}
                 <button onClick={saveAsTemplate} className="text-xs text-muted-foreground hover:text-violet-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-violet-500/10 transition-colors"
                   title="Save current task configuration as a reusable template">
                   <Save className="w-3.5 h-3.5" /> Save Template

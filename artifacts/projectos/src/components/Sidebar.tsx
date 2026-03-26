@@ -4,7 +4,7 @@ import {
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
   Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen, Calendar,
   Users, Zap, FileInput, Flag, ShieldCheck, BarChart3, Sun, Activity, Tag, LayoutTemplate, Star, Trash2, Settings, UserPlus,
-  Pencil, Puzzle, Brain, StickyNote, Bell, RefreshCw, X
+  Pencil, Puzzle, Brain, StickyNote, Bell, RefreshCw, X, Wifi, Layers
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -47,7 +47,8 @@ export function Sidebar({
     { label: "Standups", path: "/standups", icon: "🧍" }, { label: "Announcements", path: "/announcements", icon: "📣" },
     { label: "Automations", path: "/automations", icon: "⚡" }, { label: "Approvals", path: "/approvals", icon: "✔️" },
     { label: "Tags", path: "/tags", icon: "🏷️" }, { label: "Templates", path: "/templates", icon: "📑" },
-    { label: "Integrations", path: "/integrations", icon: "🔌" }, { label: "Super Admin", path: "/admin", icon: "🛡️" },
+    { label: "Integrations", path: "/integrations", icon: "🔌" }, { label: "Pulse", path: "/pulse", icon: "📡" },
+    { label: "Everything", path: "/everything", icon: "🔮" }, { label: "Super Admin", path: "/admin", icon: "🛡️" },
     { label: "Settings", path: "/settings", icon: "⚙️" }, { label: "Guest Access", path: "/guests", icon: "👤" },
     { label: "Trash & Archive", path: "/trash", icon: "🗑️" },
   ];
@@ -144,6 +145,7 @@ export function Sidebar({
           <div className="space-y-0.5">
             <NavItem item={{ icon: Home, label: "Dashboard", path: "/" }} />
             <NavItem item={{ icon: Sun, label: "My Day", path: "/my-day" }} />
+            <NavItem item={{ icon: Layers, label: "Everything", path: "/everything" }} />
             <NavItem item={{ icon: CheckSquare, label: "My Tasks", path: "/tasks", badge: tasks.filter(t => (t.assigneeIds as number[])?.includes(1) && t.status !== "done").length }} />
             <NavItem item={{ icon: AlertTriangle, label: "Overdue", path: "/tasks", query: "filter=overdue", badge: overdue.length, alert: true }} />
           </div>
@@ -187,6 +189,7 @@ export function Sidebar({
             <NavItem item={{ icon: Brain, label: "Mind Maps", path: "/mind-maps" }} />
             <NavItem item={{ icon: StickyNote, label: "Notepad", path: "/notepad" }} />
             <NavItem item={{ icon: Bell, label: "Reminders", path: "/reminders" }} />
+            <NavItem item={{ icon: Wifi, label: "Pulse", path: "/pulse" }} />
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { CommandPalette } from "./CommandPalette";
 import { AiDrawer } from "./AiDrawer";
 import { NotificationCenter } from "./NotificationCenter";
+import { TaskTray } from "./TaskTray";
 import { Menu } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
+      <TaskTray />
       <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
       <AiDrawer isOpen={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
