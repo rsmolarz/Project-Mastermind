@@ -4,7 +4,8 @@ import {
   Home, CheckSquare, Clock, Target, FileText, PieChart, 
   Megaphone, Search, Sparkles, Hexagon, AlertTriangle, ClipboardList, Repeat, Shield, MessageSquare, Mail, BookOpen, Calendar,
   Users, Zap, FileInput, Flag, ShieldCheck, BarChart3, Sun, Activity, Tag, LayoutTemplate, Star, Trash2, Settings, UserPlus,
-  Pencil, Puzzle, Brain, StickyNote, Bell, RefreshCw, X, Wifi, Layers, Inbox, FolderOpen, ChevronDown as ChevronDownIcon, ChevronRight as ChevronRightIcon
+  Pencil, Puzzle, Brain, StickyNote, Bell, RefreshCw, X, Wifi, Layers, Inbox, FolderOpen, ChevronDown as ChevronDownIcon, ChevronRight as ChevronRightIcon,
+  Mountain, MessageCircle, MessageSquareText, DoorOpen, ShieldAlert, DollarSign, Table2, Copy, HeartPulse
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -258,6 +259,10 @@ export function Sidebar({
             <NavItem item={{ icon: StickyNote, label: "Notepad", path: "/notepad" }} />
             <NavItem item={{ icon: Bell, label: "Reminders", path: "/reminders" }} />
             <NavItem item={{ icon: Wifi, label: "Pulse", path: "/pulse" }} />
+            <NavItem item={{ icon: Mountain, label: "Hill Chart", path: "/hill-chart" }} />
+            <NavItem item={{ icon: MessageCircle, label: "Check-ins", path: "/check-ins" }} />
+            <NavItem item={{ icon: MessageSquareText, label: "Message Board", path: "/message-boards" }} />
+            <NavItem item={{ icon: DoorOpen, label: "Doors", path: "/doors" }} />
           </div>
         </div>
 
@@ -272,6 +277,10 @@ export function Sidebar({
             <NavItem item={{ icon: ClipboardList, label: "Project Updates", path: "/project-updates" }} />
             <NavItem item={{ icon: ClipboardList, label: "Standups", path: "/standups" }} />
             <NavItem item={{ icon: Megaphone, label: "Announcements", path: "/announcements" }} />
+            <NavItem item={{ icon: ShieldAlert, label: "Risk Register", path: "/risk-register" }} />
+            <NavItem item={{ icon: DollarSign, label: "Budgets", path: "/budgets" }} />
+            <NavItem item={{ icon: Table2, label: "Report Builder", path: "/report-builder" }} />
+            <NavItem item={{ icon: HeartPulse, label: "Project Health", path: "/project-health" }} />
           </div>
         </div>
 
@@ -282,6 +291,7 @@ export function Sidebar({
             <NavItem item={{ icon: ShieldCheck, label: "Approvals", path: "/approvals" }} />
             <NavItem item={{ icon: Tag, label: "Tags", path: "/tags" }} />
             <NavItem item={{ icon: LayoutTemplate, label: "Templates", path: "/templates" }} />
+            <NavItem item={{ icon: Copy, label: "Blueprints", path: "/blueprints" }} />
             <NavItem item={{ icon: Puzzle, label: "Integrations", path: "/integrations" }} />
           </div>
         </div>

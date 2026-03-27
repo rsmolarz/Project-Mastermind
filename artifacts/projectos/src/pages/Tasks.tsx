@@ -79,6 +79,18 @@ export default function Tasks() {
   const [commentAssignments, setCommentAssignments] = useState<Record<number, number>>(() => {
     try { return JSON.parse(localStorage.getItem("projectos-comment-assignments") || "{}"); } catch { return {}; }
   });
+  const [conditionalFormatting, setConditionalFormatting] = useState<{ field: string; condition: string; value: string; bgColor: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-cond-format") || "[]"); } catch { return []; }
+  });
+  const [showCondFormat, setShowCondFormat] = useState(false);
+  const [cellHistory, setCellHistory] = useState<Record<string, { value: string; at: string }[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-cell-history") || "{}"); } catch { return {}; }
+  });
+  const [showCellHistory, setShowCellHistory] = useState<string | null>(null);
+  const [sheetSummary, setSheetSummary] = useState(false);
+  const [crossTags, setCrossTags] = useState<Record<number, number[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-cross-tags") || "{}"); } catch { return {}; }
+  });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [aiInput, setAiInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -290,6 +302,21 @@ export default function Tasks() {
         setIsModalOpen(false);
       }});
     } else {
+      const original = tasks.find(t => t.id === formData.id);
+      if (original) {
+        const h = { ...cellHistory };
+        const now = new Date().toISOString();
+        ["status", "priority", "title", "type"].forEach(field => {
+          if ((original as any)[field] !== (formData as any)[field]) {
+            const key = `${formData.id}-${field}`;
+            if (!h[key]) h[key] = [];
+            h[key].push({ value: (formData as any)[field], at: now });
+            if (h[key].length > 20) h[key] = h[key].slice(-20);
+          }
+        });
+        setCellHistory(h);
+        localStorage.setItem("projectos-cell-history", JSON.stringify(h));
+      }
       updateTask.mutate({ id: formData.id, data: formData }, { onSuccess: () => setIsModalOpen(false) });
     }
   };
@@ -412,8 +439,62 @@ export default function Tasks() {
   );
 
   // ─── Table View ───
+  const getCondFormatBg = (task: any) => {
+    for (const rule of conditionalFormatting) {
+      let fieldVal = "";
+      if (rule.field === "status") fieldVal = task.status;
+      else if (rule.field === "priority") fieldVal = task.priority;
+      else if (rule.field === "type") fieldVal = task.type;
+      else if (rule.field === "points") fieldVal = String(task.points || 0);
+      if (rule.condition === "equals" && fieldVal === rule.value) return rule.bgColor;
+      if (rule.condition === "contains" && fieldVal.includes(rule.value)) return rule.bgColor;
+      if (rule.condition === "greater" && Number(fieldVal) > Number(rule.value)) return rule.bgColor;
+    }
+    return "";
+  };
+
   const renderTable = () => (
     <div className="pb-8 px-2 overflow-x-auto">
+      {showCondFormat && (
+        <div className="mb-4 p-4 bg-card border border-border rounded-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Conditional Formatting Rules</h4>
+            <div className="flex gap-2">
+              <button onClick={() => {
+                const rules = [...conditionalFormatting, { field: "priority", condition: "equals", value: "critical", bgColor: "rgba(239,68,68,0.15)" }];
+                setConditionalFormatting(rules);
+                localStorage.setItem("projectos-cond-format", JSON.stringify(rules));
+              }} className="text-xs text-primary hover:underline">+ Add Rule</button>
+              <button onClick={() => setShowCondFormat(false)} className="text-xs text-muted-foreground">Close</button>
+            </div>
+          </div>
+          {conditionalFormatting.map((rule, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">If</span>
+              <select value={rule.field} onChange={e => { const r = [...conditionalFormatting]; r[i] = { ...r[i], field: e.target.value }; setConditionalFormatting(r); localStorage.setItem("projectos-cond-format", JSON.stringify(r)); }}
+                className="bg-background border border-border rounded-lg px-2 py-1 text-xs">
+                <option value="status">Status</option><option value="priority">Priority</option><option value="type">Type</option><option value="points">Points</option>
+              </select>
+              <select value={rule.condition} onChange={e => { const r = [...conditionalFormatting]; r[i] = { ...r[i], condition: e.target.value }; setConditionalFormatting(r); localStorage.setItem("projectos-cond-format", JSON.stringify(r)); }}
+                className="bg-background border border-border rounded-lg px-2 py-1 text-xs">
+                <option value="equals">equals</option><option value="contains">contains</option><option value="greater">greater than</option>
+              </select>
+              <input value={rule.value} onChange={e => { const r = [...conditionalFormatting]; r[i] = { ...r[i], value: e.target.value }; setConditionalFormatting(r); localStorage.setItem("projectos-cond-format", JSON.stringify(r)); }}
+                className="w-24 bg-background border border-border rounded-lg px-2 py-1 text-xs" placeholder="value" />
+              <span className="text-muted-foreground">→</span>
+              <div className="flex gap-1">
+                {["rgba(239,68,68,0.15)", "rgba(249,115,22,0.15)", "rgba(234,179,8,0.15)", "rgba(34,197,94,0.15)", "rgba(59,130,246,0.15)", "rgba(139,92,246,0.15)"].map(c => (
+                  <button key={c} onClick={() => { const r = [...conditionalFormatting]; r[i] = { ...r[i], bgColor: c }; setConditionalFormatting(r); localStorage.setItem("projectos-cond-format", JSON.stringify(r)); }}
+                    className={`w-5 h-5 rounded border-2 ${rule.bgColor === c ? "border-white" : "border-transparent"}`} style={{ backgroundColor: c }} />
+                ))}
+              </div>
+              <button onClick={() => { const r = conditionalFormatting.filter((_, j) => j !== i); setConditionalFormatting(r); localStorage.setItem("projectos-cond-format", JSON.stringify(r)); }}
+                className="text-muted-foreground hover:text-rose-400 p-0.5">✕</button>
+            </div>
+          ))}
+          {conditionalFormatting.length === 0 && <p className="text-xs text-muted-foreground">No rules yet. Add a rule to highlight rows based on field values.</p>}
+        </div>
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left">
@@ -437,19 +518,20 @@ export default function Tasks() {
             const status = STATUSES.find(s => s.id === task.status);
             const isOverdue = task.due && new Date(task.due) < new Date() && task.status !== "done";
             const prefix = project?.name === "API Gateway" ? "API" : project?.name === "Mobile App" ? "MOB" : "WEB";
+            const condBg = getCondFormatBg(task);
             return (
-              <tr key={task.id} onClick={() => openTask(task)} className={`border-b border-border/30 hover:bg-white/5 cursor-pointer transition-colors ${selectedIds.has(task.id) ? "bg-primary/5" : ""}`}>
+              <tr key={task.id} onClick={() => openTask(task)} style={condBg ? { backgroundColor: condBg } : {}} className={`border-b border-border/30 hover:bg-white/5 cursor-pointer transition-colors ${selectedIds.has(task.id) ? "bg-primary/5" : ""}`}>
                 <td className="px-3 py-2.5" onClick={e => { e.stopPropagation(); toggleSelect(task.id); }}>
                   {selectedIds.has(task.id) ? <CheckSquare className="w-3.5 h-3.5 text-primary" /> : <Square className="w-3.5 h-3.5 text-muted-foreground" />}
                 </td>
                 <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">{prefix}-{String(task.id).padStart(3, "0")}</td>
                 <td className="px-3 py-2.5 font-medium max-w-[300px] truncate">{task.title}</td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setShowCellHistory(`${task.id}-status`); }}>
                   <span className={`inline-flex items-center gap-1 text-xs font-medium ${status?.color || ""}`}>
                     <div className={`w-2 h-2 rounded-full ${status?.dot || ""}`} /> {status?.label}
                   </span>
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setShowCellHistory(`${task.id}-priority`); }}>
                   <span className="text-xs">{PRIORITY_MAP[task.priority]?.icon} {task.priority}</span>
                 </td>
                 <td className="px-3 py-2.5 text-xs">{project && <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: project.color }} />{project.name}</span>}</td>
@@ -465,6 +547,67 @@ export default function Tasks() {
           })}
         </tbody>
       </table>
+
+      {sheetSummary && (
+        <div className="mt-4 p-4 bg-card border border-border rounded-xl space-y-2">
+          <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Sheet Summary</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-background rounded-lg p-3 border border-border">
+              <div className="text-[10px] text-muted-foreground uppercase">Total Tasks</div>
+              <div className="text-xl font-display font-bold">{tasks.length}</div>
+            </div>
+            <div className="bg-background rounded-lg p-3 border border-border">
+              <div className="text-[10px] text-muted-foreground uppercase">Total Points</div>
+              <div className="text-xl font-display font-bold">{tasks.reduce((s, t) => s + (t.points || 0), 0)}</div>
+            </div>
+            <div className="bg-background rounded-lg p-3 border border-border">
+              <div className="text-[10px] text-muted-foreground uppercase">Completion</div>
+              <div className="text-xl font-display font-bold">{tasks.length > 0 ? Math.round((tasks.filter(t => t.status === "done").length / tasks.length) * 100) : 0}%</div>
+            </div>
+            <div className="bg-background rounded-lg p-3 border border-border">
+              <div className="text-[10px] text-muted-foreground uppercase">Overdue</div>
+              <div className="text-xl font-display font-bold text-rose-400">{tasks.filter(t => t.due && new Date(t.due) < new Date() && t.status !== "done").length}</div>
+            </div>
+            <div className="bg-background rounded-lg p-3 border border-border">
+              <div className="text-[10px] text-muted-foreground uppercase">Avg Points</div>
+              <div className="text-xl font-display font-bold">{tasks.length > 0 ? (tasks.reduce((s, t) => s + (t.points || 0), 0) / tasks.length).toFixed(1) : 0}</div>
+            </div>
+            <div className="bg-background rounded-lg p-3 border border-border">
+              <div className="text-[10px] text-muted-foreground uppercase">Blocked</div>
+              <div className="text-xl font-display font-bold text-amber-400">{tasks.filter(t => t.status === "blocked").length}</div>
+            </div>
+            <div className="bg-background rounded-lg p-3 border border-border">
+              <div className="text-[10px] text-muted-foreground uppercase">In Progress</div>
+              <div className="text-xl font-display font-bold text-sky-400">{tasks.filter(t => t.status === "inprogress").length}</div>
+            </div>
+            <div className="bg-background rounded-lg p-3 border border-border">
+              <div className="text-[10px] text-muted-foreground uppercase">Critical</div>
+              <div className="text-xl font-display font-bold text-rose-400">{tasks.filter(t => t.priority === "critical" && t.status !== "done").length}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCellHistory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowCellHistory(null)}>
+          <div className="bg-card border border-border rounded-xl p-4 w-80 max-h-80 overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider mb-3">Cell Change History</h4>
+            {(cellHistory[showCellHistory] || []).length === 0 ? (
+              <p className="text-xs text-muted-foreground">No changes recorded for this cell yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {(cellHistory[showCellHistory] || []).slice().reverse().map((entry, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs border-b border-border/30 pb-1.5">
+                    <span className="font-medium">{entry.value}</span>
+                    <span className="text-muted-foreground text-[10px]">{new Date(entry.at).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowCellHistory(null)} className="mt-3 text-xs text-muted-foreground hover:text-foreground">Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1332,6 +1475,16 @@ export default function Tasks() {
             {selectedIds.size === tasks.length && tasks.length > 0 ? <CheckSquare className="w-3.5 h-3.5 text-primary" /> : <Square className="w-3.5 h-3.5" />}
             {selectedIds.size > 0 ? `${selectedIds.size} selected` : "Select all"}
           </button>
+          {viewMode === "table" && (
+            <div className="ml-auto flex items-center gap-2">
+              <button onClick={() => setSheetSummary(!sheetSummary)} className={`text-xs px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors ${sheetSummary ? "bg-violet-500/15 text-violet-400" : "text-muted-foreground hover:text-foreground"}`}>
+                Σ Summary
+              </button>
+              <button onClick={() => setShowCondFormat(!showCondFormat)} className={`text-xs px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors ${showCondFormat || conditionalFormatting.length > 0 ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                🎨 Formatting {conditionalFormatting.length > 0 && `(${conditionalFormatting.length})`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1513,6 +1666,31 @@ export default function Tasks() {
                 })}
               </div>
             </div>
+            {!isNewTask && formData.id && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Cross-Project Tags</label>
+                <div className="flex flex-wrap gap-2">
+                  {projects.filter(p => p.id !== formData.projectId).map(p => {
+                    const tagged = (crossTags[formData.id] || []).includes(p.id);
+                    return (
+                      <button key={p.id} onClick={() => {
+                        const current = crossTags[formData.id] || [];
+                        const updated = tagged ? current.filter(id => id !== p.id) : [...current, p.id];
+                        const next = { ...crossTags, [formData.id]: updated };
+                        setCrossTags(next);
+                        localStorage.setItem("projectos-cross-tags", JSON.stringify(next));
+                      }} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${tagged ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/30"}`}>
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                        {p.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {(crossTags[formData.id] || []).length > 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-1">This task appears in {(crossTags[formData.id] || []).length} additional project(s)</p>
+                )}
+              </div>
+            )}
             <div>
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block flex items-center gap-2">
                 <ListChecks className="w-3.5 h-3.5" /> Subtasks

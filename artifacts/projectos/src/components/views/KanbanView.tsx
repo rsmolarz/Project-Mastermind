@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Card, Badge, Avatar } from "@/components/ui/shared";
-import { Plus, MoreHorizontal, Repeat, Clock, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, MoreHorizontal, Repeat, Clock, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ThumbsUp, Palette } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 
 const STATUSES = [
@@ -19,6 +19,16 @@ const PRIORITY_MAP: Record<string, { color: string; icon: string; badge: string;
   low: { color: "gray", icon: "⚪", badge: "bg-gray-500/15 text-gray-400 border-gray-500/20", border: "border-l-slate-400" },
 };
 
+const COVER_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280"];
+
+const BOARD_BACKGROUNDS = [
+  { id: "default", label: "Default", style: {} },
+  { id: "gradient-blue", label: "Ocean", style: { background: "linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(6,182,212,0.08) 100%)" } },
+  { id: "gradient-purple", label: "Cosmos", style: { background: "linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(236,72,153,0.08) 100%)" } },
+  { id: "gradient-green", label: "Forest", style: { background: "linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(234,179,8,0.08) 100%)" } },
+  { id: "gradient-dark", label: "Midnight", style: { background: "linear-gradient(135deg, rgba(30,30,60,0.3) 0%, rgba(10,10,30,0.3) 100%)" } },
+];
+
 type Props = {
   tasks: any[];
   projects: any[];
@@ -34,6 +44,30 @@ type Props = {
 export default function KanbanView({ tasks, projects, members, onTaskClick, onNewTask, onDragStart, onDrop, onDragOver, wipLimits = {} }: Props) {
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
   const [swimlane, setSwimlane] = useState<"none" | "project" | "priority">("none");
+  const [cardCovers, setCardCovers] = useState<Record<number, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-card-covers") || "{}"); } catch { return {}; }
+  });
+  const [votes, setVotes] = useState<Record<number, number>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-card-votes") || "{}"); } catch { return {}; }
+  });
+  const [boardBg, setBoardBg] = useState<string>(() => localStorage.getItem("projectos-board-bg") || "default");
+  const [showBgPicker, setShowBgPicker] = useState(false);
+
+  const toggleVote = (e: React.MouseEvent, taskId: number) => {
+    e.stopPropagation();
+    const next = { ...votes, [taskId]: (votes[taskId] || 0) + 1 };
+    setVotes(next);
+    localStorage.setItem("projectos-card-votes", JSON.stringify(next));
+  };
+
+  const setCover = (e: React.MouseEvent, taskId: number, color: string) => {
+    e.stopPropagation();
+    const next = { ...cardCovers, [taskId]: cardCovers[taskId] === color ? "" : color };
+    setCardCovers(next);
+    localStorage.setItem("projectos-card-covers", JSON.stringify(next));
+  };
+
+  const bgStyle = BOARD_BACKGROUNDS.find(b => b.id === boardBg)?.style || {};
 
   const getProjectGroups = (statusTasks: any[]) => {
     if (swimlane === "none") return [{ label: null, tasks: statusTasks, color: null }];
@@ -61,7 +95,7 @@ export default function KanbanView({ tasks, projects, members, onTaskClick, onNe
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full rounded-xl" style={bgStyle}>
       <div className="flex items-center gap-3 mb-3 px-2 shrink-0">
         <span className="text-xs text-muted-foreground font-medium">Swimlanes:</span>
         <div className="flex bg-secondary/50 border border-border rounded-lg p-0.5">
@@ -71,6 +105,21 @@ export default function KanbanView({ tasks, projects, members, onTaskClick, onNe
               {s === "none" ? "Off" : s}
             </button>
           ))}
+        </div>
+        <div className="ml-auto relative">
+          <button onClick={() => setShowBgPicker(!showBgPicker)} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-muted-foreground hover:text-foreground bg-secondary/50 border border-border">
+            <Palette className="w-3 h-3" /> Background
+          </button>
+          {showBgPicker && (
+            <div className="absolute right-0 top-8 z-50 bg-card border border-border rounded-xl shadow-xl p-3 w-48 space-y-1">
+              {BOARD_BACKGROUNDS.map(bg => (
+                <button key={bg.id} onClick={() => { setBoardBg(bg.id); localStorage.setItem("projectos-board-bg", bg.id); setShowBgPicker(false); }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors ${boardBg === bg.id ? "bg-primary/15 text-primary" : "hover:bg-white/5 text-foreground"}`}>
+                  {bg.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -131,13 +180,21 @@ export default function KanbanView({ tasks, projects, members, onTaskClick, onNe
                         : null;
                       const ageHours = Math.round((Date.now() - new Date(task.createdAt).getTime()) / (1000 * 60 * 60));
                       const ageDays = Math.floor(ageHours / 24);
+                      const cover = cardCovers[task.id];
+                      const voteCount = votes[task.id] || 0;
+                      const agingOpacity = task.status !== "done" && ageDays > 14 ? Math.max(0.4, 1 - (ageDays - 14) * 0.02) : 1;
 
                       return (
                         <Card key={task.id} draggable onDragStart={e => onDragStart(e, task.id)}
                           onClick={() => onTaskClick(task)}
-                          className={`p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-black/10 border-l-[3px] ${pr.border} ${
+                          style={{ opacity: agingOpacity }}
+                          className={`cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-black/10 border-l-[3px] ${pr.border} ${
                             isOverdue ? "border-rose-500/40 shadow-rose-500/5" : ""
-                          }`}>
+                          } overflow-hidden`}>
+                          {cover && (
+                            <div className="h-8 -mx-px -mt-px rounded-t-xl" style={{ backgroundColor: cover }} />
+                          )}
+                          <div className={`${cover ? "p-3 pt-2" : "p-3"}`}>
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${pr.badge}`}>{task.priority}</span>
@@ -205,12 +262,30 @@ export default function KanbanView({ tasks, projects, members, onTaskClick, onNe
                             </div>
                           </div>
 
-                          {ageDays > 7 && task.status !== "done" && (
-                            <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-1 text-[10px] text-amber-400/70">
-                              <Clock className="w-3 h-3" />
-                              {ageDays}d old
+                          <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border/30">
+                            <button onClick={e => toggleVote(e, task.id)}
+                              className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded transition-colors ${voteCount > 0 ? "bg-primary/15 text-primary" : "text-muted-foreground/50 hover:text-muted-foreground"}`}>
+                              <ThumbsUp className="w-3 h-3" />{voteCount > 0 ? voteCount : ""}
+                            </button>
+                            <div className="relative group/cover ml-auto">
+                              <button onClick={e => e.stopPropagation()} className="text-muted-foreground/30 hover:text-muted-foreground text-[10px] p-0.5">
+                                <Palette className="w-3 h-3" />
+                              </button>
+                              <div className="absolute bottom-6 right-0 hidden group-hover/cover:flex gap-1 bg-card border border-border rounded-lg p-1.5 shadow-xl z-50">
+                                {COVER_COLORS.map(c => (
+                                  <button key={c} onClick={e => setCover(e, task.id, c)}
+                                    className={`w-4 h-4 rounded-full border-2 ${cardCovers[task.id] === c ? "border-white" : "border-transparent"}`}
+                                    style={{ backgroundColor: c }} />
+                                ))}
+                              </div>
                             </div>
-                          )}
+                            {ageDays > 7 && task.status !== "done" && (
+                              <span className="text-[10px] text-amber-400/70 flex items-center gap-0.5">
+                                <Clock className="w-3 h-3" /> {ageDays}d
+                              </span>
+                            )}
+                          </div>
+                          </div>
                         </Card>
                       );
                     })}

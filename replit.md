@@ -87,6 +87,28 @@ Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Moti
 -   **Task Priority Colors on Kanban Cards (ClickUp):** Colored left border strip on kanban cards — rose for critical, amber for high, blue for medium, slate for low.
 -   **Spaces / Folders (ClickUp):** Folder grouping for projects in sidebar. Collapsible folder tree with project count. Create folder button. localStorage persisted.
 -   **Inbox / Notification Feed (ClickUp):** Personal notification inbox page with assignment, overdue, due-soon, and completion notifications. Filter by all/unread/starred/assignments/mentions. Star, archive, mark-read actions. localStorage persisted.
+-   **Hill Chart (Basecamp):** Visual progress tracking using a hill-shaped curve showing tasks moving from "Figuring it out" to "Making it happen."
+-   **Check-ins (Basecamp):** Automatic team check-in prompts ("What did you work on today?") with responses and history.
+-   **Message Boards (Basecamp):** Threaded project discussions with categories and replies.
+-   **Doors (Basecamp):** External links hub per project for quick access to tools and resources.
+-   **Card Covers (Trello):** Color strip headers on kanban cards for visual categorization.
+-   **Card Voting (Trello):** Thumbs-up voting system on kanban cards for prioritization.
+-   **Card Aging (Trello):** Visual staleness indicator — cards older than 14 days fade in opacity.
+-   **Board Backgrounds (Trello):** 5 gradient theme presets for kanban board customization.
+-   **Version History (Notion):** Documents track up to 10 versions on each save with restore capability.
+-   **Toggle Blocks (Notion):** Collapsible `<details>` sections insertable into documents.
+-   **Synced Blocks (Notion):** Named reusable content snippets that can be inserted across documents.
+-   **Form Routing Rules (Wrike):** Request forms with field-based routing rules (field → priority/assignee mapping).
+-   **Blueprints (Wrike):** Full project templates with pre-built task sets. 5 preset blueprints (Agile Sprint, Marketing Campaign, Employee Onboarding, Product Launch, Bug Fix Sprint) plus custom blueprint creation from existing projects. Apply creates actual tasks via API.
+-   **Cross-Tagging (Wrike):** Tag tasks across multiple projects from the task modal. Tasks can appear in additional project contexts.
+-   **Project Risk Scoring (Wrike):** Computed risk scores on Portfolio page (both card and table views) based on overdue items, blocked tasks, critical priorities, and budget utilization.
+-   **Risk Register (Teamwork):** Dedicated risk matrix page with likelihood/impact scoring and mitigation tracking.
+-   **Project Budgets (Teamwork):** Budget tracking with burn rate, efficiency metrics, and runway calculations.
+-   **Project Health Dashboard (Teamwork):** Real-time health scores across all projects based on completion, blockers, overdue items, and risk. Manual health status overrides with notes.
+-   **Report Builder (Smartsheet):** Cross-project rollup reports with CSV export and customizable column selection.
+-   **Conditional Formatting (Smartsheet):** Rules-based row highlighting in table view. Configure rules by field (status/priority/type/points), condition (equals/contains/greater than), and color (6 presets).
+-   **Sheet Summary Fields (Smartsheet):** Toggle-able summary panel in table view showing aggregate metrics (total tasks, points, completion%, overdue, avg points, blocked, in-progress, critical).
+-   **Cell History (Smartsheet):** Change tracking for table cells (status, priority, title, type). Right-click cells to view history. Up to 20 entries per field per task.
 
 **Backend:**
 An Express 5 API server handles REST endpoints with Zod for validation and Drizzle ORM for PostgreSQL. API codegen uses Orval for React Query hooks and Zod schemas.

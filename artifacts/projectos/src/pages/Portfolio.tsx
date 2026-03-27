@@ -133,6 +133,7 @@ export default function Portfolio() {
                 <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Project</th>
                 <th className="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</th>
                 <th className="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Health</th>
+                <th className="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Risk</th>
                 <th className="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Tasks</th>
                 <th className="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Progress</th>
                 <th className="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Budget</th>
@@ -168,6 +169,17 @@ export default function Portfolio() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <RingChart progress={project.health} size={32} strokeWidth={4} color={project.health >= 80 ? "#10b981" : project.health >= 60 ? "#f59e0b" : "#f43f5e"} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {(() => {
+                        const overdue = pTasks.filter(t => t.due && new Date(t.due) < new Date() && t.status !== "done").length;
+                        const blocked = pTasks.filter(t => t.status === "blocked").length;
+                        const critical = pTasks.filter(t => t.priority === "critical" && t.status !== "done").length;
+                        const riskScore = Math.min(100, overdue * 15 + blocked * 20 + critical * 10 + (budgetPct > 90 ? 20 : 0));
+                        const riskLabel = riskScore >= 60 ? "High" : riskScore >= 30 ? "Medium" : "Low";
+                        const riskColor = riskScore >= 60 ? "text-rose-400 bg-rose-500/15" : riskScore >= 30 ? "text-amber-400 bg-amber-500/15" : "text-emerald-400 bg-emerald-500/15";
+                        return <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${riskColor}`}>{riskLabel} ({riskScore})</span>;
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-sm font-mono">{doneTasks.length}/{pTasks.length}</span>
@@ -231,6 +243,15 @@ export default function Portfolio() {
                     {getStatusLabel(project.health)}
                   </span>
                   <Badge color={project.phase === "active" ? "green" : project.phase === "planning" ? "blue" : "gray"}>{project.phase}</Badge>
+                  {(() => {
+                    const overdue = pTasks.filter(t => t.due && new Date(t.due) < new Date() && t.status !== "done").length;
+                    const blocked = pTasks.filter(t => t.status === "blocked").length;
+                    const critical = pTasks.filter(t => t.priority === "critical" && t.status !== "done").length;
+                    const riskScore = Math.min(100, overdue * 15 + blocked * 20 + critical * 10 + (budgetPct > 90 ? 20 : 0));
+                    const riskLabel = riskScore >= 60 ? "High Risk" : riskScore >= 30 ? "Med Risk" : "Low Risk";
+                    const riskColor = riskScore >= 60 ? "text-rose-400 bg-rose-500/15" : riskScore >= 30 ? "text-amber-400 bg-amber-500/15" : "text-emerald-400 bg-emerald-500/15";
+                    return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ml-auto ${riskColor}`}><AlertTriangle className="w-3 h-3 inline mr-0.5" />{riskLabel}</span>;
+                  })()}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 mb-6">

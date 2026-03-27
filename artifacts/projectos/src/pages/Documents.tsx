@@ -3,7 +3,7 @@ import { useDocuments, useCreateDocumentMutation, useUpdateDocumentMutation } fr
 import { useAiChatMutation } from "@/hooks/use-ai";
 import { useMembers } from "@/hooks/use-members";
 import { Card, Button, Badge, Input, Textarea } from "@/components/ui/shared";
-import { FileText, Plus, Edit2, Save, Sparkles, Pin, RefreshCw, Users, Wifi, LayoutTemplate, X, ChevronRight, ChevronDown, CornerDownRight } from "lucide-react";
+import { FileText, Plus, Edit2, Save, Sparkles, Pin, RefreshCw, Users, Wifi, LayoutTemplate, X, ChevronRight, ChevronDown, CornerDownRight, History, ToggleRight, Link2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { format } from "date-fns";
 
@@ -39,6 +39,15 @@ export default function Documents() {
   const [editContent, setEditContent] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
+  const [docVersions, setDocVersions] = useState<Record<number, { content: string; timestamp: string; label: string }[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-doc-versions") || "{}"); } catch { return {}; }
+  });
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [toggleBlocks, setToggleBlocks] = useState<Record<string, boolean>>({});
+  const [syncedBlocks, setSyncedBlocks] = useState<{ id: string; name: string; content: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem("projectos-synced-blocks") || "[]"); } catch { return []; }
+  });
+  const [showSyncedBlocks, setShowSyncedBlocks] = useState(false);
   const presenceInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -108,12 +117,42 @@ export default function Documents() {
 
   const handleSave = () => {
     if (!activeDoc) return;
+    const prevVersions = docVersions[activeDoc.id] || [];
+    const newVersion = { content: activeDoc.content, timestamp: new Date().toISOString(), label: `v${prevVersions.length + 1}` };
+    const updatedVersions = { ...docVersions, [activeDoc.id]: [...prevVersions.slice(-9), newVersion] };
+    setDocVersions(updatedVersions);
+    localStorage.setItem("projectos-doc-versions", JSON.stringify(updatedVersions));
     updateDoc.mutate({
       id: activeDoc.id,
       data: { content: editContent }
     }, {
       onSuccess: () => setIsEditing(false)
     });
+  };
+
+  const restoreVersion = (version: { content: string }) => {
+    if (!activeDoc) return;
+    setEditContent(version.content);
+    updateDoc.mutate({ id: activeDoc.id, data: { content: version.content } });
+    setShowVersionHistory(false);
+  };
+
+  const addSyncedBlock = () => {
+    const name = prompt("Synced block name:");
+    if (!name?.trim()) return;
+    const block = { id: `sb-${Date.now()}`, name: name.trim(), content: "Type reusable content here..." };
+    const updated = [...syncedBlocks, block];
+    setSyncedBlocks(updated);
+    localStorage.setItem("projectos-synced-blocks", JSON.stringify(updated));
+  };
+
+  const insertSyncedBlock = (block: { id: string; name: string; content: string }) => {
+    setEditContent(prev => prev + `\n\n> **🔗 ${block.name}**\n> ${block.content}\n`);
+    setShowSyncedBlocks(false);
+  };
+
+  const insertToggleBlock = () => {
+    setEditContent(prev => prev + `\n\n<details>\n<summary>Toggle Section Title</summary>\n\nContent hidden by default. Click to expand.\n\n</details>\n`);
   };
 
   const handleSelectDoc = (doc: any) => {
@@ -302,6 +341,19 @@ export default function Documents() {
                 <Button variant="secondary" size="sm" onClick={() => handleCreate(undefined, activeDoc.id)}>
                   <Plus className="w-4 h-4" /> Sub-page
                 </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowVersionHistory(!showVersionHistory)} title="Version History">
+                  <History className="w-4 h-4" />
+                </Button>
+                {isEditing && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={insertToggleBlock} title="Insert Toggle Block">
+                      <ToggleRight className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setShowSyncedBlocks(!showSyncedBlocks)} title="Synced Blocks">
+                      <Link2 className="w-4 h-4" />
+                    </Button>
+                  </>
+                )}
                 {isEditing ? (
                   <Button size="sm" onClick={handleSave} isLoading={updateDoc.isPending}>
                     <Save className="w-4 h-4" /> Save
@@ -322,6 +374,56 @@ export default function Documents() {
                 </Button>
               </div>
             </div>
+
+            {showVersionHistory && activeDoc && (
+              <div className="absolute top-14 right-0 z-20 w-72 bg-card border-l border-border shadow-xl h-full overflow-y-auto">
+                <div className="p-4 border-b border-border flex items-center justify-between">
+                  <h3 className="text-sm font-bold flex items-center gap-2"><History className="w-4 h-4 text-primary" /> Version History</h3>
+                  <button onClick={() => setShowVersionHistory(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
+                </div>
+                <div className="p-3 space-y-2">
+                  <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                    <div className="text-xs font-bold text-primary">Current</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">Now</div>
+                  </div>
+                  {(docVersions[activeDoc.id] || []).slice().reverse().map((v, i) => (
+                    <button key={i} onClick={() => restoreVersion(v)}
+                      className="w-full text-left p-3 rounded-xl border border-border hover:border-primary/30 hover:bg-primary/5 transition-all">
+                      <div className="text-xs font-bold">{v.label}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(v.timestamp), "MMM d, h:mm a")}</div>
+                      <div className="text-[10px] text-muted-foreground/60 mt-1 line-clamp-2">{v.content.slice(0, 80)}...</div>
+                    </button>
+                  ))}
+                  {(!docVersions[activeDoc.id] || docVersions[activeDoc.id].length === 0) && (
+                    <p className="text-xs text-muted-foreground text-center py-4">No versions saved yet. Edit and save to create versions.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {showSyncedBlocks && (
+              <div className="absolute top-14 right-0 z-20 w-72 bg-card border-l border-border shadow-xl h-full overflow-y-auto">
+                <div className="p-4 border-b border-border flex items-center justify-between">
+                  <h3 className="text-sm font-bold flex items-center gap-2"><Link2 className="w-4 h-4 text-primary" /> Synced Blocks</h3>
+                  <div className="flex items-center gap-1">
+                    <button onClick={addSyncedBlock} className="p-1 rounded-lg hover:bg-white/10"><Plus className="w-4 h-4 text-primary" /></button>
+                    <button onClick={() => setShowSyncedBlocks(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
+                  </div>
+                </div>
+                <div className="p-3 space-y-2">
+                  {syncedBlocks.map(block => (
+                    <button key={block.id} onClick={() => insertSyncedBlock(block)}
+                      className="w-full text-left p-3 rounded-xl border border-border hover:border-primary/30 hover:bg-primary/5 transition-all">
+                      <div className="text-xs font-bold flex items-center gap-1"><Link2 className="w-3 h-3 text-primary" /> {block.name}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{block.content}</div>
+                    </button>
+                  ))}
+                  {syncedBlocks.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-4">No synced blocks yet. Click + to create one.</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto pt-14 px-8 lg:px-20 pb-20">
               <div className="max-w-3xl mx-auto w-full mt-12">

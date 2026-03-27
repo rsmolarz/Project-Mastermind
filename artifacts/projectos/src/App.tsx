@@ -44,6 +44,15 @@ import Cycles from "@/pages/Cycles";
 import Pulse from "@/pages/Pulse";
 import Everything from "@/pages/Everything";
 import InboxPage from "@/pages/Inbox";
+import HillChartPage from "@/pages/HillChart";
+import CheckInsPage from "@/pages/CheckIns";
+import MessageBoardsPage from "@/pages/MessageBoards";
+import DoorsPage from "@/pages/Doors";
+import RiskRegisterPage from "@/pages/RiskRegister";
+import BudgetsPage from "@/pages/Budgets";
+import ReportBuilderPage from "@/pages/ReportBuilder";
+import BlueprintsPage from "@/pages/Blueprints";
+import ProjectHealthPage from "@/pages/ProjectHealth";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -97,6 +106,15 @@ function Router() {
         <Route path="/pulse" component={Pulse} />
         <Route path="/everything" component={Everything} />
         <Route path="/inbox" component={InboxPage} />
+        <Route path="/hill-chart" component={HillChartPage} />
+        <Route path="/check-ins" component={CheckInsPage} />
+        <Route path="/message-boards" component={MessageBoardsPage} />
+        <Route path="/doors" component={DoorsPage} />
+        <Route path="/risk-register" component={RiskRegisterPage} />
+        <Route path="/budgets" component={BudgetsPage} />
+        <Route path="/report-builder" component={ReportBuilderPage} />
+        <Route path="/blueprints" component={BlueprintsPage} />
+        <Route path="/project-health" component={ProjectHealthPage} />
         <Route path="/shared/:token" component={SharedView} />
         <Route component={NotFound} />
       </Switch>

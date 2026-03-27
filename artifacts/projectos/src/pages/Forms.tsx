@@ -23,7 +23,7 @@ export default function Forms() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [viewSubmissions, setViewSubmissions] = useState<number | null>(null);
-  const [form, setForm] = useState({ title: "", description: "", projectId: "", slug: "", fields: [{ id: "field_1", label: "", type: "short_text", required: true }] as any[] });
+  const [form, setForm] = useState({ title: "", description: "", projectId: "", slug: "", fields: [{ id: "field_1", label: "", type: "short_text", required: true }] as any[], routingRules: [] as { field: string; value: string; assignTo: string; priority: string }[] });
 
   const { data: forms = [] } = useQuery({ queryKey: ["forms"], queryFn: () => apiFetch("/forms") });
   const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => apiFetch("/projects") });
@@ -126,6 +126,34 @@ export default function Forms() {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-muted-foreground flex items-center gap-1">🔀 Routing Rules <span className="text-[9px] text-muted-foreground/60">(auto-assign based on field values)</span></label>
+                <button onClick={() => setForm({ ...form, routingRules: [...form.routingRules, { field: "", value: "", assignTo: "", priority: "medium" }] })}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="w-3 h-3" />Add Rule</button>
+              </div>
+              {form.routingRules.map((rule, i) => (
+                <div key={i} className="flex items-center gap-2 bg-background rounded-xl p-3 text-xs">
+                  <span className="text-muted-foreground shrink-0">If</span>
+                  <select value={rule.field} onChange={e => { const r = [...form.routingRules]; r[i] = { ...r[i], field: e.target.value }; setForm({ ...form, routingRules: r }); }}
+                    className="bg-card border border-border rounded-lg px-2 py-1 text-xs">
+                    <option value="">Select field...</option>
+                    {form.fields.map(f => <option key={f.id} value={f.id}>{f.label || f.id}</option>)}
+                  </select>
+                  <span className="text-muted-foreground">=</span>
+                  <input value={rule.value} onChange={e => { const r = [...form.routingRules]; r[i] = { ...r[i], value: e.target.value }; setForm({ ...form, routingRules: r }); }}
+                    placeholder="value" className="w-20 bg-card border border-border rounded-lg px-2 py-1 text-xs" />
+                  <span className="text-muted-foreground shrink-0">→ priority:</span>
+                  <select value={rule.priority} onChange={e => { const r = [...form.routingRules]; r[i] = { ...r[i], priority: e.target.value }; setForm({ ...form, routingRules: r }); }}
+                    className="bg-card border border-border rounded-lg px-2 py-1 text-xs">
+                    <option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+                  </select>
+                  <button onClick={() => setForm({ ...form, routingRules: form.routingRules.filter((_, j) => j !== i) })}
+                    className="text-muted-foreground hover:text-rose-400 p-0.5"><Trash2 className="w-3 h-3" /></button>
                 </div>
               ))}
             </div>
