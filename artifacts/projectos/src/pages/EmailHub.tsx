@@ -5,7 +5,8 @@ import {
   CheckCircle2, XCircle, Trash2, Edit3, RefreshCw, Inbox, Route,
   Calendar, AlertTriangle, MailPlus, Filter, ChevronRight, Tag,
   Target, Zap, Globe, Settings2, Play, Pause, MapPin, FileText,
-  FolderOpen, ThumbsUp, ThumbsDown, Sparkles
+  FolderOpen, ThumbsUp, ThumbsDown, Sparkles, Download, Loader2,
+  FolderInput, Check, ArrowRight
 } from "lucide-react";
 
 const API = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
@@ -23,7 +24,7 @@ async function apiFetch(path: string, opts?: RequestInit) {
   return res.json();
 }
 
-type Tab = "inbox" | "compose" | "routes" | "reminders" | "categories";
+type Tab = "inbox" | "compose" | "routes" | "reminders" | "categories" | "import";
 
 const statusColors: Record<string, string> = {
   pending: "text-yellow-400 bg-yellow-400/10",
@@ -48,6 +49,15 @@ export default function EmailHub() {
   const [showAddReminder, setShowAddReminder] = useState(false);
   const [reminderForm, setReminderForm] = useState({ title: "", message: "", scheduledAt: "", notificationType: "in_app", target: "", projectId: "" });
   const [viewingEmail, setViewingEmail] = useState<any>(null);
+  const [importScanning, setImportScanning] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+  const [importFolder, setImportFolder] = useState("INBOX");
+  const [importLimit, setImportLimit] = useState("100");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [selectedHeadings, setSelectedHeadings] = useState<Set<string>>(new Set());
+  const [creatingHeadings, setCreatingHeadings] = useState(false);
+  const [headingResults, setHeadingResults] = useState<any>(null);
   const queryClient = useQueryClient();
 
   const { data: projects = [] } = useQuery({
@@ -91,6 +101,81 @@ export default function EmailHub() {
     queryFn: () => apiFetch("/email-projects/recommendations?limit=100&unassigned=false"),
     enabled: tab === "categories",
   });
+
+  const { data: importStatus } = useQuery({
+    queryKey: ["email-import-status"],
+    queryFn: () => apiFetch("/email-import/status"),
+    enabled: tab === "import",
+  });
+
+  const { data: imapFolders } = useQuery({
+    queryKey: ["imap-folders"],
+    queryFn: () => apiFetch("/email-import/folders").catch(() => ({ folders: [] })),
+    enabled: tab === "import" && importStatus?.configured,
+  });
+
+  const scanEmails = async () => {
+    setImportScanning(true);
+    setImportResult(null);
+    try {
+      const result = await apiFetch("/email-import/scan", {
+        method: "POST",
+        body: JSON.stringify({ folder: importFolder, limit: parseInt(importLimit), skipExisting: true }),
+      });
+      setImportResult(result);
+      queryClient.invalidateQueries({ queryKey: ["email-routing-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["email-logs"] });
+    } catch (err: any) {
+      setImportResult({ error: err.message });
+    }
+    setImportScanning(false);
+  };
+
+  const analyzeEmails = async () => {
+    setAnalyzing(true);
+    setAnalysisResult(null);
+    setSelectedHeadings(new Set());
+    setHeadingResults(null);
+    try {
+      const result = await apiFetch("/email-import/analyze", { method: "POST" });
+      setAnalysisResult(result);
+      const auto = new Set<string>();
+      for (const h of result.suggestedHeadings || []) {
+        if (h.emailCount >= 1 && h.category !== "general") auto.add(h.category);
+      }
+      setSelectedHeadings(auto);
+    } catch (err: any) {
+      setAnalysisResult({ error: err.message });
+    }
+    setAnalyzing(false);
+  };
+
+  const createSelectedHeadings = async () => {
+    if (selectedHeadings.size === 0) return;
+    setCreatingHeadings(true);
+    try {
+      const headings = Array.from(selectedHeadings).map(cat => {
+        const h = analysisResult?.suggestedHeadings?.find((s: any) => s.category === cat);
+        return {
+          category: cat,
+          projectName: h?.displayName || cat.charAt(0).toUpperCase() + cat.slice(1),
+          icon: h?.suggestedIcon,
+          color: h?.suggestedColor,
+        };
+      });
+      const result = await apiFetch("/email-import/create-headings", {
+        method: "POST",
+        body: JSON.stringify({ headings }),
+      });
+      setHeadingResults(result);
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["email-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["email-routing-stats"] });
+    } catch (err: any) {
+      setHeadingResults({ error: err.message });
+    }
+    setCreatingHeadings(false);
+  };
 
   const acceptRecommendation = useMutation({
     mutationFn: (data: { emailId: number; projectId: number }) =>
@@ -195,6 +280,7 @@ export default function EmailHub() {
     { id: "routes" as Tab, icon: Route, label: "Email Routes", count: emailStats?.activeRoutes },
     { id: "reminders" as Tab, icon: Bell, label: "Reminders", count: reminders.filter((r: any) => r.status === "pending").length },
     { id: "categories" as Tab, icon: FolderOpen, label: "Categories" },
+    { id: "import" as Tab, icon: Download, label: "Import & Scan" },
   ];
 
   return (
@@ -765,6 +851,268 @@ export default function EmailHub() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "import" && (
+          <div className="space-y-6">
+            <div className="bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-500/20 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <Download className="w-5 h-5 text-violet-400" />
+                <h2 className="text-lg font-bold">Import & Scan Emails</h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Connect to your email inbox via IMAP, import emails, then analyze them to automatically create project headings for sorting.
+              </p>
+            </div>
+
+            <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Globe className="w-4 h-4 text-blue-400" />
+                Step 1: Connection Status
+              </h3>
+              {importStatus ? (
+                importStatus.configured ? (
+                  <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <div>
+                      <div className="text-sm font-medium text-emerald-400">Connected</div>
+                      <div className="text-xs text-muted-foreground">
+                        IMAP: {importStatus.imapHost} | Account: {importStatus.username} | {importStatus.totalImported} emails imported so far
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-400" />
+                    <div>
+                      <div className="text-sm font-medium text-amber-400">Not Configured</div>
+                      <div className="text-xs text-muted-foreground">{importStatus.message}. Go to Admin &gt; API &amp; Email to set up your email credentials.</div>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Checking connection...
+                </div>
+              )}
+            </div>
+
+            {importStatus?.configured && (
+              <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <FolderInput className="w-4 h-4 text-indigo-400" />
+                  Step 2: Import Emails
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Folder</label>
+                    <select
+                      value={importFolder}
+                      onChange={e => setImportFolder(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="INBOX">INBOX</option>
+                      {imapFolders?.folders?.map((f: any) => (
+                        f.path !== "INBOX" && <option key={f.path} value={f.path}>{f.name} {f.specialUse ? `(${f.specialUse})` : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Max Emails</label>
+                    <select
+                      value={importLimit}
+                      onChange={e => setImportLimit(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="50">Last 50</option>
+                      <option value="100">Last 100</option>
+                      <option value="200">Last 200</option>
+                      <option value="500">Last 500</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  onClick={scanEmails}
+                  disabled={importScanning}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {importScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {importScanning ? "Scanning..." : "Scan & Import Emails"}
+                </button>
+
+                {importResult && (
+                  <div className={`rounded-xl p-4 border ${importResult.error ? "bg-red-500/10 border-red-500/20" : "bg-emerald-500/10 border-emerald-500/20"}`}>
+                    {importResult.error ? (
+                      <div className="text-sm text-red-400">{importResult.error}</div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-emerald-400 font-medium text-sm">
+                          <CheckCircle2 className="w-4 h-4" />
+                          Imported {importResult.imported} emails from {importResult.folder}
+                          {importResult.skipped > 0 && <span className="text-muted-foreground font-normal">({importResult.skipped} already existed)</span>}
+                        </div>
+                        {importResult.emails?.length > 0 && (
+                          <div className="max-h-48 overflow-y-auto space-y-1 mt-2">
+                            {importResult.emails.slice(0, 20).map((e: any, i: number) => (
+                              <div key={i} className="flex items-center gap-2 text-xs py-1">
+                                <Mail className="w-3 h-3 text-muted-foreground shrink-0" />
+                                <span className="font-medium truncate flex-1">{e.subject}</span>
+                                <span className="text-muted-foreground shrink-0">{e.from}</span>
+                              </div>
+                            ))}
+                            {importResult.emails.length > 20 && (
+                              <div className="text-xs text-muted-foreground text-center py-1">...and {importResult.emails.length - 20} more</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  Step 3: Analyze & Create Project Headings
+                </h3>
+                <button
+                  onClick={analyzeEmails}
+                  disabled={analyzing}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {analyzing ? "Analyzing..." : "Analyze Emails"}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Scans all emails in the system and suggests project headings based on content patterns like billing, support, meetings, design, etc.
+              </p>
+
+              {analysisResult && !analysisResult.error && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-muted-foreground">Analyzed <strong className="text-foreground">{analysisResult.totalEmails}</strong> emails</span>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Found <strong className="text-foreground">{analysisResult.totalCategories}</strong> categories</span>
+                  </div>
+
+                  {analysisResult.existingSubjectTags?.length > 0 && (
+                    <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-3">
+                      <div className="text-xs font-medium text-blue-400 mb-1.5">Existing Subject Tags Found</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {analysisResult.existingSubjectTags.map((t: any) => (
+                          <span key={t.tag} className="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-md text-xs font-mono">[{t.tag}] x{t.count}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Suggested Project Headings</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelectedHeadings(new Set(analysisResult.suggestedHeadings.map((h: any) => h.category)))}
+                          className="text-xs text-primary hover:underline"
+                        >Select All</button>
+                        <button
+                          onClick={() => setSelectedHeadings(new Set())}
+                          className="text-xs text-muted-foreground hover:underline"
+                        >Clear</button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {analysisResult.suggestedHeadings.map((h: any) => (
+                        <button
+                          key={h.category}
+                          onClick={() => {
+                            const next = new Set(selectedHeadings);
+                            if (next.has(h.category)) next.delete(h.category); else next.add(h.category);
+                            setSelectedHeadings(next);
+                          }}
+                          className={`text-left p-3 rounded-xl border transition-all ${
+                            selectedHeadings.has(h.category)
+                              ? "bg-primary/10 border-primary/30"
+                              : "bg-white/[0.02] border-border hover:border-white/20"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              {selectedHeadings.has(h.category) && <Check className="w-3.5 h-3.5 text-primary" />}
+                              <span className="text-lg">{h.suggestedIcon}</span>
+                              <span className="text-sm font-medium">{h.displayName}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: h.suggestedColor }} />
+                              <span className="text-xs font-bold">{h.emailCount}</span>
+                              <span className="text-[10px] text-muted-foreground">emails</span>
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground truncate">
+                            {h.sampleSubjects.slice(0, 2).join(" | ")}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {h.uniqueSenders} sender{h.uniqueSenders !== 1 ? "s" : ""}: {h.topSenders.slice(0, 3).join(", ")}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {analysisResult.topSenderDomains?.length > 0 && (
+                    <div className="bg-white/[0.02] border border-border rounded-xl p-3">
+                      <div className="text-xs font-medium text-muted-foreground mb-2">Top Sender Domains</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {analysisResult.topSenderDomains.slice(0, 15).map((d: any) => (
+                          <span key={d.domain} className="px-2 py-0.5 bg-white/5 text-foreground rounded-md text-xs">{d.domain} ({d.count})</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-2 border-t border-border">
+                    <button
+                      onClick={createSelectedHeadings}
+                      disabled={selectedHeadings.size === 0 || creatingHeadings}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    >
+                      {creatingHeadings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      Create {selectedHeadings.size} Project Heading{selectedHeadings.size !== 1 ? "s" : ""}
+                    </button>
+                    <span className="text-xs text-muted-foreground">
+                      This will create new projects and automatically sort matching emails into them.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {analysisResult?.error && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400">{analysisResult.error}</div>
+              )}
+
+              {headingResults && !headingResults.error && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-400 font-medium text-sm">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Created {headingResults.created?.length} project heading{headingResults.created?.length !== 1 ? "s" : ""}
+                  </div>
+                  {headingResults.created?.map((r: any) => (
+                    <div key={r.projectId} className="flex items-center gap-3 text-xs py-1">
+                      <span className="font-medium">{r.projectName}</span>
+                      <span className="text-muted-foreground">{r.assignedEmails} emails assigned</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {headingResults?.error && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400">{headingResults.error}</div>
+              )}
             </div>
           </div>
         )}

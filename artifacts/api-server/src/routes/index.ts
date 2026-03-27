@@ -52,6 +52,7 @@ import searchRouter from "./search";
 import importExportRouter from "./import-export";
 import taskProjectsRouter from "./task-projects";
 import sharedViewsRouter from "./shared-views";
+import emailImportRouter from "./email-import";
 
 const router: IRouter = Router();
 
@@ -108,5 +109,6 @@ router.use(searchRouter);
 router.use(importExportRouter);
 router.use(taskProjectsRouter);
 router.use(sharedViewsRouter);
+router.use(emailImportRouter);
 
 export default router;

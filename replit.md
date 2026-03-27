@@ -48,7 +48,22 @@ PostgreSQL with Drizzle ORM.
 -   **Messaging/Communication:** Twilio
 -   **Calendar Integration:** Google Calendar API
 -   **Email Delivery:** SendGrid (and other configurable SMTP, Mailgun, AWS SES, Postmark)
+-   **Email Import:** ImapFlow (IMAP email fetching), Mailparser (email parsing)
 -   **Task Scheduling:** node-cron
 -   **Real-time:** WebSocket (`ws`)
--   **Security:** YubiKey, WebAuthn FIDO2
+-   **Security:** YubiKey, WebAuthn FIDO2, API key auth (pos_ keys + MOTIONOS_API_KEY)
 -   **Virtual Card Integration:** Privacy.com API
+
+## Email Import System
+
+The Email Hub includes an Import & Scan feature (`/email` > Import & Scan tab) that:
+1. Connects to configured SMTP/IMAP provider (auto-maps smtp.gmail.com → imap.gmail.com, etc.)
+2. Imports emails via IMAP into `emailLogsTable` with deduplication via `gmailMessageId`
+3. Analyzes emails using keyword matching across 20 categories (billing, support, design, meetings, etc.)
+4. Creates project headings from selected categories and auto-assigns matching emails
+
+API endpoints: `/api/email-import/status`, `/api/email-import/scan`, `/api/email-import/folders`, `/api/email-import/analyze`, `/api/email-import/create-headings`
+
+## API Key Authentication
+
+User-created API keys (pos_ prefix) are validated in auth middleware via both `Authorization: Bearer` and `X-API-Key` headers. Keys support scopes, expiry, and `lastUsedAt` tracking. The `MOTIONOS_API_KEY` env var remains as a system-level master key.
