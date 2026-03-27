@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, securityCredentialsTable, securitySessionsTable } from "@workspace/db";
+import { db, securityCredentialsTable, securitySessionsTable, apiKeysTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
 import crypto from "crypto";
 import bcryptjs from "bcryptjs";
@@ -99,10 +99,25 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   const motionosKey = process.env.MOTIONOS_API_KEY;
   if (motionosKey) {
-    const xApiKey = req.headers["x-api-key"];
+    const xApiKey = req.headers["x-api-key"] as string | undefined;
     if (xApiKey === motionosKey) {
       next();
       return;
+    }
+  }
+
+  const xApiKey = req.headers["x-api-key"] as string | undefined;
+  if (xApiKey && xApiKey.startsWith("pos_")) {
+    const keys = await db.select().from(apiKeysTable)
+      .where(and(eq(apiKeysTable.key, xApiKey), eq(apiKeysTable.active, true)));
+    if (keys.length > 0) {
+      const key = keys[0];
+      if (!key.expiresAt || new Date(key.expiresAt) > new Date()) {
+        await db.update(apiKeysTable).set({ lastUsedAt: new Date() }).where(eq(apiKeysTable.id, key.id));
+        (req as any).apiKeyScopes = key.scopes;
+        next();
+        return;
+      }
     }
   }
 
@@ -113,6 +128,20 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     if (motionosKey && token === motionosKey) {
       next();
       return;
+    }
+
+    if (token.startsWith("pos_")) {
+      const keys = await db.select().from(apiKeysTable)
+        .where(and(eq(apiKeysTable.key, token), eq(apiKeysTable.active, true)));
+      if (keys.length > 0) {
+        const key = keys[0];
+        if (!key.expiresAt || new Date(key.expiresAt) > new Date()) {
+          await db.update(apiKeysTable).set({ lastUsedAt: new Date() }).where(eq(apiKeysTable.id, key.id));
+          (req as any).apiKeyScopes = key.scopes;
+          next();
+          return;
+        }
+      }
     }
 
     const sessions = await db.select().from(securitySessionsTable)
