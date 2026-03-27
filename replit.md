@@ -2,7 +2,7 @@
 
 ## Overview
 
-ProjectOS is a comprehensive project management platform built as a pnpm workspace monorepo using TypeScript. It provides an all-in-one solution for project teams, encompassing task management, time tracking, goal setting, communication, and administrative oversight. The platform integrates advanced AI features for insights, predictions, and automation, enhancing productivity and decision-making. Its business vision is to streamline project workflows, improve team collaboration, and leverage AI for smarter project execution.
+ProjectOS is a comprehensive project management platform built as a pnpm workspace monorepo using TypeScript. It offers an all-in-one solution for project teams, covering task management, time tracking, goal setting, communication, and administrative oversight. The platform integrates advanced AI features for insights, predictions, and automation to enhance productivity and decision-making. Its core vision is to streamline project workflows, improve team collaboration, and leverage AI for smarter project execution.
 
 ## User Preferences
 
@@ -19,120 +19,18 @@ ProjectOS is a comprehensive project management platform built as a pnpm workspa
 ProjectOS is a monorepo managed with pnpm workspaces, utilizing Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
-Developed with React, Vite, and Tailwind CSS. The UI/UX incorporates Framer Motion for animations, Lucide React for icons, and `react-markdown` for document rendering. Key UI features include:
--   **Dashboard:** AI Briefing, statistics, needs attention, budgets, documents, sprints, goals.
--   **Tasks:** 15 views (Board/Kanban, List, Table, Timeline/Gantt, Calendar, Map, Workload, Gallery, Roadmap, Gantt, Triage, Chart, Brief, Files, Embed) with custom task types (Task/Bug/Feature/Story/Improvement), time estimates (hours), AI natural language creation, drag-and-drop, filtering, bulk actions, recurring tasks, subtasks, comment reactions, file attachments, task linking, duplication, location tagging, soft-delete, custom fields (text/number/select/checkbox/rating/date/url/email with auto-save), and dependency management (blocking/blocked-by with search picker). Enhanced Kanban has swimlanes (project/priority), WIP limits, card age indicators. Timeline has day/week/month zoom with startDate support. Calendar has month/week views with multi-day event spans. Map uses Leaflet/OpenStreetMap with location presets. Workload shows capacity bars and timeline per member.
--   **Sprints:** Burndown and velocity charts.
--   **Time Tracking:** Live timer and detailed entry management.
--   **Goals & OKRs:** Progress tracking with AI Health Check.
--   **Communication:** Announcements, Standups (AI-generated), Notification Center, and Messaging Center (Twilio integration for SMS, voice, email via SMS).
--   **Email Hub:** 5-tab system for email management including inbox, project-specific composition, routing rules, reminder scheduling, and AI-driven category/project recommendations.
--   **Workload Management:** Visual capacity planning for team utilization.
--   **Automations:** Rule engine ("When X happens, do Y") with triggers, actions, run history, and pre-built automation recipe marketplace (6 templates with pre-configured params).
--   **Intake Forms:** Public form builder creating tasks with custom fields.
--   **Milestones:** Project checkpoints with status and tracking.
--   **Approvals:** Task approval workflows.
--   **Project Updates:** Periodic status reports with emoji reaction system (8 reactions, localStorage-persisted).
--   **Reports & Analytics:** 6-tab dashboard (Overview, Projects, Team, Trends, Burndown, Velocity) with KPIs, breakdowns, SVG charts (burndown with ideal vs actual lines, velocity bar charts with throughput stats, pie charts for status/priority distribution), and CSV export.
--   **Tags & Labels:** Customizable tags with categories and colors.
--   **Project Templates:** Built-in presets and custom template creation.
--   **My Day:** Personalized daily focus view with 7 collapsible customizable sections (Overdue, Due Today, Recently Assigned, In Progress, Coming Up, Later, Recently Completed) and greeting banner with stats.
--   **Activity Feed:** Global cross-project activity stream.
--   **Trash & Archive:** Soft-delete and recovery for tasks/projects.
--   **Calendar:** Full Google Calendar integration for event sync, creation, editing, and reminders.
--   **Super Admin:** Comprehensive interface with AI Command Center, feature flags, custom fields, expense tracking, API/email settings, permission roles management (Admin/Member/Viewer with role assignment and permission matrix), and security controls (YubiKey/WebAuthn FIDO2).
--   **Platform Guide:** In-app documentation.
--   **Command Palette:** Global search.
--   **Search (`/search`):** Dedicated search page across tasks, projects, documents, and members with filter tabs.
--   **Settings (`/settings`):** User preferences — email digest frequency, 8 notification toggles, display settings (default view, timezone, language).
--   **Guest Access (`/guests`):** Invite external collaborators with per-project access control (view_only, comment, edit).
--   **CSV Import/Export:** Import tasks from CSV, export tasks to CSV.
--   **Dashboard Widget Configurability:** Customize Widgets button opens a toggle panel to show/hide dashboard widgets (Quick Stats, Needs Attention, Budgets, Recent Docs, Active Sprints, Goals). Preferences persist in localStorage.
--   **Multi-Project Tasks (Multi-Homing):** Tasks can belong to multiple projects via `task_projects` junction table. Task modal includes a multi-project picker to add/remove project associations.
--   **Workload Capacity Settings:** Per-member `hoursPerDay` and weekly `capacity` settings editable from the Workload page via a Capacity Settings panel. Admin-only endpoint with range validation.
--   **Whiteboard:** Full canvas-based drawing tool with rect/circle/line/arrow/draw/text/sticky tools, undo/redo, color picker, zoom/pan, PNG export, and simulated collaborative presence cursors.
--   **Collaborative Presence:** Documents page shows real-time editing presence avatars in toolbar; Whiteboard shows animated cursors with collaborator names. Both use simulated presence (not real WebSocket multi-cursor).
--   **Proofing & Annotations:** Task attachment images support click-to-place numbered annotation pins with comments and hover tooltips.
--   **Workload Heatmap:** Cards/Heatmap toggle on Workload page showing daily utilization per member in a color-coded grid with week navigation and legend.
--   **Integrations Marketplace:** Directory of 24+ integrations (Slack, GitHub, Figma, Zapier, etc.) with category filters, search, and install toggles.
--   **Board/View Sharing:** Shareable public links for board views via `shared_views` table with token-based access.
--   **Board Grouping:** Group-by dropdown (status, priority, assignee, section) with collapsible sections.
--   **Timeline Support:** Tasks have start date + due date range for timeline/Gantt views.
--   **Sub-Items:** Full nested child tasks via parentTaskId (not just checklist subtasks).
--   **Project Descriptions:** Projects have editable description fields.
--   **Chart View (Monday):** 12th task view mode with donut chart (by status), horizontal bars (by priority), and vertical bar chart (by assignee).
--   **Project Brief (Asana):** 13th task view mode showing project overview, completion stats, team members, key dates, and recent activity.
--   **Mind Maps (ClickUp):** Visual mind mapping with draggable nodes, parent-child connections, collapse/expand, color coding, zoom/pan. Multiple maps with localStorage persistence.
--   **Notepad (ClickUp):** Personal scratch pad with multiple color-coded notes, search, pin, formatting toolbar (bold/italic/list/checklist/heading/divider), word count. localStorage persistence.
--   **Reminders (ClickUp):** Personal reminders with star/priority/filter/quick-add, overdue detection, and localStorage persistence.
--   **Documents:** Wiki with AI assistant, markdown editing, and document template picker (8 templates: Blank, Meeting Notes, Project Brief, Technical Spec, Sprint Retro, RFC/Proposal, Onboarding Guide, Weekly Status).
--   **Enhanced Portfolio:** Cards/Table toggle view; summary stats row (Projects, Total Tasks, Completed, Overdue, Avg Health); status indicators (On Track/At Risk/Off Track); table view with columns for status, health, tasks, progress, budget.
--   **Favorites Sidebar (ClickUp/Linear):** Star/favorite any page for quick-access "Favorites" section at top of sidebar. localStorage persisted.
--   **Task Templates (ClickUp):** Save task configurations as reusable templates from task modal. Apply templates when creating new tasks.
--   **Embed View (ClickUp):** 15th task view mode for embedding external URLs (Figma, Google Docs, Miro, YouTube, etc.) via iframe.
--   **Sprint Planning Board (Jira):** Collapsible backlog-to-sprint planning view on Sprints page with project-grouped backlog and status-grouped sprint tasks.
--   **SLA/Due Date Indicators (Jira):** Visual urgency badges on task list items — Overdue (red), Due today (amber), Due this week (blue).
--   **Cycles (Linear):** Time-boxed work cycles page with auto-scheduling, cooldown periods, cycle history, and progress tracking. localStorage persisted.
--   **Task Checklists (ClickUp):** Per-task checkbox checklists with progress bar, separate from subtasks. localStorage persisted.
--   **Task Tray (ClickUp):** Floating minimized task bar at bottom of screen for multitasking. Pin tasks to tray from modal, click to reopen.
--   **Pulse / Who's Online (ClickUp):** Real-time team activity page showing member online status, current activity, and what they're working on.
--   **Everything View (ClickUp):** Cross-project aggregated task view with group-by (project/status/priority/assignee), filters, and search.
--   **Time Estimate vs Tracked (ClickUp):** Visual comparison widget in task modal showing estimated hours vs actual tracked time with progress bar and budget indicator.
--   **Relationship Types (ClickUp):** Extended task linking with 6 relationship types: related, duplicates, blocks, is-blocked-by, parent-of, child-of. Color-coded badges.
--   **Custom Task IDs (ClickUp):** Readable task IDs like "API-001", "MOB-005" based on project name prefix + padded task number. Displayed in task modal header and table view.
--   **Task Watchers (ClickUp):** Watch/unwatch button in task modal. Watcher avatars displayed. localStorage persisted.
--   **Comment Assignments (ClickUp):** Assign comments as action items to team members. Assigned badge shows assignee name. Removable via X button.
--   **Nested Docs / Sub-pages (ClickUp):** Documents page supports parent-child document hierarchy. Sidebar tree view with expand/collapse. Add sub-page button in toolbar. Breadcrumb navigation to parent. Sub-pages listed at bottom of parent document.
--   **Due Date Reminders (ClickUp):** Remind-me dropdown in task modal (15min, 1hr, 1day, 3days before due). Reminder badge indicator. localStorage persisted.
--   **Task Priority Colors on Kanban Cards (ClickUp):** Colored left border strip on kanban cards — rose for critical, amber for high, blue for medium, slate for low.
--   **Spaces / Folders (ClickUp):** Folder grouping for projects in sidebar. Collapsible folder tree with project count. Create folder button. localStorage persisted.
--   **Inbox / Notification Feed (ClickUp):** Personal notification inbox page with assignment, overdue, due-soon, and completion notifications. Filter by all/unread/starred/assignments/mentions. Star, archive, mark-read actions. localStorage persisted.
--   **Hill Chart (Basecamp):** Visual progress tracking using a hill-shaped curve showing tasks moving from "Figuring it out" to "Making it happen."
--   **Check-ins (Basecamp):** Automatic team check-in prompts ("What did you work on today?") with responses and history.
--   **Message Boards (Basecamp):** Threaded project discussions with categories and replies.
--   **Doors (Basecamp):** External links hub per project for quick access to tools and resources.
--   **Card Covers (Trello):** Color strip headers on kanban cards for visual categorization.
--   **Card Voting (Trello):** Thumbs-up voting system on kanban cards for prioritization.
--   **Card Aging (Trello):** Visual staleness indicator — cards older than 14 days fade in opacity.
--   **Board Backgrounds (Trello):** 5 gradient theme presets for kanban board customization.
--   **Version History (Notion):** Documents track up to 10 versions on each save with restore capability.
--   **Toggle Blocks (Notion):** Collapsible `<details>` sections insertable into documents.
--   **Synced Blocks (Notion):** Named reusable content snippets that can be inserted across documents.
--   **Form Routing Rules (Wrike):** Request forms with field-based routing rules (field → priority/assignee mapping).
--   **Blueprints (Wrike):** Full project templates with pre-built task sets. 5 preset blueprints (Agile Sprint, Marketing Campaign, Employee Onboarding, Product Launch, Bug Fix Sprint) plus custom blueprint creation from existing projects. Apply creates actual tasks via API.
--   **Cross-Tagging (Wrike):** Tag tasks across multiple projects from the task modal. Tasks can appear in additional project contexts.
--   **Project Risk Scoring (Wrike):** Computed risk scores on Portfolio page (both card and table views) based on overdue items, blocked tasks, critical priorities, and budget utilization.
--   **Risk Register (Teamwork):** Dedicated risk matrix page with likelihood/impact scoring and mitigation tracking.
--   **Project Budgets (Teamwork):** Budget tracking with burn rate, efficiency metrics, and runway calculations.
--   **Project Health Dashboard (Teamwork):** Real-time health scores across all projects based on completion, blockers, overdue items, and risk. Manual health status overrides with notes.
--   **Report Builder (Smartsheet):** Cross-project rollup reports with CSV export and customizable column selection.
--   **Conditional Formatting (Smartsheet):** Rules-based row highlighting in table view. Configure rules by field (status/priority/type/points), condition (equals/contains/greater than), and color (6 presets).
--   **Sheet Summary Fields (Smartsheet):** Toggle-able summary panel in table view showing aggregate metrics (total tasks, points, completion%, overdue, avg points, blocked, in-progress, critical).
--   **Cell History (Smartsheet):** Change tracking for table cells (status, priority, title, type). Right-click cells to view history. Up to 20 entries per field per task.
+Developed with React, Vite, and Tailwind CSS, incorporating Framer Motion for animations and Lucide React for icons. The UI/UX features a versatile dashboard, multi-view task management (Kanban, Gantt, Calendar, etc.), sprint tracking, time tracking, OKR management, comprehensive communication tools (announcements, standups, messaging), and an Email Hub. Advanced features include workload management, automations with a rule engine, intake forms, milestones, approvals, project updates, and detailed reports & analytics with SVG charts and CSV export. The platform also includes customizable tags, project templates, a personalized "My Day" view, a global activity feed, and soft-delete functionality. Administrative capabilities include a Super Admin interface with an AI Command Center, feature flags, custom fields, expense tracking, API/email settings, and robust permission management with YubiKey/WebAuthn FIDO2 security. Additional features encompass an in-app Platform Guide, global search, user settings, guest access with granular permissions, CSV import/export, customizable dashboard widgets, multi-project tasks, whiteboard with collaborative presence, proofing with annotations, workload heatmaps, and an integrations marketplace.
+
+Further UI features include: Board/View Sharing, Board Grouping, Timeline Support, Sub-Items, Project Descriptions, specialized task views (Chart, Project Brief, Embed), Mind Maps, Notepad, Reminders, AI-powered Documents with templates, an Enhanced Portfolio view, a Favorites Sidebar, Task Templates, Sprint Planning Board, SLA/Due Date Indicators, Cycles for time-boxed work, Task Checklists, a floating Task Tray, a "Pulse" page for real-time team activity, an "Everything View" for cross-project task aggregation, Time Estimate vs Tracked comparison, extended Task Relationship Types, Custom Task IDs, Task Watchers, Comment Assignments, Nested Docs/Sub-pages, Due Date Reminders, Task Priority Colors on Kanban Cards, Spaces/Folders for project organization, an Inbox/Notification Feed, Hill Charts for progress tracking, Check-ins, Message Boards, Doors for external links, Card Covers, Card Voting, Card Aging, Board Backgrounds, Version History for documents, Toggle Blocks, Synced Blocks, Form Routing Rules, Project Blueprints, Cross-Tagging, Project Risk Scoring, Risk Register, Project Budgets, Project Health Dashboard, Report Builder, Conditional Formatting, Sheet Summary Fields, and Cell History.
 
 **Backend:**
-An Express 5 API server handles REST endpoints with Zod for validation and Drizzle ORM for PostgreSQL. API codegen uses Orval for React Query hooks and Zod schemas.
+An Express 5 API server handles REST endpoints with Zod for validation and Drizzle ORM for PostgreSQL. API codegen uses Orval for React Query hooks and Zod schemas. Key services include `twilio.service.ts` for SMS/voice, `sendgrid.service.ts` for email delivery, `notification.service.ts` for in-app notifications and WebSocket broadcasts, and `websocket.ts` for real-time communication. Reminder dispatch is managed by `node-cron`. The backend also supports outgoing webhooks and includes a Finance API for personal finance features like invoices, portfolios, transactions, and virtual cards. An AI-driven system provides email-to-project recommendations.
 
 **Database:**
 PostgreSQL with Drizzle ORM.
 
 **Build System:**
 `esbuild` for API server and Vite for frontend.
-
-**Services Architecture:**
-Key services include `twilio.service.ts` for SMS/voice, `sendgrid.service.ts` for email delivery with graceful fallback, `notification.service.ts` for in-app notifications and WebSocket broadcasts, and `websocket.ts` for real-time communication. Reminder dispatch is managed by `node-cron`.
-
-**Finance API (Investment Docs app):**
-External API for personal finance features including invoices (CRUD, email, recurring), portfolios (holdings, P&L), transactions (tracking, categories), and virtual cards (Privacy.com integration).
-
-**Outgoing Webhooks:**
-System for delivering events to external services with configurable webhooks, security features (URL validation, secret masking), and test payload functionality.
-
-**Reports & Analytics Endpoints:**
-API endpoints for analytics overview, CSV export, and bulk task import.
-
-**Email-to-Project Recommendations:**
-AI-driven system to scan emails and recommend project assignments based on content analysis, with confidence scores and email categorization.
 
 ## External Dependencies
 
@@ -144,16 +42,13 @@ AI-driven system to scan emails and recommend project assignments based on conte
 -   **Styling:** Tailwind CSS
 -   **Animation Library:** Framer Motion
 -   **Icon Library:** Lucide React
--   **Date Utility:** date-fns
 -   **Markdown Rendering:** react-markdown
 -   **Validation:** Zod
 -   **API Codegen:** Orval
--   **Messaging/Communication:** Twilio (SMS, voice, email via SMS)
--   **Calendar Integration:** Google Calendar API (via Replit Integration OAuth connector)
--   **Email Providers (Configurable):** SMTP, SendGrid, Mailgun, AWS SES, Postmark
--   **Email Delivery:** SendGrid (`@sendgrid/mail`)
+-   **Messaging/Communication:** Twilio
+-   **Calendar Integration:** Google Calendar API
+-   **Email Delivery:** SendGrid (and other configurable SMTP, Mailgun, AWS SES, Postmark)
 -   **Task Scheduling:** node-cron
 -   **Real-time:** WebSocket (`ws`)
 -   **Security:** YubiKey, WebAuthn FIDO2
--   **Version Control Integration:** GitHub, GitLab
 -   **Virtual Card Integration:** Privacy.com API

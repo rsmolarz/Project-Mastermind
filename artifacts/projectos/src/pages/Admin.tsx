@@ -1840,25 +1840,45 @@ function ApiEmailTab() {
 
   const saveEmailConfig = async () => {
     setEmailSaving(true);
-    const res = await fetch(`${API}/email-config`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(emailConfig),
-    });
-    const updated = await res.json();
-    setEmailConfig(updated);
+    try {
+      const res = await fetch(`${API}/email-config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emailConfig),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Server error" }));
+        setEmailTestResult(`Error saving: ${err.error || res.statusText}`);
+      } else {
+        const updated = await res.json();
+        setEmailConfig(updated);
+        setEmailTestResult("Configuration saved successfully!");
+      }
+    } catch (err: any) {
+      setEmailTestResult(`Error: ${err.message || "Failed to save configuration"}`);
+    }
     setEmailSaving(false);
+    setTimeout(() => setEmailTestResult(null), 5000);
   };
 
   const testEmail = async () => {
-    const res = await fetch(`${API}/email-config/test`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to: "test@example.com" }),
-    });
-    const result = await res.json();
-    setEmailTestResult(result.success ? result.message : result.error);
-    setTimeout(() => setEmailTestResult(null), 5000);
+    if (!emailConfig.active) {
+      setEmailTestResult("Email system is not active. Toggle it on first, then save your configuration.");
+      setTimeout(() => setEmailTestResult(null), 5000);
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/email-config/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: emailConfig.fromEmail || "test@example.com" }),
+      });
+      const result = await res.json();
+      setEmailTestResult(result.success ? result.message : (result.error || "Test failed"));
+    } catch (err: any) {
+      setEmailTestResult(`Error: ${err.message || "Failed to send test email"}`);
+    }
+    setTimeout(() => setEmailTestResult(null), 8000);
   };
 
   return (
@@ -2131,7 +2151,7 @@ function ApiEmailTab() {
             </div>
             {emailTestResult && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className={`p-3 rounded-lg text-xs ${emailTestResult.includes("error") || emailTestResult.includes("not") ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>
+                className={`p-3 rounded-lg text-sm font-medium ${emailTestResult.startsWith("Error") || emailTestResult.includes("not active") || emailTestResult.includes("not configured") ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"}`}>
                 {emailTestResult}
               </motion.div>
             )}
