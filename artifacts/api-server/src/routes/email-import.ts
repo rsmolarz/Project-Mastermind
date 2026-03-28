@@ -458,6 +458,135 @@ router.post("/email-import/create-headings", async (req, res): Promise<void> => 
   res.json({ success: true, created: results });
 });
 
+router.post("/email-import/deep-scan", async (req, res): Promise<void> => {
+  const configs = await db.select().from(emailConfigTable);
+  if (configs.length === 0 || !configs[0].active) {
+    res.status(400).json({ error: "Email system not configured or not active" });
+    return;
+  }
+
+  const config = configs[0];
+  const imapHost = getImapHost(config.host);
+  if (!imapHost) {
+    res.status(400).json({ error: `IMAP not supported for ${config.host}` });
+    return;
+  }
+
+  const folder = (req.body.folder as string) || "[Gmail]/All Mail";
+  const sinceDate = req.body.since || "2017-01-01";
+  const beforeDate = req.body.before || null;
+
+  let client: ImapFlow | null = null;
+
+  try {
+    client = new ImapFlow({
+      host: imapHost,
+      port: 993,
+      secure: true,
+      auth: { user: config.username, pass: config.password },
+      logger: false,
+      emitLogs: false,
+    });
+
+    await client.connect();
+    const lock = await client.getMailboxLock(folder);
+
+    const senderMap: Record<string, { count: number; name: string; latestSubject: string; latestDate: string; subjects: string[] }> = {};
+    let total = 0;
+
+    try {
+      const searchCriteria: any = { since: new Date(sinceDate) };
+      if (beforeDate) searchCriteria.before = new Date(beforeDate);
+
+      const uids = await client.search(searchCriteria, { uid: true });
+      const totalToScan = uids.length;
+
+      if (totalToScan === 0) {
+        lock.release();
+        await client.logout();
+        res.json({ success: true, folder, since: sinceDate, totalEmailsScanned: 0, uniqueSenders: 0, uniqueDomains: 0, topSenders: [], topDomains: [], allDomains: [] });
+        return;
+      }
+
+      const BATCH = 500;
+      for (let i = 0; i < uids.length; i += BATCH) {
+        const batch = uids.slice(i, i + BATCH);
+        const uidRange = batch.join(",");
+
+        for await (const message of client.fetch(uidRange, { envelope: true }, { uid: true })) {
+          total++;
+          const fromAddr = message.envelope?.from?.[0]?.address?.toLowerCase() || "unknown";
+          const fromName = message.envelope?.from?.[0]?.name || "";
+          const subject = message.envelope?.subject || "(no subject)";
+          const rawDate = message.envelope?.date;
+          const date = rawDate instanceof Date ? rawDate.toISOString() : (rawDate ? String(rawDate) : "");
+
+          if (!senderMap[fromAddr]) {
+            senderMap[fromAddr] = { count: 0, name: fromName, latestSubject: subject, latestDate: date, subjects: [] };
+          }
+          senderMap[fromAddr].count++;
+          if (senderMap[fromAddr].subjects.length < 5) {
+            senderMap[fromAddr].subjects.push(subject);
+          }
+          if (date > senderMap[fromAddr].latestDate) {
+            senderMap[fromAddr].latestDate = date;
+            senderMap[fromAddr].latestSubject = subject;
+          }
+        }
+      }
+    } finally {
+      lock.release();
+    }
+
+    await client.logout();
+
+    const senders = Object.entries(senderMap)
+      .map(([email, info]) => ({
+        email,
+        domain: email.split("@")[1] || "unknown",
+        name: info.name,
+        count: info.count,
+        latestSubject: info.latestSubject,
+        latestDate: info.latestDate,
+        sampleSubjects: info.subjects,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const domainMap: Record<string, { count: number; senders: string[]; sampleSubjects: string[] }> = {};
+    for (const s of senders) {
+      if (!domainMap[s.domain]) domainMap[s.domain] = { count: 0, senders: [], sampleSubjects: [] };
+      domainMap[s.domain].count += s.count;
+      if (domainMap[s.domain].senders.length < 5) domainMap[s.domain].senders.push(s.email);
+      if (domainMap[s.domain].sampleSubjects.length < 3) domainMap[s.domain].sampleSubjects.push(...s.sampleSubjects.slice(0, 2));
+    }
+
+    const domains = Object.entries(domainMap)
+      .map(([domain, info]) => ({
+        domain,
+        totalEmails: info.count,
+        senders: info.senders,
+        sampleSubjects: info.sampleSubjects.slice(0, 3),
+      }))
+      .sort((a, b) => b.totalEmails - a.totalEmails);
+
+    res.json({
+      success: true,
+      folder,
+      since: sinceDate,
+      totalEmailsScanned: total,
+      uniqueSenders: senders.length,
+      uniqueDomains: domains.length,
+      topSenders: senders.slice(0, 150),
+      topDomains: domains.slice(0, 150),
+      allDomains: domains,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (client) try { await client.logout(); } catch {}
+  }
+});
+
 router.post("/email-import/reset-assignments", async (_req, res): Promise<void> => {
   const result = await db.update(emailLogsTable)
     .set({ projectId: null })
