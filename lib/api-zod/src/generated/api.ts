@@ -27,6 +27,8 @@ export const ListProjectsResponseItem = zod.object({
   health: zod.number(),
   phase: zod.string(),
   tag: zod.string(),
+  parentId: zod.number().nullable().optional(),
+  sortOrder: zod.number().optional(),
   createdAt: zod.date(),
 });
 export const ListProjectsResponse = zod.array(ListProjectsResponseItem);
@@ -43,6 +45,8 @@ export const CreateProjectBody = zod.object({
   health: zod.number().optional(),
   phase: zod.string().optional(),
   tag: zod.string().optional(),
+  parentId: zod.number().nullable().optional(),
+  sortOrder: zod.number().optional(),
 });
 
 /**
@@ -61,6 +65,8 @@ export const UpdateProjectBody = zod.object({
   health: zod.number().optional(),
   phase: zod.string().optional(),
   tag: zod.string().optional(),
+  parentId: zod.number().nullable().optional(),
+  sortOrder: zod.number().optional(),
 });
 
 export const UpdateProjectResponse = zod.object({
@@ -73,6 +79,8 @@ export const UpdateProjectResponse = zod.object({
   health: zod.number(),
   phase: zod.string(),
   tag: zod.string(),
+  parentId: zod.number().nullable().optional(),
+  sortOrder: zod.number().optional(),
   createdAt: zod.date(),
 });
 

@@ -13,6 +13,8 @@ export const projectsTable = pgTable("projects", {
   phase: text("phase").notNull().default("Planning"),
   description: text("description").notNull().default(""),
   tag: text("tag").notNull().default(""),
+  parentId: integer("parent_id"),
+  sortOrder: integer("sort_order").notNull().default(0),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
