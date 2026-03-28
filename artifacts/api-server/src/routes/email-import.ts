@@ -676,4 +676,208 @@ function getCategoryColor(category: string): string {
   return colors[category] || "#6366f1";
 }
 
+router.post("/email-import/unsubscribe", async (req, res): Promise<void> => {
+  const { domains } = req.body;
+  if (!Array.isArray(domains) || domains.length === 0) {
+    res.status(400).json({ error: "domains array required" });
+    return;
+  }
+
+  const configs = await db.select().from(emailConfigTable);
+  if (configs.length === 0 || !configs[0].active) {
+    res.status(400).json({ error: "Email system not configured" });
+    return;
+  }
+
+  const config = configs[0];
+  const imapHost = getImapHost(config.host);
+  if (!imapHost) {
+    res.status(400).json({ error: "IMAP not supported" });
+    return;
+  }
+
+  let client: ImapFlow | null = null;
+  const results: Array<{
+    domain: string;
+    status: string;
+    method?: string;
+    unsubscribeTarget?: string;
+    error?: string;
+  }> = [];
+
+  try {
+    client = new ImapFlow({
+      host: imapHost,
+      port: 993,
+      secure: true,
+      auth: { user: config.username, pass: config.password },
+      logger: false,
+    });
+
+    await client.connect();
+    const lock = await client.getMailboxLock("[Gmail]/All Mail");
+
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.default.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.encryption === "ssl",
+      auth: { user: config.username, pass: config.password },
+    });
+
+    try {
+      for (const domain of domains) {
+        try {
+          const uids = await client.search({ from: `@${domain}` }, { uid: true });
+          if (uids.length === 0) {
+            results.push({ domain, status: "no_emails_found" });
+            continue;
+          }
+
+          const latestUid = uids[uids.length - 1];
+          let unsubscribeHeader = "";
+          let fromAddr = "";
+
+          for await (const message of client.fetch(String(latestUid), {
+            envelope: true,
+            source: true,
+          }, { uid: true })) {
+            const rawSource = message.source?.toString() || "";
+            const headerEnd = rawSource.indexOf("\r\n\r\n");
+            const headerBlock = headerEnd > 0 ? rawSource.substring(0, headerEnd) : rawSource.substring(0, 10000);
+            const unfolded = headerBlock.replace(/\r?\n[ \t]+/g, " ");
+            const lines = unfolded.split(/\r?\n/);
+            for (const line of lines) {
+              if (/^list-unsubscribe:/i.test(line)) {
+                unsubscribeHeader = line.replace(/^list-unsubscribe:\s*/i, "").trim();
+                break;
+              }
+            }
+            fromAddr = message.envelope?.from?.[0]?.address || "";
+          }
+
+          if (!unsubscribeHeader) {
+            results.push({ domain, status: "no_unsubscribe_header", error: "No List-Unsubscribe header found" });
+            continue;
+          }
+
+          if (unsubscribeHeader.includes("=?")) {
+            try {
+              const { decode } = await import("libmime" as any).catch(() => ({ decode: null }));
+              if (decode) {
+                unsubscribeHeader = decode(unsubscribeHeader);
+              } else {
+                unsubscribeHeader = unsubscribeHeader
+                  .replace(/=\?[^?]+\?[QqBb]\?/g, "")
+                  .replace(/\?=/g, "")
+                  .replace(/=3C/gi, "<").replace(/=3E/gi, ">")
+                  .replace(/=3A/gi, ":").replace(/=2F/gi, "/")
+                  .replace(/=3F/gi, "?").replace(/=26/gi, "&")
+                  .replace(/=3D/gi, "=").replace(/\s+/g, "");
+              }
+            } catch {
+              unsubscribeHeader = unsubscribeHeader
+                .replace(/=\?[^?]+\?[QqBb]\?/g, "")
+                .replace(/\?=/g, "")
+                .replace(/=3C/gi, "<").replace(/=3E/gi, ">")
+                .replace(/=3A/gi, ":").replace(/=2F/gi, "/")
+                .replace(/=3F/gi, "?").replace(/=26/gi, "&")
+                .replace(/=3D/gi, "=").replace(/\s+/g, "");
+            }
+          }
+
+          const mailtoMatch = unsubscribeHeader.match(/<mailto:([^>]+)>/i);
+          const httpMatch = unsubscribeHeader.match(/<(https?:\/\/[^>]+)>/i);
+
+          if (mailtoMatch) {
+            const mailtoUrl = mailtoMatch[1];
+            let toAddr = mailtoUrl;
+            let subject = "Unsubscribe";
+            let body = "Unsubscribe";
+
+            if (mailtoUrl.includes("?")) {
+              const [addr, query] = mailtoUrl.split("?");
+              toAddr = addr;
+              const params = new URLSearchParams(query);
+              if (params.get("subject")) subject = params.get("subject")!;
+              if (params.get("body")) body = params.get("body")!;
+            }
+
+            await transporter.sendMail({
+              from: config.fromEmail || config.username,
+              to: toAddr,
+              subject,
+              text: body,
+            });
+
+            results.push({
+              domain,
+              status: "unsubscribed_via_email",
+              method: "mailto",
+              unsubscribeTarget: toAddr,
+            });
+          } else if (httpMatch) {
+            const url = httpMatch[1];
+            try {
+              const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                  "List-Unsubscribe": "One-Click",
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: "List-Unsubscribe=One-Click",
+                redirect: "follow",
+              });
+
+              if (!response.ok) {
+                await fetch(url, { method: "GET", redirect: "follow" });
+              }
+
+              results.push({
+                domain,
+                status: "unsubscribed_via_http",
+                method: "http",
+                unsubscribeTarget: url,
+              });
+            } catch (httpErr: any) {
+              results.push({
+                domain,
+                status: "http_failed_trying_email",
+                method: "http",
+                error: httpErr.message,
+                unsubscribeTarget: url,
+              });
+            }
+          } else {
+            results.push({
+              domain,
+              status: "unsubscribe_header_unparseable",
+              error: `Header: ${unsubscribeHeader}`,
+            });
+          }
+        } catch (domainErr: any) {
+          results.push({ domain, status: "error", error: domainErr.message });
+        }
+      }
+    } finally {
+      lock.release();
+    }
+
+    await client.logout();
+
+    const succeeded = results.filter(r => r.status.startsWith("unsubscribed"));
+    const failed = results.filter(r => !r.status.startsWith("unsubscribed"));
+
+    res.json({
+      success: true,
+      summary: `${succeeded.length} unsubscribed, ${failed.length} failed/skipped`,
+      results,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (client) try { await client.logout(); } catch {}
+  }
+});
+
 export default router;
