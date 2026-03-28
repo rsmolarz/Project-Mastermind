@@ -458,6 +458,71 @@ router.post("/email-import/create-headings", async (req, res): Promise<void> => 
   res.json({ success: true, created: results });
 });
 
+router.post("/email-import/reset-assignments", async (_req, res): Promise<void> => {
+  const result = await db.update(emailLogsTable)
+    .set({ projectId: null })
+    .where(sql`${emailLogsTable.projectId} IS NOT NULL`);
+  res.json({ success: true, message: "All email project assignments cleared" });
+});
+
+router.post("/email-import/create-business-headings", async (req, res): Promise<void> => {
+  const { businesses } = req.body;
+  if (!Array.isArray(businesses) || businesses.length === 0) {
+    res.status(400).json({ error: "businesses array required: [{name, tag, icon?, color?, domains:[], keywords:[]}]" });
+    return;
+  }
+
+  const { projectsTable } = await import("@workspace/db");
+  const results: Array<{ name: string; projectId: number; assignedEmails: number }> = [];
+
+  for (const biz of businesses) {
+    const { name, tag, icon, color, domains, keywords } = biz;
+    if (!name) continue;
+
+    const [project] = await db.insert(projectsTable).values({
+      name,
+      icon: icon || "📧",
+      color: color || "#6366f1",
+      tag: tag || name.toUpperCase().replace(/[^A-Z0-9]/g, "_").substring(0, 20),
+    }).returning();
+
+    const allEmails = await db.select().from(emailLogsTable)
+      .where(sql`${emailLogsTable.projectId} IS NULL`);
+
+    let assigned = 0;
+    for (const email of allEmails) {
+      const from = email.fromAddress.toLowerCase();
+      const domain = from.split("@")[1] || "";
+      const text = `${email.subject} ${(email.bodyText || "").substring(0, 1000)}`.toLowerCase();
+
+      let match = false;
+
+      if (Array.isArray(domains)) {
+        for (const d of domains) {
+          if (domain.includes(d.toLowerCase())) { match = true; break; }
+        }
+      }
+
+      if (!match && Array.isArray(keywords)) {
+        for (const kw of keywords) {
+          if (text.includes(kw.toLowerCase())) { match = true; break; }
+        }
+      }
+
+      if (match) {
+        await db.update(emailLogsTable)
+          .set({ projectId: project.id })
+          .where(eq(emailLogsTable.id, email.id));
+        assigned++;
+      }
+    }
+
+    results.push({ name, projectId: project.id, assignedEmails: assigned });
+  }
+
+  res.json({ success: true, created: results });
+});
+
 function getCategoryIcon(category: string): string {
   const icons: Record<string, string> = {
     "billing": "💰", "proposals": "📋", "contracts": "📝", "support": "🛠️",
