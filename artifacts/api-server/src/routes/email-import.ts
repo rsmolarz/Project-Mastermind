@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, emailConfigTable, emailLogsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, emailConfigTable, emailLogsTable, domainProjectMappingsTable } from "@workspace/db";
+import { eq, sql, inArray, isNull } from "drizzle-orm";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 
@@ -878,6 +878,309 @@ router.post("/email-import/unsubscribe", async (req, res): Promise<void> => {
   } finally {
     if (client) try { await client.logout(); } catch {}
   }
+});
+
+router.get("/email-import/domain-mappings", async (_req, res): Promise<void> => {
+  const mappings = await db.select().from(domainProjectMappingsTable);
+  res.json({ total: mappings.length, mappings });
+});
+
+router.post("/email-import/domain-mappings/bulk", async (req, res): Promise<void> => {
+  const { mappings } = req.body;
+  if (!Array.isArray(mappings) || mappings.length === 0) {
+    res.status(400).json({ error: "mappings array required: [{domain, projectId}]" });
+    return;
+  }
+
+  let created = 0;
+  let updated = 0;
+  let errors: string[] = [];
+
+  for (const m of mappings) {
+    if (!m.domain || !m.projectId) {
+      errors.push(`Invalid mapping: ${JSON.stringify(m)}`);
+      continue;
+    }
+    try {
+      await db.insert(domainProjectMappingsTable)
+        .values({ domain: m.domain.toLowerCase(), projectId: m.projectId })
+        .onConflictDoUpdate({
+          target: domainProjectMappingsTable.domain,
+          set: { projectId: m.projectId, isActive: true },
+        });
+      created++;
+    } catch (err: any) {
+      errors.push(`${m.domain}: ${err.message}`);
+    }
+  }
+
+  res.json({ success: true, created, updated, errors: errors.length, errorDetails: errors.slice(0, 20) });
+});
+
+router.post("/email-import/assign-by-domain", async (req, res): Promise<void> => {
+  const dryRun = req.body.dryRun === true;
+
+  const mappings = await db.select().from(domainProjectMappingsTable)
+    .where(eq(domainProjectMappingsTable.isActive, true));
+
+  if (mappings.length === 0) {
+    res.json({ error: "No domain mappings configured. Use /domain-mappings/bulk first." });
+    return;
+  }
+
+  const domainToProject: Record<string, number> = {};
+  for (const m of mappings) {
+    domainToProject[m.domain] = m.projectId;
+  }
+
+  const unassigned = await db.select({
+    id: emailLogsTable.id,
+    fromAddress: emailLogsTable.fromAddress,
+  }).from(emailLogsTable)
+    .where(isNull(emailLogsTable.projectId));
+
+  let assigned = 0;
+  let unmatched = 0;
+  const unmatchedDomains: Record<string, number> = {};
+  const assignmentsByProject: Record<number, number> = {};
+
+  for (const email of unassigned) {
+    const domain = (email.fromAddress.split("@")[1] || "").toLowerCase();
+
+    let projectId = domainToProject[domain];
+
+    if (!projectId) {
+      const parts = domain.split(".");
+      for (let i = 1; i < parts.length; i++) {
+        const parentDomain = parts.slice(i).join(".");
+        if (domainToProject[parentDomain]) {
+          projectId = domainToProject[parentDomain];
+          break;
+        }
+      }
+    }
+
+    if (projectId) {
+      if (!dryRun) {
+        await db.update(emailLogsTable)
+          .set({ projectId })
+          .where(eq(emailLogsTable.id, email.id));
+      }
+      assigned++;
+      assignmentsByProject[projectId] = (assignmentsByProject[projectId] || 0) + 1;
+    } else {
+      unmatched++;
+      unmatchedDomains[domain] = (unmatchedDomains[domain] || 0) + 1;
+    }
+  }
+
+  const topUnmatched = Object.entries(unmatchedDomains)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 50)
+    .map(([domain, count]) => ({ domain, count }));
+
+  res.json({
+    success: true,
+    dryRun,
+    totalUnassigned: unassigned.length,
+    assigned,
+    unmatched,
+    topUnmatchedDomains: topUnmatched,
+    assignmentsByProject: Object.entries(assignmentsByProject)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 30)
+      .map(([projectId, count]) => ({ projectId: Number(projectId), count })),
+  });
+});
+
+router.post("/email-import/full-organize", async (req, res): Promise<void> => {
+  const configs = await db.select().from(emailConfigTable);
+  if (configs.length === 0 || !configs[0].active) {
+    res.status(400).json({ error: "Email system not configured" });
+    return;
+  }
+
+  const config = configs[0];
+  const imapHost = getImapHost(config.host);
+  if (!imapHost) {
+    res.status(400).json({ error: "IMAP not supported" });
+    return;
+  }
+
+  const folder = (req.body.folder as string) || "[Gmail]/All Mail";
+  const sinceDate = req.body.since || "2017-01-01";
+  const batchSize = Math.min(parseInt(req.body.batchSize as string) || 500, 2000);
+
+  const mappings = await db.select().from(domainProjectMappingsTable)
+    .where(eq(domainProjectMappingsTable.isActive, true));
+
+  if (mappings.length === 0) {
+    res.json({ error: "No domain mappings. Use /domain-mappings/bulk first." });
+    return;
+  }
+
+  const domainToProject: Record<string, number> = {};
+  for (const m of mappings) {
+    domainToProject[m.domain] = m.projectId;
+  }
+
+  const existingIds = new Set<string>();
+  const existing = await db.select({ mid: emailLogsTable.gmailMessageId }).from(emailLogsTable)
+    .where(sql`${emailLogsTable.gmailMessageId} IS NOT NULL`);
+  for (const e of existing) {
+    if (e.mid) existingIds.add(e.mid);
+  }
+
+  let client: ImapFlow | null = null;
+  let totalScanned = 0;
+  let imported = 0;
+  let assigned = 0;
+  let skipped = 0;
+  let errors: string[] = [];
+  const projectCounts: Record<number, number> = {};
+
+  try {
+    client = new ImapFlow({
+      host: imapHost,
+      port: 993,
+      secure: true,
+      auth: { user: config.username, pass: config.password },
+      logger: false,
+      emitLogs: false,
+    });
+
+    await client.connect();
+    const lock = await client.getMailboxLock(folder);
+
+    try {
+      const uids = await client.search({ since: new Date(sinceDate) }, { uid: true });
+      const totalToProcess = uids.length;
+
+      for (let i = 0; i < uids.length; i += batchSize) {
+        const batch = uids.slice(i, i + batchSize);
+        const uidRange = batch.join(",");
+
+        for await (const message of client.fetch(uidRange, { envelope: true }, { uid: true })) {
+          totalScanned++;
+          const messageId = message.envelope?.messageId || `uid-${message.uid}`;
+
+          if (existingIds.has(messageId)) {
+            skipped++;
+            continue;
+          }
+
+          const fromAddr = message.envelope?.from?.[0]?.address?.toLowerCase() || "unknown";
+          const toAddr = message.envelope?.to?.[0]?.address || "";
+          const subject = message.envelope?.subject || "(no subject)";
+          const rawDate = message.envelope?.date;
+          const date = rawDate instanceof Date ? rawDate : new Date(rawDate || Date.now());
+
+          const domain = (fromAddr.split("@")[1] || "").toLowerCase();
+          let projectId: number | null = domainToProject[domain] || null;
+
+          if (!projectId) {
+            const parts = domain.split(".");
+            for (let j = 1; j < parts.length; j++) {
+              const parent = parts.slice(j).join(".");
+              if (domainToProject[parent]) {
+                projectId = domainToProject[parent];
+                break;
+              }
+            }
+          }
+
+          try {
+            await db.insert(emailLogsTable).values({
+              projectId,
+              fromAddress: fromAddr,
+              toAddress: toAddr,
+              subject,
+              bodyText: null,
+              bodyHtml: null,
+              provider: "imap-import",
+              direction: fromAddr === config.fromEmail?.toLowerCase() ? "outbound" : "inbound",
+              gmailMessageId: messageId,
+              receivedAt: date,
+            });
+            imported++;
+            if (projectId) {
+              assigned++;
+              projectCounts[projectId] = (projectCounts[projectId] || 0) + 1;
+            }
+            existingIds.add(messageId);
+          } catch (insertErr: any) {
+            if (!insertErr.message?.includes("duplicate")) {
+              errors.push(`${messageId}: ${insertErr.message}`);
+            }
+          }
+        }
+      }
+    } finally {
+      lock.release();
+    }
+
+    await client.logout();
+  } catch (err: any) {
+    if (client) try { await client.logout(); } catch {}
+    res.status(500).json({ error: err.message });
+    return;
+  }
+
+  res.json({
+    success: true,
+    folder,
+    since: sinceDate,
+    totalScanned,
+    imported,
+    assigned,
+    skipped,
+    unassigned: imported - assigned,
+    errors: errors.length,
+    topProjectAssignments: Object.entries(projectCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 30)
+      .map(([pid, count]) => ({ projectId: Number(pid), count })),
+  });
+});
+
+router.get("/email-import/project-email-stats", async (_req, res): Promise<void> => {
+  const { projectsTable } = await import("@workspace/db");
+
+  const stats = await db.execute(sql`
+    SELECT 
+      p.id as project_id,
+      p.name as project_name,
+      p.parent_id,
+      COALESCE(e.email_count, 0)::int as email_count,
+      e.latest_email,
+      e.earliest_email
+    FROM projects p
+    LEFT JOIN (
+      SELECT 
+        project_id,
+        COUNT(*)::int as email_count,
+        MAX(received_at) as latest_email,
+        MIN(received_at) as earliest_email
+      FROM email_logs
+      WHERE project_id IS NOT NULL
+      GROUP BY project_id
+    ) e ON p.id = e.project_id
+    ORDER BY COALESCE(e.email_count, 0) DESC
+  `);
+
+  const unassignedCount = await db.select({ count: sql<number>`count(*)` })
+    .from(emailLogsTable)
+    .where(isNull(emailLogsTable.projectId));
+
+  const totalEmails = await db.select({ count: sql<number>`count(*)` })
+    .from(emailLogsTable);
+
+  res.json({
+    totalEmails: Number(totalEmails[0]?.count || 0),
+    assignedEmails: Number(totalEmails[0]?.count || 0) - Number(unassignedCount[0]?.count || 0),
+    unassignedEmails: Number(unassignedCount[0]?.count || 0),
+    projectStats: stats.rows,
+  });
 });
 
 export default router;

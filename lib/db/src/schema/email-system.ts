@@ -76,4 +76,18 @@ export type EmailRoute = typeof emailRoutesTable.$inferSelect;
 export type InsertEmailRoute = typeof emailRoutesTable.$inferInsert;
 export type EmailLog = typeof emailLogsTable.$inferSelect;
 export type InsertEmailLog = typeof emailLogsTable.$inferInsert;
+export const domainProjectMappingsTable = pgTable("domain_project_mappings", {
+  id: serial("id").primaryKey(),
+  domain: text("domain").notNull(),
+  projectId: integer("project_id").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ([
+  uniqueIndex("domain_mapping_domain_idx").on(table.domain),
+  index("domain_mapping_project_idx").on(table.projectId),
+]));
+
+export type DomainProjectMapping = typeof domainProjectMappingsTable.$inferSelect;
+export type InsertDomainProjectMapping = typeof domainProjectMappingsTable.$inferInsert;
+
 export type GmailAccount = typeof gmailAccountsTable.$inferSelect;
