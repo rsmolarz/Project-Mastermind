@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Mail, Search, ChevronRight, ChevronDown, Inbox, RefreshCw,
   ArrowDownLeft, ArrowUpRight, FolderOpen, Globe, Hash,
-  BarChart3, TrendingUp, Loader2, AlertCircle
+  BarChart3, TrendingUp, Loader2, AlertCircle, Zap
 } from "lucide-react";
+import FastmailPanel from "./FastmailPanel";
 
 const API = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -202,6 +203,7 @@ function ProjectTreeItem({
 }
 
 export default function EmailHub() {
+  const [activeAccount, setActiveAccount] = useState<"gmail" | "fastmail">("gmail");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
@@ -213,6 +215,7 @@ export default function EmailHub() {
   const { data: treeData, isLoading: treeLoading } = useQuery({
     queryKey: ["email-project-tree"],
     queryFn: () => apiFetch("/email-import/project-tree"),
+    enabled: activeAccount === "gmail",
   });
 
   const tree = useMemo(() => {
@@ -249,13 +252,38 @@ export default function EmailHub() {
       if (searchQuery) params.set("search", searchQuery);
       return apiFetch(`/email-import/emails-by-project?${params}`);
     },
-    enabled: showUnassigned || selectedProjectId !== null,
+    enabled: activeAccount === "gmail" && (showUnassigned || selectedProjectId !== null),
   });
 
   const selectedProject = useMemo(() => {
     if (!treeData?.projects || !selectedProjectId) return null;
     return treeData.projects.find((p: any) => p.id === selectedProjectId);
   }, [treeData, selectedProjectId]);
+
+  if (activeAccount === "fastmail") {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="border-b border-border px-6 py-2 flex items-center gap-2 bg-card/30">
+          <button
+            onClick={() => setActiveAccount("gmail")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-white/5"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            Gmail
+          </button>
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-primary/15 text-primary"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            Fastmail
+          </button>
+        </div>
+        <div className="flex-1 min-h-0">
+          <FastmailPanel />
+        </div>
+      </div>
+    );
+  }
 
   function handleSelectProject(id: number) {
     setSelectedProjectId(id);
@@ -279,6 +307,21 @@ export default function EmailHub() {
 
   return (
     <div className="h-full flex flex-col">
+      <div className="border-b border-border px-6 py-2 flex items-center gap-2 bg-card/30">
+        <button
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-primary/15 text-primary"
+        >
+          <Mail className="w-3.5 h-3.5" />
+          Gmail
+        </button>
+        <button
+          onClick={() => setActiveAccount("fastmail")}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-white/5"
+        >
+          <Zap className="w-3.5 h-3.5" />
+          Fastmail
+        </button>
+      </div>
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>

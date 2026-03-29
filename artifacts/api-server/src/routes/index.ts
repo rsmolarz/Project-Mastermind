@@ -53,6 +53,7 @@ import importExportRouter from "./import-export";
 import taskProjectsRouter from "./task-projects";
 import sharedViewsRouter from "./shared-views";
 import emailImportRouter from "./email-import";
+import fastmailRouter from "./fastmail";
 
 const router: IRouter = Router();
 
@@ -110,5 +111,6 @@ router.use(importExportRouter);
 router.use(taskProjectsRouter);
 router.use(sharedViewsRouter);
 router.use(emailImportRouter);
+router.use(fastmailRouter);
 
 export default router;

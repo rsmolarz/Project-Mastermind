@@ -49,6 +49,7 @@ PostgreSQL with Drizzle ORM.
 -   **Calendar Integration:** Google Calendar API
 -   **Email Delivery:** SendGrid (and other configurable SMTP, Mailgun, AWS SES, Postmark)
 -   **Email Import:** ImapFlow (IMAP email fetching), Mailparser (email parsing)
+-   **Fastmail:** JMAP API (native fetch, no external library needed)
 -   **Task Scheduling:** node-cron
 -   **Real-time:** WebSocket (`ws`)
 -   **Security:** YubiKey, WebAuthn FIDO2, API key auth (pos_ keys + MOTIONOS_API_KEY)
@@ -56,20 +57,46 @@ PostgreSQL with Drizzle ORM.
 
 ## Email Import & Organization System
 
-The Email Hub (`/email`) is a full-featured email management interface with:
+The Email Hub (`/email`) is a full-featured email management interface with multi-account support:
+
+### Gmail (rsmolarz@rsmolarz.com)
 - **Split-panel layout**: Project tree sidebar (w-72) + email list or overview dashboard
-- **217K+ emails imported** from Gmail (rsmolarz@rsmolarz.com) via IMAP
-- **88%+ assignment rate** via 650+ domain-to-project mappings in `domain_project_mappings` table
+- **217K+ emails imported** via IMAP (ImapFlow/Mailparser)
+- **99.99%+ assignment rate** via 3,400+ domain-to-project mappings in `domain_project_mappings` table
 - **Hierarchical browsing**: Selecting a parent project shows all descendant emails
 - **399 projects** in parent/child hierarchy: 13 top-level headings (VIENT=90, STOR=91, MedMoney=92, Beehive=93, DrRyans=94, Kids=95, MarketIneff=96, PersonalFinance=97, Travel=98, Promotions=99, Surfing=100, Education=101, Personal=190)
 
-Key API endpoints:
+Key Gmail API endpoints:
 - `GET /api/email-import/project-tree` — Project hierarchy with email counts
-- `GET /api/email-import/emails-by-project?projectId=X&page=1&limit=50&search=` — Paginated email list with hierarchy support
+- `GET /api/email-import/emails-by-project?projectId=X&page=1&limit=50&search=` — Paginated email list
 - `POST /api/email-import/domain-mappings/bulk` — Bulk create domain→project mappings
 - `POST /api/email-import/assign-by-domain` — Auto-assign unassigned emails by sender domain
-- `POST /api/email-import/full-organize` — Full IMAP scan + import + assign
-- `GET /api/email-import/project-email-stats` — Overall stats
+
+### Fastmail (medmoney@fastmail.com)
+- **JMAP integration** via Fastmail's REST API (no IMAP needed)
+- **Account ID**: u4c7e4051
+- **8,700+ emails**, 418 contacts, 7 mailboxes
+- **Live inbox** with full email reading, search, and compose
+- **Masked Email management** — create/enable/disable/delete masked addresses
+- **Contacts viewer** with alphabetical grouping and search
+- **Email composition** with identity-based sending via JMAP EmailSubmission
+
+Key Fastmail API endpoints (`artifacts/api-server/src/routes/fastmail.ts`):
+- `GET /api/fastmail/session` — Connection status and capabilities
+- `GET /api/fastmail/mailboxes` — List all mailboxes with counts
+- `GET /api/fastmail/emails?mailboxId=X&search=Y&position=0&limit=50` — Query emails
+- `GET /api/fastmail/email/:id` — Full email detail with body
+- `POST /api/fastmail/send` — Send email via JMAP EmailSubmission
+- `GET /api/fastmail/contacts` — List all contacts (formatted)
+- `GET /api/fastmail/masked-emails` — List masked email addresses
+- `POST /api/fastmail/masked-emails` — Create new masked email
+- `PATCH /api/fastmail/masked-emails/:id` — Update masked email state
+- `DELETE /api/fastmail/masked-emails/:id` — Delete masked email
+- `POST /api/fastmail/search` — Full-text search across all emails
+- `POST /api/fastmail/email/:id/move` — Move email between mailboxes
+- `POST /api/fastmail/email/:id/keywords` — Update email flags (read/starred)
+
+Frontend: `artifacts/projectos/src/pages/FastmailPanel.tsx` with tabs for Inbox, Contacts, Masked Email, and Compose
 
 ## API Key Authentication
 
