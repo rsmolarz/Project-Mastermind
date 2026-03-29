@@ -1,4 +1,6 @@
 import { Router, type IRouter } from "express";
+import { db, emailRoutesTable, emailLogsTable, projectsTable } from "@workspace/db";
+import { eq, and, desc, sql, isNull, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -460,6 +462,272 @@ router.post("/fastmail/email/:id/keywords", async (req, res): Promise<void> => {
       }, "0"]]
     );
     res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/fastmail/project-email", async (req, res): Promise<void> => {
+  try {
+    const { projectId } = req.body;
+    if (!projectId) {
+      res.status(400).json({ error: "projectId is required" });
+      return;
+    }
+
+    const [project] = await db.select().from(projectsTable)
+      .where(eq(projectsTable.id, parseInt(projectId)));
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const existingRoute = await db.select().from(emailRoutesTable)
+      .where(eq(emailRoutesTable.projectId, parseInt(projectId)));
+    if (existingRoute.length > 0) {
+      res.status(409).json({
+        error: "Project already has an email address",
+        route: existingRoute[0],
+      });
+      return;
+    }
+
+    const accountId = await getAccountId();
+    const slug = project.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .substring(0, 20);
+
+    const result = await jmapCall(
+      ["urn:ietf:params:jmap:core", "https://www.fastmail.com/dev/maskedemail"],
+      [["MaskedEmail/set", {
+        accountId,
+        create: {
+          newMask: {
+            state: "enabled",
+            forDomain: "projectos.app",
+            description: `ProjectOS: ${project.name}`,
+            emailPrefix: slug,
+          },
+        },
+      }, "0"]]
+    );
+
+    const setResult = result.methodResponses[0][1];
+    if (setResult.notCreated?.newMask) {
+      res.status(400).json({
+        error: "Failed to create masked email",
+        details: setResult.notCreated.newMask,
+      });
+      return;
+    }
+
+    const maskedEmail = setResult.created?.newMask;
+    if (!maskedEmail?.email) {
+      res.status(500).json({ error: "No email returned from Fastmail" });
+      return;
+    }
+
+    const [route] = await db.insert(emailRoutesTable).values({
+      projectId: parseInt(projectId),
+      assignedEmail: maskedEmail.email.toLowerCase(),
+    }).returning();
+
+    res.status(201).json({
+      success: true,
+      email: maskedEmail.email,
+      maskedEmailId: maskedEmail.id,
+      route,
+      project: { id: project.id, name: project.name },
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/fastmail/project-emails", async (_req, res): Promise<void> => {
+  try {
+    const routes = await db.select({
+      id: emailRoutesTable.id,
+      projectId: emailRoutesTable.projectId,
+      assignedEmail: emailRoutesTable.assignedEmail,
+      isActive: emailRoutesTable.isActive,
+      createdAt: emailRoutesTable.createdAt,
+      projectName: projectsTable.name,
+      projectIcon: projectsTable.icon,
+      projectColor: projectsTable.color,
+    })
+      .from(emailRoutesTable)
+      .leftJoin(projectsTable, eq(emailRoutesTable.projectId, projectsTable.id))
+      .orderBy(desc(emailRoutesTable.createdAt));
+
+    res.json({ routes });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.delete("/fastmail/project-email/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [route] = await db.select().from(emailRoutesTable)
+      .where(eq(emailRoutesTable.id, id));
+    if (!route) { res.status(404).json({ error: "Route not found" }); return; }
+
+    const accountId = await getAccountId();
+    const maskedResult = await jmapCall(
+      ["urn:ietf:params:jmap:core", "https://www.fastmail.com/dev/maskedemail"],
+      [["MaskedEmail/get", { accountId }, "0"]]
+    );
+    const maskedEmails = maskedResult.methodResponses[0][1].list || [];
+    const match = maskedEmails.find((m: any) =>
+      m.email.toLowerCase() === route.assignedEmail.toLowerCase()
+    );
+
+    if (match) {
+      await jmapCall(
+        ["urn:ietf:params:jmap:core", "https://www.fastmail.com/dev/maskedemail"],
+        [["MaskedEmail/set", {
+          accountId,
+          update: { [match.id]: { state: "disabled" } },
+        }, "0"]]
+      );
+    }
+
+    await db.delete(emailRoutesTable).where(eq(emailRoutesTable.id, id));
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/fastmail/sync-to-projects", async (_req, res): Promise<void> => {
+  try {
+    const routes = await db.select().from(emailRoutesTable)
+      .where(eq(emailRoutesTable.isActive, true));
+
+    if (routes.length === 0) {
+      res.json({ synced: 0, message: "No active project email routes" });
+      return;
+    }
+
+    const emailToProject = new Map<string, number>();
+    for (const route of routes) {
+      emailToProject.set(route.assignedEmail.toLowerCase(), route.projectId);
+    }
+
+    const accountId = await getAccountId();
+
+    let totalSynced = 0;
+    const syncDetails: any[] = [];
+
+    for (const [maskedEmail, projectId] of emailToProject) {
+      const queryResult = await jmapCall(
+        ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+        [
+          ["Email/query", {
+            accountId,
+            filter: { to: maskedEmail },
+            sort: [{ property: "receivedAt", isAscending: false }],
+            limit: 100,
+            calculateTotal: true,
+          }, "q"],
+          ["Email/get", {
+            accountId,
+            "#ids": { resultOf: "q", name: "Email/query", path: "/ids" },
+            properties: [
+              "subject", "from", "to", "cc", "receivedAt", "size",
+              "preview", "hasAttachment", "messageId",
+            ],
+          }, "g"],
+        ]
+      );
+
+      const emails = queryResult.methodResponses[1][1].list || [];
+      let newCount = 0;
+
+      for (const email of emails) {
+        const messageId = email.messageId?.[0] || email.id;
+
+        const existing = await db.select({ id: emailLogsTable.id })
+          .from(emailLogsTable)
+          .where(eq(emailLogsTable.gmailMessageId, `fastmail:${messageId}`))
+          .limit(1);
+
+        if (existing.length > 0) continue;
+
+        const from = email.from?.[0];
+        const to = email.to?.map((t: any) => t.email).join(", ") || maskedEmail;
+
+        await db.insert(emailLogsTable).values({
+          projectId,
+          fromAddress: from?.email || "unknown",
+          toAddress: to,
+          subject: email.subject || "(no subject)",
+          bodyText: email.preview || "",
+          provider: "fastmail",
+          direction: "inbound",
+          gmailMessageId: `fastmail:${messageId}`,
+          metadata: {
+            fastmailId: email.id,
+            hasAttachment: email.hasAttachment,
+            size: email.size,
+            maskedEmail,
+            fromName: from?.name,
+          },
+          receivedAt: new Date(email.receivedAt),
+        });
+
+        newCount++;
+        totalSynced++;
+      }
+
+      if (newCount > 0) {
+        const [project] = await db.select({ name: projectsTable.name })
+          .from(projectsTable)
+          .where(eq(projectsTable.id, projectId));
+        syncDetails.push({
+          project: project?.name || `ID ${projectId}`,
+          email: maskedEmail,
+          newEmails: newCount,
+          totalMatched: emails.length,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      synced: totalSynced,
+      routes: routes.length,
+      details: syncDetails,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/fastmail/project-email-stats", async (_req, res): Promise<void> => {
+  try {
+    const routes = await db.select().from(emailRoutesTable)
+      .where(eq(emailRoutesTable.isActive, true));
+
+    const routedEmailCount = await db.select({
+      count: sql<number>`count(*)::int`,
+    })
+      .from(emailLogsTable)
+      .where(eq(emailLogsTable.provider, "fastmail"));
+
+    res.json({
+      activeRoutes: routes.length,
+      totalRoutedEmails: routedEmailCount[0]?.count || 0,
+      routes: routes.map(r => ({
+        projectId: r.projectId,
+        email: r.assignedEmail,
+      })),
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

@@ -64,7 +64,7 @@ function formatSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-type FastmailTab = "inbox" | "contacts" | "masked" | "compose";
+type FastmailTab = "inbox" | "project-emails" | "contacts" | "masked" | "compose";
 
 export default function FastmailPanel() {
   const [activeTab, setActiveTab] = useState<FastmailTab>("inbox");
@@ -91,6 +91,7 @@ export default function FastmailPanel() {
 
   const tabs: { id: FastmailTab; label: string; icon: any }[] = [
     { id: "inbox", label: "Inbox", icon: Inbox },
+    { id: "project-emails", label: "Project Emails", icon: Mail },
     { id: "contacts", label: "Contacts", icon: User },
     { id: "masked", label: "Masked Email", icon: Shield },
     { id: "compose", label: "Compose", icon: Send },
@@ -136,6 +137,7 @@ export default function FastmailPanel() {
 
       <div className="flex-1 min-h-0">
         {activeTab === "inbox" && <InboxPanel />}
+        {activeTab === "project-emails" && <ProjectEmailsPanel />}
         {activeTab === "contacts" && <ContactsPanel />}
         {activeTab === "masked" && <MaskedEmailPanel />}
         {activeTab === "compose" && <ComposePanel onSent={() => {
@@ -443,6 +445,224 @@ function EmailDetailView({ email, onBack, mailboxes }: { email: any; onBack: () 
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ProjectEmailsPanel() {
+  const [showAssign, setShowAssign] = useState(false);
+  const [projectSearch, setProjectSearch] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<any>(null);
+  const queryClient = useQueryClient();
+
+  const { data: routeData, isLoading: routesLoading } = useQuery({
+    queryKey: ["fastmail-project-emails"],
+    queryFn: () => apiFetch("/fastmail/project-emails"),
+  });
+
+  const { data: projectsData } = useQuery({
+    queryKey: ["all-projects-for-email"],
+    queryFn: () => apiFetch("/email-import/project-tree"),
+    enabled: showAssign,
+  });
+
+  const routes = routeData?.routes || [];
+  const assignedProjectIds = new Set(routes.map((r: any) => r.projectId));
+
+  const availableProjects = useMemo(() => {
+    if (!projectsData?.projects) return [];
+    return projectsData.projects
+      .filter((p: any) => !assignedProjectIds.has(p.id))
+      .filter((p: any) => {
+        if (!projectSearch) return true;
+        return p.name.toLowerCase().includes(projectSearch.toLowerCase());
+      })
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+  }, [projectsData, assignedProjectIds, projectSearch]);
+
+  async function handleAssignProject(projectId: number) {
+    try {
+      await apiPost("/fastmail/project-email", { projectId });
+      queryClient.invalidateQueries({ queryKey: ["fastmail-project-emails"] });
+      queryClient.invalidateQueries({ queryKey: ["fastmail-masked-emails"] });
+    } catch (e) {}
+  }
+
+  async function handleRemoveRoute(routeId: number) {
+    try {
+      await apiDelete(`/fastmail/project-email/${routeId}`);
+      queryClient.invalidateQueries({ queryKey: ["fastmail-project-emails"] });
+      queryClient.invalidateQueries({ queryKey: ["fastmail-masked-emails"] });
+    } catch (e) {}
+  }
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const result = await apiPost("/fastmail/sync-to-projects");
+      setSyncResult(result);
+      queryClient.invalidateQueries({ queryKey: ["email-project-tree"] });
+    } catch (e) {
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">{routes.length} project email addresses</span>
+          <button
+            onClick={handleSync}
+            disabled={syncing || routes.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors disabled:opacity-40"
+          >
+            {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            {syncing ? "Syncing..." : "Sync Emails"}
+          </button>
+        </div>
+        <button
+          onClick={() => setShowAssign(!showAssign)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Assign Email to Project
+        </button>
+      </div>
+
+      {syncResult && (
+        <div className={`px-5 py-3 border-b border-border text-xs ${
+          syncResult.synced > 0 ? "bg-emerald-500/5 text-emerald-400" : "bg-card/50 text-muted-foreground"
+        }`}>
+          {syncResult.synced > 0 ? (
+            <div>
+              <span className="font-medium">Synced {syncResult.synced} new emails</span>
+              {syncResult.details?.map((d: any, i: number) => (
+                <span key={i} className="ml-2 text-muted-foreground">
+                  · {d.project}: {d.newEmails} new
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span>No new emails to sync</span>
+          )}
+          <button
+            onClick={() => setSyncResult(null)}
+            className="ml-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-3 h-3 inline" />
+          </button>
+        </div>
+      )}
+
+      {showAssign && (
+        <div className="px-5 py-4 border-b border-border bg-card/50">
+          <div className="mb-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                value={projectSearch}
+                onChange={e => setProjectSearch(e.target.value)}
+                placeholder="Search projects..."
+                className="w-full bg-background border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {availableProjects.slice(0, 20).map((p: any) => (
+              <button
+                key={p.id}
+                onClick={() => handleAssignProject(p.id)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-xs hover:bg-white/5 transition-colors"
+              >
+                <span className="text-sm">{p.icon || "📁"}</span>
+                <span className="truncate flex-1">{p.name}</span>
+                <Plus className="w-3 h-3 text-muted-foreground" />
+              </button>
+            ))}
+            {availableProjects.length === 0 && (
+              <p className="text-xs text-muted-foreground py-2 text-center">No matching projects</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto">
+        {routesLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : routes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <Mail className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm font-medium">No project emails set up yet</p>
+            <p className="text-xs mt-1 max-w-sm text-center">
+              Assign a Fastmail masked email to a project. Anyone who sends to that address will have their email automatically filed into the project.
+            </p>
+            <button
+              onClick={() => setShowAssign(true)}
+              className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Get Started
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {routes.map((route: any) => (
+              <div key={route.id} className="px-5 py-4 flex items-center gap-4 hover:bg-white/[0.02]">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-lg shrink-0">
+                  {route.projectIcon || "📁"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{route.projectName || `Project ${route.projectId}`}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="text-xs font-mono text-primary bg-primary/5 px-2 py-0.5 rounded">
+                      {route.assignedEmail}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(route.assignedEmail);
+                      }}
+                      className="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-white/5"
+                      title="Copy email address"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    Created {formatDate(route.createdAt)}
+                    {route.isActive ? (
+                      <span className="text-emerald-400 ml-2">Active</span>
+                    ) : (
+                      <span className="text-amber-400 ml-2">Inactive</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRemoveRoute(route.id)}
+                  className="p-2 rounded-md text-red-400/60 hover:text-red-400 hover:bg-red-400/10 shrink-0"
+                  title="Remove project email"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {routes.length > 0 && (
+        <div className="px-5 py-3 border-t border-border bg-card/30">
+          <p className="text-[11px] text-muted-foreground">
+            Send emails to the addresses above and click "Sync Emails" to import them into their projects. Emails sent to these addresses will appear in both Fastmail and the project's email log.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

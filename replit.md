@@ -96,7 +96,21 @@ Key Fastmail API endpoints (`artifacts/api-server/src/routes/fastmail.ts`):
 - `POST /api/fastmail/email/:id/move` — Move email between mailboxes
 - `POST /api/fastmail/email/:id/keywords` — Update email flags (read/starred)
 
-Frontend: `artifacts/projectos/src/pages/FastmailPanel.tsx` with tabs for Inbox, Contacts, Masked Email, and Compose
+### Project Email Routing (Email-to-Project)
+- **Masked email per project** — creates a unique Fastmail masked email for any project
+- **One-click assignment** — click a project, get a masked email (e.g., `vient.apmnl@fastmail.com` → VIENT project)
+- **Sync engine** — polls Fastmail for emails sent to project masked addresses and imports them into `email_logs` with `provider: "fastmail"`
+- **Auto-dedup** — uses `gmailMessageId` field with `fastmail:` prefix to prevent duplicate imports
+- Stored in `email_routes` table (same table as legacy `@projectos.dev` routes)
+
+Project Email API endpoints:
+- `POST /api/fastmail/project-email` — Create masked email for a project (creates on Fastmail + stores route)
+- `GET /api/fastmail/project-emails` — List all project email routes with project info
+- `DELETE /api/fastmail/project-email/:id` — Remove project email (disables masked email on Fastmail)
+- `POST /api/fastmail/sync-to-projects` — Sync all emails from Fastmail to their projects
+- `GET /api/fastmail/project-email-stats` — Stats on routed emails
+
+Frontend: `artifacts/projectos/src/pages/FastmailPanel.tsx` with tabs for Inbox, Project Emails, Contacts, Masked Email, and Compose
 
 ## API Key Authentication
 
