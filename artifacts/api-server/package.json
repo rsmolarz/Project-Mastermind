@@ -28,7 +28,8 @@
     "pino": "^9",
     "pino-http": "^10",
     "twilio": "^5.13.0",
-    "ws": "^8.20.0"
+    "ws": "^8.20.0",
+    "@workspace/integrations-anthropic-ai": "workspace:*"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

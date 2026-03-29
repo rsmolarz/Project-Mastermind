@@ -37,3 +37,5 @@ export * from "./guests";
 export * from "./dashboard-widgets";
 export * from "./task-projects";
 export * from "./shared-views";
+export * from "./conversations";
+export * from "./messages";
