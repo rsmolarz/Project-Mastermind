@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, emailConfigTable, emailLogsTable, domainProjectMappingsTable } from "@workspace/db";
-import { eq, sql, inArray, isNull } from "drizzle-orm";
+import { eq, sql, inArray, isNull, and, desc } from "drizzle-orm";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 
@@ -1180,6 +1180,125 @@ router.get("/email-import/project-email-stats", async (_req, res): Promise<void>
     assignedEmails: Number(totalEmails[0]?.count || 0) - Number(unassignedCount[0]?.count || 0),
     unassignedEmails: Number(unassignedCount[0]?.count || 0),
     projectStats: stats.rows,
+  });
+});
+
+router.get("/email-import/emails-by-project", async (req, res): Promise<void> => {
+  const { projectsTable } = await import("@workspace/db");
+  const rawProjectId = req.query.projectId;
+  const projectId = rawProjectId ? Number(rawProjectId) : null;
+  if (rawProjectId && (isNaN(projectId!) || projectId! <= 0)) {
+    res.status(400).json({ error: "Invalid projectId" });
+    return;
+  }
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+  const search = (req.query.search as string) || "";
+  const offset = (page - 1) * limit;
+
+  let projectIds: number[] = [];
+  if (projectId !== null) {
+    const allProjects = await db.select({ id: projectsTable.id, parentId: projectsTable.parentId })
+      .from(projectsTable);
+    const childMap = new Map<number, number[]>();
+    for (const p of allProjects) {
+      if (p.parentId) {
+        if (!childMap.has(p.parentId)) childMap.set(p.parentId, []);
+        childMap.get(p.parentId)!.push(p.id);
+      }
+    }
+    const queue = [projectId];
+    const visited = new Set<number>();
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      projectIds.push(id);
+      const children = childMap.get(id) || [];
+      queue.push(...children);
+    }
+  }
+
+  const conditions: any[] = [];
+  if (projectId !== null) {
+    if (projectIds.length === 1) {
+      conditions.push(eq(emailLogsTable.projectId, projectIds[0]));
+    } else {
+      conditions.push(inArray(emailLogsTable.projectId, projectIds));
+    }
+  } else {
+    conditions.push(isNull(emailLogsTable.projectId));
+  }
+  if (search) {
+    conditions.push(
+      sql`(${emailLogsTable.subject} ILIKE ${'%' + search + '%'} OR ${emailLogsTable.fromAddress} ILIKE ${'%' + search + '%'})`
+    );
+  }
+
+  const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+
+  const [emails, countResult] = await Promise.all([
+    db.select({
+      id: emailLogsTable.id,
+      subject: emailLogsTable.subject,
+      fromAddress: emailLogsTable.fromAddress,
+      toAddress: emailLogsTable.toAddress,
+      receivedAt: emailLogsTable.receivedAt,
+      direction: emailLogsTable.direction,
+      provider: emailLogsTable.provider,
+      projectId: emailLogsTable.projectId,
+    })
+      .from(emailLogsTable)
+      .where(whereClause)
+      .orderBy(desc(emailLogsTable.receivedAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(emailLogsTable)
+      .where(whereClause),
+  ]);
+
+  res.json({
+    emails,
+    total: countResult[0]?.count || 0,
+    page,
+    limit,
+    totalPages: Math.ceil((countResult[0]?.count || 0) / limit),
+  });
+});
+
+router.get("/email-import/project-tree", async (_req, res): Promise<void> => {
+  const { projectsTable } = await import("@workspace/db");
+
+  const results = await db.execute(sql`
+    SELECT 
+      p.id,
+      p.name,
+      p.parent_id,
+      p.icon,
+      p.color,
+      COALESCE(e.email_count, 0)::int as email_count
+    FROM projects p
+    LEFT JOIN (
+      SELECT project_id, COUNT(*)::int as email_count
+      FROM email_logs
+      WHERE project_id IS NOT NULL
+      GROUP BY project_id
+    ) e ON p.id = e.project_id
+    ORDER BY p.parent_id NULLS FIRST, COALESCE(e.email_count, 0) DESC
+  `);
+
+  const unassigned = await db.select({ count: sql<number>`count(*)::int` })
+    .from(emailLogsTable)
+    .where(isNull(emailLogsTable.projectId));
+
+  const total = await db.select({ count: sql<number>`count(*)::int` })
+    .from(emailLogsTable);
+
+  res.json({
+    projects: results.rows,
+    unassignedCount: unassigned[0]?.count || 0,
+    totalEmails: total[0]?.count || 0,
   });
 });
 

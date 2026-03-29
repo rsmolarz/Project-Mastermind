@@ -54,15 +54,22 @@ PostgreSQL with Drizzle ORM.
 -   **Security:** YubiKey, WebAuthn FIDO2, API key auth (pos_ keys + MOTIONOS_API_KEY)
 -   **Virtual Card Integration:** Privacy.com API
 
-## Email Import System
+## Email Import & Organization System
 
-The Email Hub includes an Import & Scan feature (`/email` > Import & Scan tab) that:
-1. Connects to configured SMTP/IMAP provider (auto-maps smtp.gmail.com → imap.gmail.com, etc.)
-2. Imports emails via IMAP into `emailLogsTable` with deduplication via `gmailMessageId`
-3. Analyzes emails using keyword matching across 20 categories (billing, support, design, meetings, etc.)
-4. Creates project headings from selected categories and auto-assigns matching emails
+The Email Hub (`/email`) is a full-featured email management interface with:
+- **Split-panel layout**: Project tree sidebar (w-72) + email list or overview dashboard
+- **217K+ emails imported** from Gmail (rsmolarz@rsmolarz.com) via IMAP
+- **88%+ assignment rate** via 650+ domain-to-project mappings in `domain_project_mappings` table
+- **Hierarchical browsing**: Selecting a parent project shows all descendant emails
+- **399 projects** in parent/child hierarchy: 13 top-level headings (VIENT=90, STOR=91, MedMoney=92, Beehive=93, DrRyans=94, Kids=95, MarketIneff=96, PersonalFinance=97, Travel=98, Promotions=99, Surfing=100, Education=101, Personal=190)
 
-API endpoints: `/api/email-import/status`, `/api/email-import/scan`, `/api/email-import/folders`, `/api/email-import/analyze`, `/api/email-import/create-headings`
+Key API endpoints:
+- `GET /api/email-import/project-tree` — Project hierarchy with email counts
+- `GET /api/email-import/emails-by-project?projectId=X&page=1&limit=50&search=` — Paginated email list with hierarchy support
+- `POST /api/email-import/domain-mappings/bulk` — Bulk create domain→project mappings
+- `POST /api/email-import/assign-by-domain` — Auto-assign unassigned emails by sender domain
+- `POST /api/email-import/full-organize` — Full IMAP scan + import + assign
+- `GET /api/email-import/project-email-stats` — Overall stats
 
 ## API Key Authentication
 
