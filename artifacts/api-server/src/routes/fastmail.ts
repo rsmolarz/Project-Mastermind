@@ -493,10 +493,10 @@ router.post("/fastmail/project-email", async (req, res): Promise<void> => {
     }
 
     const accountId = await getAccountId();
-    const slug = project.name
+    const customPrefix = req.body.emailPrefix;
+    const slug = customPrefix || project.name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
+      .replace(/[^a-z0-9]/g, "")
       .substring(0, 20);
 
     const result = await jmapCall(
