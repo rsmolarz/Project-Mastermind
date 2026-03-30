@@ -25,7 +25,7 @@ export async function sendEmailViaSendGrid(
     from: getFromEmail(),
     subject,
     text: body,
-    html: `<div style="font-family:sans-serif;padding:20px;"><h2 style="color:#6366f1;">${subject}</h2><p>${body.replace(/\n/g, "<br>")}</p><hr style="border-color:#e5e7eb;"><p style="font-size:12px;color:#9ca3af;">Sent by ProjectOS Reminders</p></div>`,
+    html: `<div style="font-family:sans-serif;padding:20px;"><h2 style="color:#6366f1;">${subject}</h2><p>${body.replace(/\n/g, "<br>")}</p><hr style="border-color:#e5e7eb;"><p style="font-size:12px;color:#9ca3af;">Sent by ProjectOS</p></div>`,
   });
 }
 
