@@ -3,7 +3,7 @@ import { db, remindersTable, notificationsTable } from "@workspace/db";
 import { eq, and, lte, desc } from "drizzle-orm";
 import cron from "node-cron";
 import { sendSMS, makeVoiceCall } from "../services/twilio.service";
-import { sendEmailViaSendGrid, isSendGridConfigured } from "../services/sendgrid.service";
+import { sendEmail, isEmailConfigured } from "../services/email.service";
 import { createInAppNotification } from "../services/notification.service";
 
 const router: IRouter = Router();
@@ -32,8 +32,8 @@ async function dispatchReminder(reminder: any): Promise<void> {
         break;
       }
       case "email": {
-        if (isSendGridConfigured()) {
-          await sendEmailViaSendGrid(
+        if (isEmailConfigured()) {
+          await sendEmail(
             reminder.target,
             `Reminder: ${reminder.title}`,
             reminder.message,

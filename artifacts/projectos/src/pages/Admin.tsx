@@ -2048,7 +2048,7 @@ function ApiEmailTab() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold">Email System Configuration</h3>
-              <p className="text-xs text-muted-foreground">Connect your SMTP server, SendGrid, Mailgun, or any email provider</p>
+              <p className="text-xs text-muted-foreground">Connect your SMTP server, Resend, Mailgun, or any email provider</p>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => setEmailConfig((prev: any) => ({ ...prev, active: !prev.active }))}
@@ -2065,7 +2065,7 @@ function ApiEmailTab() {
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Email Provider</label>
               <div className="flex gap-2">
-                {["smtp", "sendgrid", "mailgun", "ses", "postmark"].map(p => (
+                {["smtp", "resend", "mailgun", "ses", "postmark"].map(p => (
                   <button key={p} onClick={() => setEmailConfig((prev: any) => ({ ...prev, provider: p }))}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${emailConfig.provider === p ? "bg-primary/20 text-primary border border-primary/30" : "bg-white/5 text-muted-foreground border border-border hover:text-foreground"}`}>
                     {p === "ses" ? "AWS SES" : p === "smtp" ? "SMTP" : p}

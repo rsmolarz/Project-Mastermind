@@ -10,10 +10,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@sendgrid/mail": "^8.1.6",
     "@simplewebauthn/server": "^13.3.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/integrations-anthropic-ai": "workspace:*",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
@@ -27,9 +27,9 @@
     "nodemailer": "^8.0.4",
     "pino": "^9",
     "pino-http": "^10",
+    "resend": "^6.9.4",
     "twilio": "^5.13.0",
-    "ws": "^8.20.0",
-    "@workspace/integrations-anthropic-ai": "workspace:*"
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

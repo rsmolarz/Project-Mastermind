@@ -47,7 +47,7 @@ PostgreSQL with Drizzle ORM.
 -   **API Codegen:** Orval
 -   **Messaging/Communication:** Twilio
 -   **Calendar Integration:** Google Calendar API
--   **Email Delivery:** SendGrid (and other configurable SMTP, Mailgun, AWS SES, Postmark)
+-   **Email Delivery:** Resend (and other configurable SMTP, Mailgun, AWS SES, Postmark)
 -   **Email Import:** ImapFlow (IMAP email fetching), Mailparser (email parsing)
 -   **Fastmail:** JMAP API (native fetch, no external library needed)
 -   **Task Scheduling:** node-cron

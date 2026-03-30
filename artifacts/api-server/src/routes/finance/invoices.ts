@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, invoicesTable, invoiceLineItemsTable } from "@workspace/db";
 import { eq, desc, and, lte, ne } from "drizzle-orm";
-import { sendEmailViaSendGrid, isSendGridConfigured } from "../../services/sendgrid.service";
+import { sendEmail, isEmailConfigured } from "../../services/email.service";
 
 const router: IRouter = Router();
 
@@ -180,9 +180,9 @@ router.post("/finance/invoices/:id/send", async (req, res): Promise<void> => {
   const subject = `Invoice ${invoice.invoiceNumber} from ${invoice.fromName}`;
   const body = `You have a new invoice from ${invoice.fromName}.\n\nInvoice: ${invoice.invoiceNumber}\nAmount Due: $${Number(invoice.amountDue).toFixed(2)}\nDue Date: ${invoice.dueAt ? new Date(invoice.dueAt).toLocaleDateString() : "Upon receipt"}\n\n${invoice.notes || ""}`;
 
-  if (isSendGridConfigured()) {
+  if (isEmailConfigured()) {
     try {
-      await sendEmailViaSendGrid(invoice.toEmail, subject, body);
+      await sendEmail(invoice.toEmail, subject, body);
     } catch (e: any) {
       res.status(500).json({ error: `Failed to send: ${e.message}` });
       return;

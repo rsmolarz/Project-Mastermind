@@ -30,6 +30,7 @@ timeoutMs = 20000
 
 [userenv.shared]
 TWILIO_PHONE_NUMBER = "+19035225399"
+RESEND_API_KEY = "re_5jSAwGcY_9URhz8Rtd2WNCXmSA3dAJfc3"
 
 [nix]
 channel = "stable-25_05"

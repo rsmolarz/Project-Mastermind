@@ -488,7 +488,7 @@ export default function Guide() {
             </Step>
 
             <h4 className="text-sm font-bold">Inbound Webhook:</h4>
-            <p className="text-xs text-muted-foreground mb-2">Configure your email provider (SendGrid, AWS SES, etc.) to forward inbound emails to the webhook endpoint:</p>
+            <p className="text-xs text-muted-foreground mb-2">Configure your email provider (Resend, AWS SES, etc.) to forward inbound emails to the webhook endpoint:</p>
             <CodeBlock label="Inbound webhook URL" code={`POST /api/email-routing/inbound\n\nBody (JSON):\n{\n  "from": "sender@example.com",\n  "to": "webplatform@projectos.dev",\n  "subject": "[WEBPLAT] Bug report",\n  "text": "Found a bug on the login page...",\n  "html": "<p>Found a bug...</p>"\n}`} />
 
             <Warning>Set the EMAIL_WEBHOOK_SECRET environment variable to secure the inbound webhook. When set, all inbound requests must include a matching x-webhook-secret header.</Warning>
@@ -529,7 +529,7 @@ export default function Guide() {
                 { tab: "Task Templates", desc: "Pre-built templates for bugs, PRDs, features, and custom task types. Each template defines default status, priority, points, tags, subtask templates, and notes." },
                 { tab: "Custom Fields", desc: "Create project-specific fields: text, number, URL, checkbox, rating, select, date, email. Fields appear on tasks and can be required." },
                 { tab: "Expense Tracking", desc: "Log, approve, and delete expenses by category (software, hardware, travel, etc.). Each expense is linked to a project and team member." },
-                { tab: "API & Email", desc: "API key management (create, revoke, regenerate keys with scoped permissions and expiry dates). Email system configuration for SMTP, SendGrid, Mailgun, SES, or Postmark with test email functionality." },
+                { tab: "API & Email", desc: "API key management (create, revoke, regenerate keys with scoped permissions and expiry dates). Email system configuration for SMTP, Resend, Mailgun, SES, or Postmark with test email functionality." },
                 { tab: "Security", desc: "Password protection setup/removal, YubiKey/WebAuthn FIDO2 hardware key registration, session management, and security credential overview." },
                 { tab: "System Config", desc: "Authentication settings, webhook configuration, API options, and integration management." },
               ].map((item, i) => (

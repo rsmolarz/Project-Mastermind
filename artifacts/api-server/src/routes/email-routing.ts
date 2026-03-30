@@ -179,7 +179,7 @@ router.post("/email-routing/inbound", async (req, res): Promise<void> => {
     subject,
     bodyText: bodyText || "",
     bodyHtml: bodyHtml || "",
-    provider: "sendgrid",
+    provider: "resend",
     direction: "inbound",
     rawHeaders: headers || null,
     attachments: attachments || null,

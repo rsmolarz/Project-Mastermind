@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, guestsTable } from "@workspace/db";
 import * as crypto from "crypto";
-import { sendEmailViaSendGrid, isSendGridConfigured } from "../services/sendgrid.service.js";
+import { sendEmail, isEmailConfigured } from "../services/email.service.js";
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -32,7 +32,7 @@ router.post("/guests", async (req, res): Promise<void> => {
   const baseUrl = process.env.APP_BASE_URL
     || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
 
-  if (baseUrl && isSendGridConfigured()) {
+  if (baseUrl && isEmailConfigured()) {
     const inviteLink = `${baseUrl}?invite=${inviteToken}`;
     try {
       const safeName = escapeHtml(name);
@@ -40,7 +40,7 @@ router.post("/guests", async (req, res): Promise<void> => {
       const safeAccess = escapeHtml((accessLevel || "view_only").replace(/_/g, " "));
       const subject = "You've been invited to collaborate on ProjectOS";
       const body = `Hi ${safeName},\n\nYou've been invited to collaborate on ProjectOS${safeCompany ? ` on behalf of ${safeCompany}` : ""}.\n\nYour access level: ${safeAccess}\n\nClick the link below to accept your invitation:\n${inviteLink}\n\nIf you didn't expect this invitation, you can safely ignore this email.`;
-      await sendEmailViaSendGrid(email, subject, body);
+      await sendEmail(email, subject, body);
     } catch (err) {
       console.error("Failed to send invite email:", err);
     }
