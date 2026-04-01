@@ -53,6 +53,10 @@ import BudgetsPage from "@/pages/Budgets";
 import ReportBuilderPage from "@/pages/ReportBuilder";
 import BlueprintsPage from "@/pages/Blueprints";
 import ProjectHealthPage from "@/pages/ProjectHealth";
+import AiAgentsPage from "@/pages/AiAgents";
+import AiWorkflowsPage from "@/pages/AiWorkflows";
+import FlowchartsPage from "@/pages/Flowcharts";
+import OrgChartPage from "@/pages/OrgChart";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -115,6 +119,10 @@ function Router() {
         <Route path="/report-builder" component={ReportBuilderPage} />
         <Route path="/blueprints" component={BlueprintsPage} />
         <Route path="/project-health" component={ProjectHealthPage} />
+        <Route path="/ai-agents" component={AiAgentsPage} />
+        <Route path="/ai-workflows" component={AiWorkflowsPage} />
+        <Route path="/flowcharts" component={FlowchartsPage} />
+        <Route path="/org-chart" component={OrgChartPage} />
         <Route path="/shared/:token" component={SharedView} />
         <Route component={NotFound} />
       </Switch>

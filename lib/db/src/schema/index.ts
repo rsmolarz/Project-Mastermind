@@ -39,3 +39,6 @@ export * from "./task-projects";
 export * from "./shared-views";
 export * from "./conversations";
 export * from "./messages";
+export * from "./ai-agents";
+export * from "./ai-workflows";
+export * from "./flowcharts";

@@ -54,6 +54,9 @@ import taskProjectsRouter from "./task-projects";
 import sharedViewsRouter from "./shared-views";
 import emailImportRouter from "./email-import";
 import fastmailRouter from "./fastmail";
+import aiAgentsRouter from "./ai-agents";
+import aiWorkflowsRouter from "./ai-workflows";
+import flowchartsRouter from "./flowcharts";
 
 const router: IRouter = Router();
 
@@ -112,5 +115,8 @@ router.use(taskProjectsRouter);
 router.use(sharedViewsRouter);
 router.use(emailImportRouter);
 router.use(fastmailRouter);
+router.use(aiAgentsRouter);
+router.use(aiWorkflowsRouter);
+router.use(flowchartsRouter);
 
 export default router;
