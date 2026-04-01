@@ -6,7 +6,7 @@ import {
   Users, Zap, FileInput, Flag, ShieldCheck, BarChart3, Sun, Activity, Tag, LayoutTemplate, Star, Trash2, Settings, UserPlus,
   Pencil, Puzzle, Brain, StickyNote, Bell, RefreshCw, X, Wifi, Layers, Inbox, FolderOpen, ChevronDown as ChevronDownIcon, ChevronRight as ChevronRightIcon,
   Mountain, MessageCircle, MessageSquareText, DoorOpen, ShieldAlert, DollarSign, Table2, Copy, HeartPulse,
-  Bot, Workflow, GitBranch, Building2
+  Bot, Workflow, GitBranch, Building2, CalendarClock
 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useMembers } from "@/hooks/use-members";
@@ -81,6 +81,7 @@ export function Sidebar({
     { label: "Standups", path: "/standups", icon: "🧍" }, { label: "Announcements", path: "/announcements", icon: "📣" },
     { label: "AI Agents", path: "/ai-agents", icon: "🤖" }, { label: "AI Workflows", path: "/ai-workflows", icon: "🔄" },
     { label: "Flowcharts", path: "/flowcharts", icon: "🔀" }, { label: "Org Chart", path: "/org-chart", icon: "🏢" },
+    { label: "AI Schedule", path: "/ai-schedule", icon: "📅" },
     { label: "Automations", path: "/automations", icon: "⚡" }, { label: "Approvals", path: "/approvals", icon: "✔️" },
     { label: "Tags", path: "/tags", icon: "🏷️" }, { label: "Templates", path: "/templates", icon: "📑" },
     { label: "Integrations", path: "/integrations", icon: "🔌" }, { label: "Pulse", path: "/pulse", icon: "📡" },
@@ -294,6 +295,7 @@ export function Sidebar({
           <div className="space-y-0.5">
             <NavItem item={{ icon: Bot, label: "AI Agents", path: "/ai-agents" }} />
             <NavItem item={{ icon: Workflow, label: "AI Workflows", path: "/ai-workflows" }} />
+            <NavItem item={{ icon: CalendarClock, label: "AI Schedule", path: "/ai-schedule" }} />
             <NavItem item={{ icon: Zap, label: "Automations", path: "/automations" }} />
             <NavItem item={{ icon: ShieldCheck, label: "Approvals", path: "/approvals" }} />
             <NavItem item={{ icon: Tag, label: "Tags", path: "/tags" }} />

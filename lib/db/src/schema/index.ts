@@ -42,3 +42,4 @@ export * from "./messages";
 export * from "./ai-agents";
 export * from "./ai-workflows";
 export * from "./flowcharts";
+export * from "./smart-schedule";

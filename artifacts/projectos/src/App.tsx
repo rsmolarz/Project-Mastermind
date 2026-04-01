@@ -57,6 +57,7 @@ import AiAgentsPage from "@/pages/AiAgents";
 import AiWorkflowsPage from "@/pages/AiWorkflows";
 import FlowchartsPage from "@/pages/Flowcharts";
 import OrgChartPage from "@/pages/OrgChart";
+import SmartSchedulePage from "@/pages/SmartSchedule";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -123,6 +124,7 @@ function Router() {
         <Route path="/ai-workflows" component={AiWorkflowsPage} />
         <Route path="/flowcharts" component={FlowchartsPage} />
         <Route path="/org-chart" component={OrgChartPage} />
+        <Route path="/ai-schedule" component={SmartSchedulePage} />
         <Route path="/shared/:token" component={SharedView} />
         <Route component={NotFound} />
       </Switch>

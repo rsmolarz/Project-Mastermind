@@ -57,6 +57,7 @@ import fastmailRouter from "./fastmail";
 import aiAgentsRouter from "./ai-agents";
 import aiWorkflowsRouter from "./ai-workflows";
 import flowchartsRouter from "./flowcharts";
+import smartScheduleRouter from "./smart-schedule";
 
 const router: IRouter = Router();
 
@@ -118,5 +119,6 @@ router.use(fastmailRouter);
 router.use(aiAgentsRouter);
 router.use(aiWorkflowsRouter);
 router.use(flowchartsRouter);
+router.use(smartScheduleRouter);
 
 export default router;
