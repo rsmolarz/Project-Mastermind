@@ -36,6 +36,9 @@ Further UI features include: Board/View Sharing, Board Grouping, Timeline Suppor
 - **Resource Planning** (`/resource-planning`): Team capacity visualization showing each member's open tasks, overdue count, estimated hours, utilization percentage, and status (available/balanced/busy/overloaded). Includes team summary stats and attention alerts for overloaded members.
 - **Workspace Analytics** (`/workspace-analytics`): Team-level productivity dashboard with weekly velocity charts (completed vs created), task status/priority breakdowns, completion rate, average completion time, tracked hours, per-member performance table, and automated bottleneck detection (flags overloaded members and high overdue rates).
 
+**Email features:**
+- **Urgent Tasks Email** (tab in Email Hub `/email`): Dedicated tab in the Email Hub dropdown alongside Gmail and Fastmail. Shows all overdue, urgent-priority, and high-priority pending tasks. Allows sending digest emails to any recipient via Resend. Email address: `urgent-tasks@projectos.dev`. Includes sent history sidebar. Backend: `urgent-tasks-email.ts` with endpoints for `/tasks`, `/history`, `/address`, `/send-digest`.
+
 **Backend:**
 An Express 5 API server handles REST endpoints with Zod for validation and Drizzle ORM for PostgreSQL. API codegen uses Orval for React Query hooks and Zod schemas. Key services include `twilio.service.ts` for SMS/voice, `sendgrid.service.ts` for email delivery, `notification.service.ts` for in-app notifications and WebSocket broadcasts, and `websocket.ts` for real-time communication. Reminder dispatch is managed by `node-cron`. The backend also supports outgoing webhooks and includes a Finance API for personal finance features like invoices, portfolios, transactions, and virtual cards. An AI-driven system provides email-to-project recommendations.
 

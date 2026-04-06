@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Mail, Search, ChevronRight, ChevronDown, Inbox, RefreshCw,
   ArrowDownLeft, ArrowUpRight, FolderOpen, Globe, Hash,
-  BarChart3, TrendingUp, Loader2, AlertCircle, Zap
+  BarChart3, TrendingUp, Loader2, AlertCircle, Zap,
+  AlertTriangle, Clock, Send, CheckCircle2, CalendarClock
 } from "lucide-react";
 import FastmailPanel from "./FastmailPanel";
 
@@ -202,8 +203,260 @@ function ProjectTreeItem({
   );
 }
 
+function UrgentTasksPanel() {
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [sendStatus, setSendStatus] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data: urgentData, isLoading } = useQuery({
+    queryKey: ["urgent-tasks-email"],
+    queryFn: () => apiFetch("/urgent-tasks-email/tasks"),
+  });
+
+  const { data: emailHistory } = useQuery({
+    queryKey: ["urgent-tasks-email-history"],
+    queryFn: () => apiFetch("/urgent-tasks-email/history"),
+  });
+
+  const { data: addressData } = useQuery({
+    queryKey: ["urgent-tasks-email-address"],
+    queryFn: () => apiFetch("/urgent-tasks-email/address"),
+  });
+
+  const sendDigest = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await fetch(`${API}/urgent-tasks-email/send-digest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ recipientEmail: email }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to send");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.tasksSent === 0) {
+        setSendStatus(data.message || "No urgent tasks to send.");
+      } else {
+        setSendStatus(`Digest sent! ${data.tasksSent} tasks, ${data.overdue} overdue.`);
+      }
+      setRecipientEmail("");
+      queryClient.invalidateQueries({ queryKey: ["urgent-tasks-email-history"] });
+    },
+    onError: (err: any) => {
+      setSendStatus(`Error: ${err.message}`);
+    },
+  });
+
+  const priorityColor: Record<string, string> = {
+    urgent: "bg-red-500/15 text-red-400 border-red-500/20",
+    high: "bg-orange-500/15 text-orange-400 border-orange-500/20",
+    medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
+    low: "bg-blue-500/15 text-blue-400 border-blue-500/20",
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="border-b border-border px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-display font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
+              Urgent Pending Tasks
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Overdue and high-priority tasks requiring immediate attention
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {urgentData && (
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                  <span className="text-red-400 font-semibold">{urgentData.overdue}</span>
+                  <span className="text-red-400/70">overdue</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                  <Clock className="w-3.5 h-3.5 text-orange-400" />
+                  <span className="text-orange-400 font-semibold">{urgentData.urgentCount + urgentData.highCount}</span>
+                  <span className="text-orange-400/70">urgent/high</span>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["urgent-tasks-email"] })}
+              className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-6 py-3 border-b border-border bg-card/30">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Mail className="w-3.5 h-3.5" />
+              <span>Email address:</span>
+              <span className="font-mono text-foreground bg-white/5 px-2 py-0.5 rounded">{addressData?.address || "urgent-tasks@projectos.dev"}</span>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : !urgentData || urgentData.total === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <CheckCircle2 className="w-12 h-12 text-emerald-400/50" />
+              <p className="text-muted-foreground">No urgent pending tasks. Everything is on track!</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {urgentData.overdueList?.length > 0 && (
+                <div className="px-6 py-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                    <h3 className="text-sm font-semibold text-red-400">Overdue ({urgentData.overdueList.length})</h3>
+                  </div>
+                  <div className="space-y-1.5">
+                    {urgentData.overdueList.map((task: any) => (
+                      <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors">
+                        <div className={`text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase ${priorityColor[task.priority] || priorityColor.medium}`}>
+                          {task.priority}
+                        </div>
+                        <span className="text-sm flex-1 truncate">{task.title}</span>
+                        {task.project && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{task.project.name}</span>
+                        )}
+                        {task.due && (
+                          <span className="text-[10px] text-red-400 font-medium shrink-0">
+                            Due {new Date(task.due).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {urgentData.urgentList?.length > 0 && (
+                <div className="px-6 py-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertCircle className="w-4 h-4 text-orange-400" />
+                    <h3 className="text-sm font-semibold text-orange-400">Urgent Priority ({urgentData.urgentList.length})</h3>
+                  </div>
+                  <div className="space-y-1.5">
+                    {urgentData.urgentList.map((task: any) => (
+                      <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-orange-500/5 border border-orange-500/10 hover:bg-orange-500/10 transition-colors">
+                        <div className={`text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase ${priorityColor.urgent}`}>
+                          urgent
+                        </div>
+                        <span className="text-sm flex-1 truncate">{task.title}</span>
+                        {task.project && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{task.project.name}</span>
+                        )}
+                        {task.due && (
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            Due {new Date(task.due).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {urgentData.highList?.length > 0 && (
+                <div className="px-6 py-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CalendarClock className="w-4 h-4 text-yellow-400" />
+                    <h3 className="text-sm font-semibold text-yellow-400">High Priority ({urgentData.highList.length})</h3>
+                  </div>
+                  <div className="space-y-1.5">
+                    {urgentData.highList.map((task: any) => (
+                      <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-yellow-500/5 border border-yellow-500/10 hover:bg-yellow-500/10 transition-colors">
+                        <div className={`text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase ${priorityColor.high}`}>
+                          high
+                        </div>
+                        <span className="text-sm flex-1 truncate">{task.title}</span>
+                        {task.project && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{task.project.name}</span>
+                        )}
+                        {task.due && (
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            Due {new Date(task.due).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="w-80 border-l border-border flex flex-col bg-card/30">
+          <div className="px-4 py-3 border-b border-border">
+            <h3 className="text-sm font-semibold">Send Digest Email</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Email a summary of all urgent tasks</p>
+          </div>
+          <div className="px-4 py-3 space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Recipient Email</label>
+              <input
+                type="email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                placeholder="team@company.com"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <button
+              onClick={() => { setSendStatus(null); sendDigest.mutate(recipientEmail); }}
+              disabled={!recipientEmail || sendDigest.isPending}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-sm font-medium hover:bg-red-500/30 disabled:opacity-50 transition-colors"
+            >
+              {sendDigest.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Send Urgent Digest
+            </button>
+            {sendStatus && (
+              <div className={`text-xs px-3 py-2 rounded-lg ${sendStatus.startsWith("Error") ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>
+                {sendStatus}
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-3 border-t border-border">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sent History</h4>
+            {!emailHistory || emailHistory.length === 0 ? (
+              <p className="text-xs text-muted-foreground/60">No digests sent yet</p>
+            ) : (
+              <div className="space-y-2">
+                {emailHistory.map((log: any) => (
+                  <div key={log.id} className="px-3 py-2 rounded-lg bg-white/5 border border-border">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium truncate">{log.toAddress}</span>
+                      <span className="text-[10px] text-muted-foreground">{timeAgo(log.createdAt)}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{log.subject}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EmailHub() {
-  const [activeAccount, setActiveAccount] = useState<"gmail" | "fastmail">("gmail");
+  const [activeAccount, setActiveAccount] = useState<"gmail" | "fastmail" | "urgent-tasks">("gmail");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
@@ -260,24 +513,43 @@ export default function EmailHub() {
     return treeData.projects.find((p: any) => p.id === selectedProjectId);
   }, [treeData, selectedProjectId]);
 
+  const tabButtonClass = (tab: string) =>
+    activeAccount === tab
+      ? "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-primary/15 text-primary"
+      : "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-white/5";
+
+  const renderTabBar = () => (
+    <div className="border-b border-border px-6 py-2 flex items-center gap-2 bg-card/30">
+      <button onClick={() => setActiveAccount("gmail")} className={tabButtonClass("gmail")}>
+        <Mail className="w-3.5 h-3.5" />
+        Gmail
+      </button>
+      <button onClick={() => setActiveAccount("fastmail")} className={tabButtonClass("fastmail")}>
+        <Zap className="w-3.5 h-3.5" />
+        Fastmail
+      </button>
+      <button onClick={() => setActiveAccount("urgent-tasks")} className={tabButtonClass("urgent-tasks")}>
+        <AlertTriangle className="w-3.5 h-3.5" />
+        Urgent Tasks
+      </button>
+    </div>
+  );
+
+  if (activeAccount === "urgent-tasks") {
+    return (
+      <div className="h-full flex flex-col">
+        {renderTabBar()}
+        <div className="flex-1 min-h-0">
+          <UrgentTasksPanel />
+        </div>
+      </div>
+    );
+  }
+
   if (activeAccount === "fastmail") {
     return (
       <div className="h-full flex flex-col">
-        <div className="border-b border-border px-6 py-2 flex items-center gap-2 bg-card/30">
-          <button
-            onClick={() => setActiveAccount("gmail")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-white/5"
-          >
-            <Mail className="w-3.5 h-3.5" />
-            Gmail
-          </button>
-          <button
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-primary/15 text-primary"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            Fastmail
-          </button>
-        </div>
+        {renderTabBar()}
         <div className="flex-1 min-h-0">
           <FastmailPanel />
         </div>
@@ -307,21 +579,7 @@ export default function EmailHub() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="border-b border-border px-6 py-2 flex items-center gap-2 bg-card/30">
-        <button
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-primary/15 text-primary"
-        >
-          <Mail className="w-3.5 h-3.5" />
-          Gmail
-        </button>
-        <button
-          onClick={() => setActiveAccount("fastmail")}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-white/5"
-        >
-          <Zap className="w-3.5 h-3.5" />
-          Fastmail
-        </button>
-      </div>
+      {renderTabBar()}
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>

@@ -61,6 +61,7 @@ import smartScheduleRouter from "./smart-schedule";
 import retrospectivesRouter from "./retrospectives";
 import changelogRouter from "./changelog";
 import workspaceAnalyticsRouter from "./workspace-analytics";
+import urgentTasksEmailRouter from "./urgent-tasks-email";
 
 const router: IRouter = Router();
 
@@ -126,5 +127,6 @@ router.use(smartScheduleRouter);
 router.use(retrospectivesRouter);
 router.use(changelogRouter);
 router.use(workspaceAnalyticsRouter);
+router.use(urgentTasksEmailRouter);
 
 export default router;
