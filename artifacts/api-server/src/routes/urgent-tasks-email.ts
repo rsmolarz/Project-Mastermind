@@ -11,6 +11,63 @@ router.get("/urgent-tasks-email/address", async (_req, res): Promise<void> => {
   res.json({ address: URGENT_EMAIL_ADDRESS });
 });
 
+router.get("/urgent-tasks-email/inbox", async (_req, res): Promise<void> => {
+  try {
+    const emails = await db
+      .select({
+        id: emailLogsTable.id,
+        fromAddress: emailLogsTable.fromAddress,
+        subject: emailLogsTable.subject,
+        bodyText: emailLogsTable.bodyText,
+        provider: emailLogsTable.provider,
+        createdAt: emailLogsTable.createdAt,
+      })
+      .from(emailLogsTable)
+      .where(
+        and(
+          eq(emailLogsTable.toAddress, URGENT_EMAIL_ADDRESS),
+          eq(emailLogsTable.direction, "inbound")
+        )
+      )
+      .orderBy(desc(emailLogsTable.createdAt))
+      .limit(100);
+    const safe = emails.map(e => ({
+      ...e,
+      bodyText: e.bodyText ? e.bodyText.substring(0, 500) : "",
+    }));
+    res.json(safe);
+  } catch (err: any) {
+    console.error("[urgent-tasks-email] inbox fetch error:", err.message);
+    res.status(500).json({ error: "Failed to fetch inbox" });
+  }
+});
+
+router.post("/urgent-tasks-email/forward", async (req, res): Promise<void> => {
+  const { fromAddress, subject, bodyText } = req.body;
+  if (!subject || typeof subject !== "string" || subject.trim().length === 0) {
+    res.status(400).json({ error: "subject is required" });
+    return;
+  }
+  const senderRaw = typeof fromAddress === "string" ? fromAddress.trim().toLowerCase() : "";
+  const sender = senderRaw && EMAIL_RE.test(senderRaw) ? senderRaw.substring(0, 254) : "manual@projectos.local";
+  try {
+    const [log] = await db.insert(emailLogsTable).values({
+      projectId: null,
+      fromAddress: sender,
+      toAddress: URGENT_EMAIL_ADDRESS,
+      subject: subject.trim().substring(0, 500),
+      bodyText: typeof bodyText === "string" ? bodyText.substring(0, 50000) : "",
+      bodyHtml: "",
+      provider: "manual",
+      direction: "inbound",
+    }).returning();
+    res.status(201).json({ id: log.id, fromAddress: log.fromAddress, subject: log.subject, createdAt: log.createdAt });
+  } catch (err: any) {
+    console.error("[urgent-tasks-email] forward error:", err.message);
+    res.status(500).json({ error: "Failed to forward email" });
+  }
+});
+
 router.get("/urgent-tasks-email/tasks", async (_req, res): Promise<void> => {
   try {
     const now = new Date();

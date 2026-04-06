@@ -206,11 +206,22 @@ function ProjectTreeItem({
 function UrgentTasksPanel() {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sendStatus, setSendStatus] = useState<string | null>(null);
+  const [subTab, setSubTab] = useState<"tasks" | "inbox">("inbox");
+  const [selectedEmail, setSelectedEmail] = useState<any>(null);
+  const [forwardSubject, setForwardSubject] = useState("");
+  const [forwardFrom, setForwardFrom] = useState("");
+  const [forwardBody, setForwardBody] = useState("");
+  const [showForwardForm, setShowForwardForm] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: urgentData, isLoading } = useQuery({
     queryKey: ["urgent-tasks-email"],
     queryFn: () => apiFetch("/urgent-tasks-email/tasks"),
+  });
+
+  const { data: inboxEmails, isLoading: inboxLoading, isError: inboxError } = useQuery({
+    queryKey: ["urgent-tasks-inbox"],
+    queryFn: () => apiFetch("/urgent-tasks-email/inbox"),
   });
 
   const { data: emailHistory } = useQuery({
@@ -251,12 +262,40 @@ function UrgentTasksPanel() {
     },
   });
 
+  const forwardEmail = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${API}/urgent-tasks-email/forward`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ fromAddress: forwardFrom, subject: forwardSubject, bodyText: forwardBody }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to forward");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setForwardSubject("");
+      setForwardFrom("");
+      setForwardBody("");
+      setShowForwardForm(false);
+      queryClient.invalidateQueries({ queryKey: ["urgent-tasks-inbox"] });
+    },
+    onError: (err: any) => {
+      setSendStatus(`Forward error: ${err.message}`);
+    },
+  });
+
   const priorityColor: Record<string, string> = {
     urgent: "bg-red-500/15 text-red-400 border-red-500/20",
     high: "bg-orange-500/15 text-orange-400 border-orange-500/20",
     medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
     low: "bg-blue-500/15 text-blue-400 border-blue-500/20",
   };
+
+  const inboxCount = inboxEmails?.length || 0;
 
   return (
     <div className="h-full flex flex-col">
@@ -266,9 +305,13 @@ function UrgentTasksPanel() {
             <h2 className="text-xl font-display font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
               Urgent Pending Tasks
             </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Overdue and high-priority tasks requiring immediate attention
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Mail className="w-3.5 h-3.5" />
+                <span>Forward emails to:</span>
+                <span className="font-mono text-foreground bg-white/5 px-2 py-0.5 rounded">{addressData?.address || "urgent-tasks@projectos.dev"}</span>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {urgentData && (
@@ -286,7 +329,10 @@ function UrgentTasksPanel() {
               </div>
             )}
             <button
-              onClick={() => queryClient.invalidateQueries({ queryKey: ["urgent-tasks-email"] })}
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["urgent-tasks-email"] });
+                queryClient.invalidateQueries({ queryKey: ["urgent-tasks-inbox"] });
+              }}
               className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground"
             >
               <RefreshCw className="w-4 h-4" />
@@ -295,108 +341,227 @@ function UrgentTasksPanel() {
         </div>
       </div>
 
+      <div className="border-b border-border px-6 py-1.5 flex items-center gap-1 bg-card/20">
+        <button
+          onClick={() => { setSubTab("inbox"); setSelectedEmail(null); }}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${subTab === "inbox" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Inbox className="w-3.5 h-3.5" />
+            Inbox
+            {inboxCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">{inboxCount}</span>}
+          </span>
+        </button>
+        <button
+          onClick={() => setSubTab("tasks")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${subTab === "tasks" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+        >
+          <span className="flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            Pending Tasks
+            {urgentData?.total > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400">{urgentData.total}</span>}
+          </span>
+        </button>
+      </div>
+
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 overflow-y-auto">
-          <div className="px-6 py-3 border-b border-border bg-card/30">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Mail className="w-3.5 h-3.5" />
-              <span>Email address:</span>
-              <span className="font-mono text-foreground bg-white/5 px-2 py-0.5 rounded">{addressData?.address || "urgent-tasks@projectos.dev"}</span>
-            </div>
-          </div>
+          {subTab === "inbox" ? (
+            <>
+              {showForwardForm && (
+                <div className="px-6 py-3 border-b border-border bg-card/40">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold">Forward Email to Urgent Folder</h3>
+                    <button onClick={() => setShowForwardForm(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      value={forwardFrom}
+                      onChange={(e) => setForwardFrom(e.target.value)}
+                      placeholder="From address (e.g. sender@example.com)"
+                      className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <input
+                      value={forwardSubject}
+                      onChange={(e) => setForwardSubject(e.target.value)}
+                      placeholder="Subject"
+                      className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <textarea
+                      value={forwardBody}
+                      onChange={(e) => setForwardBody(e.target.value)}
+                      placeholder="Email body..."
+                      rows={3}
+                      className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                    />
+                    <button
+                      onClick={() => forwardEmail.mutate()}
+                      disabled={!forwardSubject.trim() || forwardEmail.isPending}
+                      className="flex items-center gap-1.5 px-4 py-1.5 bg-primary/20 text-primary border border-primary/30 rounded-lg text-sm font-medium hover:bg-primary/30 disabled:opacity-50 transition-colors"
+                    >
+                      {forwardEmail.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowDownLeft className="w-3.5 h-3.5" />}
+                      Add to Inbox
+                    </button>
+                  </div>
+                </div>
+              )}
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : !urgentData || urgentData.total === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <CheckCircle2 className="w-12 h-12 text-emerald-400/50" />
-              <p className="text-muted-foreground">No urgent pending tasks. Everything is on track!</p>
-            </div>
+              {!showForwardForm && (
+                <div className="px-6 py-2 border-b border-border flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">{inboxCount} email{inboxCount !== 1 ? "s" : ""} received</p>
+                  <button
+                    onClick={() => setShowForwardForm(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <ArrowDownLeft className="w-3 h-3" />
+                    Forward to Urgent
+                  </button>
+                </div>
+              )}
+
+              {inboxLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : inboxError ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <AlertCircle className="w-12 h-12 text-red-400/50" />
+                  <p className="text-muted-foreground">Failed to load inbox</p>
+                  <button
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ["urgent-tasks-inbox"] })}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : inboxCount === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <Inbox className="w-12 h-12 text-muted-foreground/30" />
+                  <p className="text-muted-foreground">No emails in the urgent inbox yet</p>
+                  <p className="text-xs text-muted-foreground/60">Send emails to {addressData?.address || "urgent-tasks@projectos.dev"} or use "Forward to Urgent" above</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {inboxEmails.map((email: any) => (
+                    <div
+                      key={email.id}
+                      onClick={() => setSelectedEmail(selectedEmail?.id === email.id ? null : email)}
+                      className={`px-6 py-3 cursor-pointer transition-colors ${selectedEmail?.id === email.id ? "bg-primary/5" : "hover:bg-white/5"}`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium truncate flex-1">{email.subject}</span>
+                        <span className="text-[10px] text-muted-foreground ml-2 shrink-0">{timeAgo(email.createdAt)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>From: {email.fromAddress}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5">{email.provider}</span>
+                      </div>
+                      {selectedEmail?.id === email.id && email.bodyText && (
+                        <div className="mt-3 p-3 bg-background/50 rounded-lg border border-border text-sm whitespace-pre-wrap text-foreground/80">
+                          {email.bodyText.substring(0, 2000)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
-            <div className="divide-y divide-border">
-              {urgentData.overdueList?.length > 0 && (
-                <div className="px-6 py-3">
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertTriangle className="w-4 h-4 text-red-400" />
-                    <h3 className="text-sm font-semibold text-red-400">Overdue ({urgentData.overdueList.length})</h3>
-                  </div>
-                  <div className="space-y-1.5">
-                    {urgentData.overdueList.map((task: any) => (
-                      <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors">
-                        <div className={`text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase ${priorityColor[task.priority] || priorityColor.medium}`}>
-                          {task.priority}
-                        </div>
-                        <span className="text-sm flex-1 truncate">{task.title}</span>
-                        {task.project && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{task.project.name}</span>
-                        )}
-                        {task.due && (
-                          <span className="text-[10px] text-red-400 font-medium shrink-0">
-                            Due {new Date(task.due).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+            <>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-              )}
+              ) : !urgentData || urgentData.total === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-400/50" />
+                  <p className="text-muted-foreground">No urgent pending tasks. Everything is on track!</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {urgentData.overdueList?.length > 0 && (
+                    <div className="px-6 py-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="w-4 h-4 text-red-400" />
+                        <h3 className="text-sm font-semibold text-red-400">Overdue ({urgentData.overdueList.length})</h3>
+                      </div>
+                      <div className="space-y-1.5">
+                        {urgentData.overdueList.map((task: any) => (
+                          <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors">
+                            <div className={`text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase ${priorityColor[task.priority] || priorityColor.medium}`}>
+                              {task.priority}
+                            </div>
+                            <span className="text-sm flex-1 truncate">{task.title}</span>
+                            {task.project && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{task.project.name}</span>
+                            )}
+                            {task.due && (
+                              <span className="text-[10px] text-red-400 font-medium shrink-0">
+                                Due {new Date(task.due).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              {urgentData.urgentList?.length > 0 && (
-                <div className="px-6 py-3">
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertCircle className="w-4 h-4 text-orange-400" />
-                    <h3 className="text-sm font-semibold text-orange-400">Urgent Priority ({urgentData.urgentList.length})</h3>
-                  </div>
-                  <div className="space-y-1.5">
-                    {urgentData.urgentList.map((task: any) => (
-                      <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-orange-500/5 border border-orange-500/10 hover:bg-orange-500/10 transition-colors">
-                        <div className={`text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase ${priorityColor.urgent}`}>
-                          urgent
-                        </div>
-                        <span className="text-sm flex-1 truncate">{task.title}</span>
-                        {task.project && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{task.project.name}</span>
-                        )}
-                        {task.due && (
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            Due {new Date(task.due).toLocaleDateString()}
-                          </span>
-                        )}
+                  {urgentData.urgentList?.length > 0 && (
+                    <div className="px-6 py-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertCircle className="w-4 h-4 text-orange-400" />
+                        <h3 className="text-sm font-semibold text-orange-400">Urgent Priority ({urgentData.urgentList.length})</h3>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      <div className="space-y-1.5">
+                        {urgentData.urgentList.map((task: any) => (
+                          <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-orange-500/5 border border-orange-500/10 hover:bg-orange-500/10 transition-colors">
+                            <div className={`text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase ${priorityColor.urgent}`}>
+                              urgent
+                            </div>
+                            <span className="text-sm flex-1 truncate">{task.title}</span>
+                            {task.project && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{task.project.name}</span>
+                            )}
+                            {task.due && (
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                Due {new Date(task.due).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              {urgentData.highList?.length > 0 && (
-                <div className="px-6 py-3">
-                  <div className="flex items-center gap-2 mb-3">
-                    <CalendarClock className="w-4 h-4 text-yellow-400" />
-                    <h3 className="text-sm font-semibold text-yellow-400">High Priority ({urgentData.highList.length})</h3>
-                  </div>
-                  <div className="space-y-1.5">
-                    {urgentData.highList.map((task: any) => (
-                      <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-yellow-500/5 border border-yellow-500/10 hover:bg-yellow-500/10 transition-colors">
-                        <div className={`text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase ${priorityColor.high}`}>
-                          high
-                        </div>
-                        <span className="text-sm flex-1 truncate">{task.title}</span>
-                        {task.project && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{task.project.name}</span>
-                        )}
-                        {task.due && (
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            Due {new Date(task.due).toLocaleDateString()}
-                          </span>
-                        )}
+                  {urgentData.highList?.length > 0 && (
+                    <div className="px-6 py-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <CalendarClock className="w-4 h-4 text-yellow-400" />
+                        <h3 className="text-sm font-semibold text-yellow-400">High Priority ({urgentData.highList.length})</h3>
                       </div>
-                    ))}
-                  </div>
+                      <div className="space-y-1.5">
+                        {urgentData.highList.map((task: any) => (
+                          <div key={task.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-yellow-500/5 border border-yellow-500/10 hover:bg-yellow-500/10 transition-colors">
+                            <div className={`text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase ${priorityColor.high}`}>
+                              high
+                            </div>
+                            <span className="text-sm flex-1 truncate">{task.title}</span>
+                            {task.project && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{task.project.name}</span>
+                            )}
+                            {task.due && (
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                Due {new Date(task.due).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
 
