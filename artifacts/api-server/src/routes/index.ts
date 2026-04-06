@@ -62,6 +62,7 @@ import retrospectivesRouter from "./retrospectives";
 import changelogRouter from "./changelog";
 import workspaceAnalyticsRouter from "./workspace-analytics";
 import urgentTasksEmailRouter from "./urgent-tasks-email";
+import connectionsMonitorRouter from "./connections-monitor";
 
 const router: IRouter = Router();
 
@@ -128,5 +129,6 @@ router.use(retrospectivesRouter);
 router.use(changelogRouter);
 router.use(workspaceAnalyticsRouter);
 router.use(urgentTasksEmailRouter);
+router.use(connectionsMonitorRouter);
 
 export default router;

@@ -39,6 +39,9 @@ Further UI features include: Board/View Sharing, Board Grouping, Timeline Suppor
 **Email features:**
 - **Urgent Tasks Email** (tab in Email Hub `/email`): Dedicated tab in the Email Hub dropdown alongside Gmail and Fastmail. Shows all overdue, urgent-priority, and high-priority pending tasks. Allows sending digest emails to any recipient via Postal. Email address: `urgent-tasks@projectos.dev`. Includes sent history sidebar. Backend: `urgent-tasks-email.ts` with endpoints for `/tasks`, `/history`, `/address`, `/send-digest`.
 
+**Admin features:**
+- **Connection Monitor** (Admin → Connections tab): Live status dashboard showing all service connections — PostgreSQL, Postal email, Twilio SMS/Voice, GitHub, AI (Anthropic), Privacy.com virtual cards, Fastmail, Google Calendar, and session security. Shows connected/degraded/disconnected/not-configured status with latency, summary counts, and per-connection recheck. Backend: `connections-monitor.ts` with `GET /connections/status` and `POST /connections/check/:id`.
+
 **Backend:**
 An Express 5 API server handles REST endpoints with Zod for validation and Drizzle ORM for PostgreSQL. API codegen uses Orval for React Query hooks and Zod schemas. Key services include `twilio.service.ts` for SMS/voice, `email.service.ts` for email delivery via Postal (self-hosted, HTTP API at `POSTAL_URL` with `POSTAL_API_KEY`), `notification.service.ts` for in-app notifications and WebSocket broadcasts, and `websocket.ts` for real-time communication. Reminder dispatch is managed by `node-cron`. The backend also supports outgoing webhooks and includes a Finance API for personal finance features like invoices, portfolios, transactions, and virtual cards. An AI-driven system provides email-to-project recommendations.
 

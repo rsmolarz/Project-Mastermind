@@ -22,7 +22,7 @@ const API = `${import.meta.env.VITE_API_URL || ""}/api`;
 
 import { SecurityManagement } from "@/components/AuthGate";
 
-type AdminTab = "overview" | "ai-features" | "templates" | "custom-fields" | "expenses" | "features" | "api-email" | "security" | "system" | "roles";
+type AdminTab = "overview" | "ai-features" | "templates" | "custom-fields" | "expenses" | "features" | "api-email" | "security" | "system" | "roles" | "connections";
 
 const AI_FEATURES = [
   { key: "risk_prediction", title: "Risk Prediction", icon: AlertTriangle, color: "#ef4444", desc: "Flag at-risk tasks, overdue items, and blocked work before they escalate" },
@@ -202,6 +202,7 @@ export default function Admin() {
     { key: "expenses", label: "Expense Tracking", icon: Receipt },
     { key: "api-email", label: "API & Email", icon: Globe },
     { key: "roles", label: "Permission Roles", icon: Users },
+    { key: "connections", label: "Connections", icon: Activity },
     { key: "security", label: "Security", icon: ShieldCheck },
     { key: "system", label: "System Config", icon: Settings },
   ];
@@ -245,6 +246,7 @@ export default function Admin() {
             {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} show={showNewExpense} setShow={setShowNewExpense} />}
             {tab === "api-email" && <ApiEmailTab />}
             {tab === "roles" && <RolesTab />}
+            {tab === "connections" && <ConnectionsTab />}
             {tab === "security" && <SecurityManagement />}
             {tab === "system" && <SystemTab />}
 
@@ -2367,6 +2369,172 @@ function RolesTab() {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ConnectionsTab() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  const fetchStatus = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/connections/status`, { credentials: "include" });
+      const json = await r.json();
+      setData(json);
+      setLastRefresh(new Date());
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const recheckConnection = async (id: string) => {
+    setCheckingId(id);
+    try {
+      const r = await fetch(`${API}/connections/check/${id}`, { method: "POST", credentials: "include" });
+      const updated = await r.json();
+      setData((prev: any) => ({
+        ...prev,
+        connections: prev.connections.map((c: any) => c.id === id ? updated : c),
+        summary: {
+          ...prev.summary,
+          connected: prev.connections.map((c: any) => c.id === id ? updated : c).filter((c: any) => c.status === "connected").length,
+          degraded: prev.connections.map((c: any) => c.id === id ? updated : c).filter((c: any) => c.status === "degraded").length,
+          disconnected: prev.connections.map((c: any) => c.id === id ? updated : c).filter((c: any) => c.status === "disconnected").length,
+          notConfigured: prev.connections.map((c: any) => c.id === id ? updated : c).filter((c: any) => c.status === "not_configured").length,
+        },
+      }));
+    } catch (e) { console.error(e); }
+    setCheckingId(null);
+  };
+
+  useEffect(() => { fetchStatus(); }, []);
+
+  const statusConfig: Record<string, { color: string; bg: string; border: string; label: string; icon: any }> = {
+    connected: { color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", label: "Connected", icon: Check },
+    degraded: { color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", label: "Degraded", icon: AlertTriangle },
+    disconnected: { color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20", label: "Disconnected", icon: X },
+    not_configured: { color: "text-zinc-400", bg: "bg-zinc-500/10", border: "border-zinc-500/20", label: "Not Configured", icon: Settings },
+  };
+
+  const categoryIcons: Record<string, any> = {
+    Database: Database,
+    Email: Mail,
+    Communication: MessageSquare,
+    "Version Control": GitBranch,
+    AI: Brain,
+    Finance: DollarSign,
+    Security: Lock,
+    Productivity: CalendarDays,
+  };
+
+  if (loading && !data) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const connections = data?.connections || [];
+  const summary = data?.summary || {};
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-display font-bold">Connection Monitor</h2>
+          <p className="text-sm text-muted-foreground">Live status of all service connections and integrations</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {lastRefresh && (
+            <span className="text-[11px] text-muted-foreground">
+              Last checked: {lastRefresh.toLocaleTimeString()}
+            </span>
+          )}
+          <button
+            onClick={fetchStatus}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh All
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3">
+        <div className="bg-card border border-border rounded-xl p-4 text-center">
+          <div className="text-2xl font-bold text-emerald-400">{summary.connected || 0}</div>
+          <div className="text-xs text-muted-foreground mt-1">Connected</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 text-center">
+          <div className="text-2xl font-bold text-amber-400">{summary.degraded || 0}</div>
+          <div className="text-xs text-muted-foreground mt-1">Degraded</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 text-center">
+          <div className="text-2xl font-bold text-red-400">{summary.disconnected || 0}</div>
+          <div className="text-xs text-muted-foreground mt-1">Disconnected</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 text-center">
+          <div className="text-2xl font-bold text-zinc-400">{summary.notConfigured || 0}</div>
+          <div className="text-xs text-muted-foreground mt-1">Not Configured</div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {connections.map((conn: any) => {
+          const cfg = statusConfig[conn.status] || statusConfig.not_configured;
+          const StatusIcon = cfg.icon;
+          const CategoryIcon = categoryIcons[conn.category] || Globe;
+          const isChecking = checkingId === conn.id;
+
+          return (
+            <div key={conn.id} className={`bg-card border ${cfg.border} rounded-xl p-4 transition-all hover:shadow-md`}>
+              <div className="flex items-start gap-4">
+                <div className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center shrink-0`}>
+                  <CategoryIcon className={`w-5 h-5 ${cfg.color}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h3 className="text-sm font-semibold">{conn.name}</h3>
+                    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.bg} ${cfg.color} border ${cfg.border}`}>
+                      <StatusIcon className="w-3 h-3" />
+                      {cfg.label}
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">{conn.category}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{conn.message}</p>
+                  {conn.latencyMs !== undefined && (
+                    <span className="text-[10px] text-muted-foreground/60 mt-1 inline-block">
+                      Response: {conn.latencyMs}ms
+                    </span>
+                  )}
+                  {conn.details && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {Object.entries(conn.details).map(([k, v]) => (
+                        <span key={k} className="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-border text-muted-foreground">
+                          {k}: <span className="text-foreground">{String(v)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => recheckConnection(conn.id)}
+                  disabled={isChecking}
+                  className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground shrink-0 disabled:opacity-50"
+                  title="Recheck this connection"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isChecking ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
