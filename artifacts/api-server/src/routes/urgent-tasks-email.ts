@@ -184,7 +184,7 @@ router.post("/urgent-tasks-email/send-digest", async (req, res): Promise<void> =
   }
 
   if (!isEmailConfigured()) {
-    res.status(400).json({ error: "Email is not configured. Set RESEND_API_KEY in environment." });
+    res.status(400).json({ error: "Email is not configured. Set POSTAL_URL and POSTAL_API_KEY in environment." });
     return;
   }
 
@@ -254,7 +254,7 @@ router.post("/urgent-tasks-email/send-digest", async (req, res): Promise<void> =
       subject: `Urgent Tasks Digest — ${now.toLocaleDateString()}`,
       bodyText: body,
       bodyHtml: "",
-      provider: "resend",
+      provider: "postal",
       direction: "outbound",
     });
 

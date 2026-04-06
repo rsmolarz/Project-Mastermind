@@ -46,7 +46,7 @@ router.get("/finance/docs", (_req, res): void => {
           notes: "If lineItems provided, replaces all existing line items and recalculates totals.",
         },
         "POST /finance/invoices/:id/send": {
-          description: "Send invoice to recipient via email (Resend)",
+          description: "Send invoice to recipient via email (Postal)",
           response: "{ success, sentTo, invoiceNumber }",
           notes: "Changes status to 'sent'. Sets issuedAt if not already set.",
         },
