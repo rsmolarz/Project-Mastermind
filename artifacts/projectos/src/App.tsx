@@ -58,6 +58,10 @@ import AiWorkflowsPage from "@/pages/AiWorkflows";
 import FlowchartsPage from "@/pages/Flowcharts";
 import OrgChartPage from "@/pages/OrgChart";
 import SmartSchedulePage from "@/pages/SmartSchedule";
+import RetrospectivesPage from "@/pages/Retrospectives";
+import ChangelogPage from "@/pages/Changelog";
+import ResourcePlanningPage from "@/pages/ResourcePlanning";
+import WorkspaceAnalyticsPage from "@/pages/WorkspaceAnalytics";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -125,6 +129,10 @@ function Router() {
         <Route path="/flowcharts" component={FlowchartsPage} />
         <Route path="/org-chart" component={OrgChartPage} />
         <Route path="/ai-schedule" component={SmartSchedulePage} />
+        <Route path="/retrospectives" component={RetrospectivesPage} />
+        <Route path="/changelog" component={ChangelogPage} />
+        <Route path="/resource-planning" component={ResourcePlanningPage} />
+        <Route path="/workspace-analytics" component={WorkspaceAnalyticsPage} />
         <Route path="/shared/:token" component={SharedView} />
         <Route component={NotFound} />
       </Switch>

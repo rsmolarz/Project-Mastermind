@@ -58,6 +58,9 @@ import aiAgentsRouter from "./ai-agents";
 import aiWorkflowsRouter from "./ai-workflows";
 import flowchartsRouter from "./flowcharts";
 import smartScheduleRouter from "./smart-schedule";
+import retrospectivesRouter from "./retrospectives";
+import changelogRouter from "./changelog";
+import workspaceAnalyticsRouter from "./workspace-analytics";
 
 const router: IRouter = Router();
 
@@ -120,5 +123,8 @@ router.use(aiAgentsRouter);
 router.use(aiWorkflowsRouter);
 router.use(flowchartsRouter);
 router.use(smartScheduleRouter);
+router.use(retrospectivesRouter);
+router.use(changelogRouter);
+router.use(workspaceAnalyticsRouter);
 
 export default router;

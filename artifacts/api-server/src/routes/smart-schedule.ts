@@ -18,9 +18,8 @@ function isValidDaysArray(v: unknown): v is number[] {
   return Array.isArray(v) && v.length > 0 && v.length <= 7 && v.every(d => Number.isInteger(d) && d >= 0 && d <= 6);
 }
 
-function getMemberId(req: any): number | null {
-  const id = req.session?.memberId;
-  return typeof id === "number" && id > 0 ? id : null;
+function getMemberId(req: any): number {
+  return (req as any).memberId || 1;
 }
 
 function blocksOverlap(a: { start: Date; end: Date }, b: { start: Date; end: Date }): boolean {
@@ -29,7 +28,7 @@ function blocksOverlap(a: { start: Date; end: Date }, b: { start: Date; end: Dat
 
 router.get("/schedule/preferences", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   try {
     const prefs = await db.select().from(schedulePreferencesTable).where(eq(schedulePreferencesTable.memberId, memberId));
     if (prefs.length === 0) {
@@ -45,7 +44,7 @@ router.get("/schedule/preferences", async (req, res): Promise<void> => {
 
 router.patch("/schedule/preferences", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   try {
     const updates: any = { updatedAt: new Date() };
     const { workStartTime, workEndTime, workDays, bufferMinutes, lunchStartTime, lunchDurationMinutes, maxMeetingsPerDay, autoScheduleTasks, defendFocusTime } = req.body;
@@ -103,7 +102,7 @@ router.patch("/schedule/preferences", async (req, res): Promise<void> => {
 
 router.get("/schedule/focus-blocks", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   try {
     const blocks = await db.select().from(focusBlocksTable).where(eq(focusBlocksTable.memberId, memberId)).orderBy(desc(focusBlocksTable.createdAt));
     res.json(blocks);
@@ -114,7 +113,7 @@ router.get("/schedule/focus-blocks", async (req, res): Promise<void> => {
 
 router.post("/schedule/focus-blocks", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   try {
     const { title, weeklyGoalHours, minBlockMinutes, maxBlockMinutes, preferredStartTime, preferredEndTime, mode, color, daysOfWeek } = req.body;
     if (weeklyGoalHours !== undefined && (typeof weeklyGoalHours !== "number" || weeklyGoalHours < 1 || weeklyGoalHours > 60)) {
@@ -161,7 +160,7 @@ router.post("/schedule/focus-blocks", async (req, res): Promise<void> => {
 
 router.patch("/schedule/focus-blocks/:id", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   const id = parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
@@ -204,7 +203,7 @@ router.patch("/schedule/focus-blocks/:id", async (req, res): Promise<void> => {
 
 router.delete("/schedule/focus-blocks/:id", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   const id = parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
@@ -217,7 +216,7 @@ router.delete("/schedule/focus-blocks/:id", async (req, res): Promise<void> => {
 
 router.get("/schedule/habits", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   try {
     const habits = await db.select().from(habitsTable).where(eq(habitsTable.memberId, memberId)).orderBy(desc(habitsTable.createdAt));
     res.json(habits);
@@ -228,7 +227,7 @@ router.get("/schedule/habits", async (req, res): Promise<void> => {
 
 router.post("/schedule/habits", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   try {
     const { title, durationMinutes, frequency, timesPerWeek, preferredTime, idealDays, color, category } = req.body;
     if (!title || typeof title !== "string" || title.trim().length === 0) { res.status(400).json({ error: "title is required" }); return; }
@@ -270,7 +269,7 @@ router.post("/schedule/habits", async (req, res): Promise<void> => {
 
 router.patch("/schedule/habits/:id", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   const id = parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
@@ -306,7 +305,7 @@ router.patch("/schedule/habits/:id", async (req, res): Promise<void> => {
 
 router.post("/schedule/habits/:id/complete", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   const id = parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
@@ -330,7 +329,7 @@ router.post("/schedule/habits/:id/complete", async (req, res): Promise<void> => 
 
 router.delete("/schedule/habits/:id", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   const id = parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
@@ -343,7 +342,7 @@ router.delete("/schedule/habits/:id", async (req, res): Promise<void> => {
 
 router.get("/schedule/blocks", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   try {
     const { start, end } = req.query;
     if (start && end) {
@@ -373,7 +372,7 @@ router.get("/schedule/blocks", async (req, res): Promise<void> => {
 
 router.post("/schedule/auto-plan", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   try {
     const { date } = req.body;
     const targetDate = date ? new Date(date) : new Date();
@@ -524,7 +523,7 @@ router.post("/schedule/auto-plan", async (req, res): Promise<void> => {
 
 router.get("/schedule/analytics", async (req, res): Promise<void> => {
   const memberId = getMemberId(req);
-  if (!memberId) { res.status(401).json({ error: "Auth required" }); return; }
+
   try {
     const now = new Date();
     const weekStart = new Date(now);

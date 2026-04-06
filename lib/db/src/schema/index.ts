@@ -43,3 +43,5 @@ export * from "./ai-agents";
 export * from "./ai-workflows";
 export * from "./flowcharts";
 export * from "./smart-schedule";
+export * from "./retrospectives";
+export * from "./changelog";
